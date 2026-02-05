@@ -67,3 +67,6 @@
 
 ## Bug Fixes
 - [x] Fix search bar mobile responsiveness - Search button overlapping input field
+- [x] Fix document processing failures - added setImmediate for async processing and reprocess button
+- [x] Fix ZIP file processing failures - increased body size limit and added logging
+- [x] Added debugging logs for file upload flow

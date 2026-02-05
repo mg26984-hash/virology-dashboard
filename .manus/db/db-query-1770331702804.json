@@ -1,0 +1,45 @@
+{
+  "query": "SELECT id, fileName, processingStatus, processingError, fileUrl FROM documents;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute SELECT id, fileName, processingStatus, processingError, fileUrl FROM documents;",
+  "rows": [
+    {
+      "id": "1",
+      "fileName": "test-report.jpg",
+      "processingStatus": "processing",
+      "processingError": "NULL",
+      "fileUrl": "https://d2xsxph8kpxj0f.cloudfront.net/310419663030645861/n8MPugiTXDQnrheaaMVyV7/virology-reports/1/DMiby2cA91gh-9o1pnHC0-test-report.jpg"
+    },
+    {
+      "id": "2",
+      "fileName": "test-report.jpg",
+      "processingStatus": "processing",
+      "processingError": "NULL",
+      "fileUrl": "https://d2xsxph8kpxj0f.cloudfront.net/310419663030645861/n8MPugiTXDQnrheaaMVyV7/virology-reports/1/GxXBzTWKsRmXktBD08FoA-test-report.jpg"
+    },
+    {
+      "id": "3",
+      "fileName": "test-report.jpg",
+      "processingStatus": "processing",
+      "processingError": "NULL",
+      "fileUrl": "https://d2xsxph8kpxj0f.cloudfront.net/310419663030645861/n8MPugiTXDQnrheaaMVyV7/virology-reports/1/x2SD32HLqmNP2yGkmhi_L-test-report.jpg"
+    },
+    {
+      "id": "4",
+      "fileName": "test-report.jpg",
+      "processingStatus": "processing",
+      "processingError": "NULL",
+      "fileUrl": "https://d2xsxph8kpxj0f.cloudfront.net/310419663030645861/n8MPugiTXDQnrheaaMVyV7/virology-reports/1/EHV2V1kFE2cR3btptIGyW-test-report.jpg"
+    },
+    {
+      "id": "5",
+      "fileName": "test-report.jpg",
+      "processingStatus": "processing",
+      "processingError": "NULL",
+      "fileUrl": "https://d2xsxph8kpxj0f.cloudfront.net/310419663030645861/n8MPugiTXDQnrheaaMVyV7/virology-reports/1/W0MVCCQTuEorLilJy0rtO-test-report.jpg"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tfileName\tprocessingStatus\tprocessingError\tfileUrl\n1\ttest-report.jpg\tprocessing\tNULL\thttps://d2xsxph8kpxj0f.cloudfront.net/310419663030645861/n8MPugiTXDQnrheaaMVyV7/virology-reports/1/DMiby2cA91gh-9o1pnHC0-test-report.jpg\n2\ttest-report.jpg\tprocessing\tNULL\thttps://d2xsxph8kpxj0f.cloudfront.net/310419663030645861/n8MPugiTXDQnrheaaMVyV7/virology-reports/1/GxXBzTWKsRmXktBD08FoA-test-report.jpg\n3\ttest-report.jpg\tprocessing\tNULL\thttps://d2xsxph8kpxj0f.cloudfront.net/310419663030645861/n8MPugiTXDQnrheaaMVyV7/virology-reports/1/x2SD32HLqmNP2yGkmhi_L-test-report.jpg\n4\ttest-report.jpg\tprocessing\tNULL\thttps://d2xsxph8kpxj0f.cloudfront.net/310419663030645861/n8MPugiTXDQnrheaaMVyV7/virology-reports/1/EHV2V1kFE2cR3btptIGyW-test-report.jpg\n5\ttest-report.jpg\tprocessing\tNULL\thttps://d2xsxph8kpxj0f.cloudfront.net/310419663030645861/n8MPugiTXDQnrheaaMVyV7/virology-reports/1/W0MVCCQTuEorLilJy0rtO-test-report.jpg\n",
+  "stderr": "",
+  "execution_time_ms": 1598
+}

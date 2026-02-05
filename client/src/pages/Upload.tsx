@@ -44,6 +44,7 @@ export default function Upload() {
   const uploadMutation = trpc.documents.upload.useMutation();
   const bulkUploadMutation = trpc.documents.bulkUpload.useMutation();
   const zipUploadMutation = trpc.documents.uploadZip.useMutation();
+  const reprocessMutation = trpc.documents.reprocess.useMutation();
 
   const utils = trpc.useUtils();
 
@@ -199,9 +200,17 @@ export default function Upload() {
       reader.onload = () => {
         const result = reader.result as string;
         const base64 = result.split(',')[1];
+        console.log(`[Upload] File: ${file.name}, Size: ${file.size} bytes, Base64 length: ${base64?.length || 0}`);
+        if (!base64 || base64.length === 0) {
+          reject(new Error('Failed to convert file to base64'));
+          return;
+        }
         resolve(base64);
       };
-      reader.onerror = reject;
+      reader.onerror = (error) => {
+        console.error(`[Upload] FileReader error for ${file.name}:`, error);
+        reject(error);
+      };
     });
   };
 
@@ -268,6 +277,7 @@ export default function Upload() {
             f === regularFiles[0] ? { ...f, status: 'uploading' } : f
           ));
 
+          console.log(`[Upload] Sending to server: fileName=${regularFiles[0].file.name}, fileSize=${regularFiles[0].file.size}, base64Length=${fileData.length}`);
           const result = await uploadMutation.mutateAsync({
             fileName: regularFiles[0].file.name,
             fileData,
@@ -581,6 +591,34 @@ export default function Upload() {
                   {/* Status */}
                   <div className="shrink-0 flex items-center gap-2">
                     {getStatusBadge(fileItem)}
+
+                    {(fileItem.status === 'failed' || fileItem.status === 'discarded') && fileItem.documentId && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          reprocessMutation.mutate(
+                            { documentId: fileItem.documentId! },
+                            {
+                              onSuccess: () => {
+                                setFiles(prev => prev.map((f, i) => 
+                                  i === index ? { ...f, status: 'processing', error: undefined } : f
+                                ));
+                                toast.success('Document queued for reprocessing');
+                              },
+                              onError: (err) => {
+                                toast.error(`Failed to reprocess: ${err.message}`);
+                              }
+                            }
+                          );
+                        }}
+                        disabled={reprocessMutation.isPending}
+                      >
+                        <RefreshCw className="h-3 w-3 mr-1" />
+                        Retry
+                      </Button>
+                    )}
 
                     {fileItem.status === 'pending' && (
                       <Button 

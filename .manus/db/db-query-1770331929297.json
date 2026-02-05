@@ -1,0 +1,45 @@
+{
+  "query": "SELECT id, fileName, processingStatus, processingError, mimeType FROM documents ORDER BY id DESC;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute SELECT id, fileName, processingStatus, processingError, mimeType FROM documents ORDER BY id DESC;",
+  "rows": [
+    {
+      "id": "5",
+      "fileName": "test-report.jpg",
+      "processingStatus": "pending",
+      "processingError": "NULL",
+      "mimeType": "image/jpeg"
+    },
+    {
+      "id": "4",
+      "fileName": "test-report.jpg",
+      "processingStatus": "pending",
+      "processingError": "NULL",
+      "mimeType": "image/jpeg"
+    },
+    {
+      "id": "3",
+      "fileName": "test-report.jpg",
+      "processingStatus": "pending",
+      "processingError": "NULL",
+      "mimeType": "image/jpeg"
+    },
+    {
+      "id": "2",
+      "fileName": "test-report.jpg",
+      "processingStatus": "pending",
+      "processingError": "NULL",
+      "mimeType": "image/jpeg"
+    },
+    {
+      "id": "1",
+      "fileName": "test-report.jpg",
+      "processingStatus": "pending",
+      "processingError": "NULL",
+      "mimeType": "image/jpeg"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tfileName\tprocessingStatus\tprocessingError\tmimeType\n5\ttest-report.jpg\tpending\tNULL\timage/jpeg\n4\ttest-report.jpg\tpending\tNULL\timage/jpeg\n3\ttest-report.jpg\tpending\tNULL\timage/jpeg\n2\ttest-report.jpg\tpending\tNULL\timage/jpeg\n1\ttest-report.jpg\tpending\tNULL\timage/jpeg\n",
+  "stderr": "",
+  "execution_time_ms": 1595
+}

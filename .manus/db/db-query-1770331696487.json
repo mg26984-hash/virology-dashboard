@@ -1,0 +1,9 @@
+{
+  "query": "SELECT id, fileName, processingStatus, processingError FROM documents WHERE processingError IS NOT NULL OR processingStatus = 'failed' LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute SELECT id, fileName, processingStatus, processingError FROM documents WHERE processingError IS NOT NULL OR processingStatus = 'failed' LIMIT 10;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1592
+}

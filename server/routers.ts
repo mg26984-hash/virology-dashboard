@@ -98,13 +98,16 @@ export const appRouter = router({
         }
 
         // Convert base64 to buffer
+        console.log(`[Documents] Received upload: fileName=${input.fileName}, base64Length=${input.fileData?.length || 0}, reportedSize=${input.fileSize}`);
         const fileBuffer = Buffer.from(input.fileData, 'base64');
+        console.log(`[Documents] Decoded buffer size: ${fileBuffer.length} bytes`);
         
         // Generate unique file key
         const fileKey = `virology-reports/${ctx.user!.id}/${nanoid()}-${input.fileName}`;
         
         // Upload to S3
         const { url } = await storagePut(fileKey, fileBuffer, input.mimeType);
+        console.log(`[Documents] Uploaded to S3: ${url}`);
         
         // Create document record
         const document = await createDocument({
@@ -117,14 +120,16 @@ export const appRouter = router({
           processingStatus: 'pending',
         });
 
-        // Process document asynchronously
-        processUploadedDocument(document.id, url, input.mimeType)
-          .then(result => {
-            console.log(`[Documents] Processed document ${document.id}:`, result);
-          })
-          .catch(error => {
+        // Process document asynchronously with immediate execution
+        setImmediate(async () => {
+          try {
+            console.log(`[Documents] Starting processing for document ${document.id}`);
+            const result = await processUploadedDocument(document.id, url, input.mimeType);
+            console.log(`[Documents] Processed document ${document.id}:`, JSON.stringify(result));
+          } catch (error) {
             console.error(`[Documents] Failed to process document ${document.id}:`, error);
-          });
+          }
+        });
 
         return {
           documentId: document.id,
@@ -171,10 +176,19 @@ export const appRouter = router({
               processingStatus: 'pending',
             });
 
-            // Process asynchronously
-            processUploadedDocument(document.id, url, file.mimeType)
-              .then(result => console.log(`[Documents] Processed ${document.id}:`, result))
-              .catch(error => console.error(`[Documents] Failed ${document.id}:`, error));
+            // Process asynchronously with immediate execution
+            const docId = document.id;
+            const docUrl = url;
+            const docMimeType = file.mimeType;
+            setImmediate(async () => {
+              try {
+                console.log(`[Documents] Starting processing for document ${docId}`);
+                const result = await processUploadedDocument(docId, docUrl, docMimeType);
+                console.log(`[Documents] Processed ${docId}:`, JSON.stringify(result));
+              } catch (error) {
+                console.error(`[Documents] Failed ${docId}:`, error);
+              }
+            });
 
             results.push({
               fileName: file.fileName,
@@ -273,10 +287,19 @@ export const appRouter = router({
                 processingStatus: 'pending',
               });
 
-              // Process asynchronously
-              processUploadedDocument(document.id, url, mimeType)
-                .then(result => console.log(`[Documents] Processed ${document.id}:`, result))
-                .catch(error => console.error(`[Documents] Failed ${document.id}:`, error));
+              // Process asynchronously with immediate execution
+              const docId = document.id;
+              const docUrl = url;
+              const docMimeType = mimeType;
+              setImmediate(async () => {
+                try {
+                  console.log(`[Documents] Starting processing for document ${docId}`);
+                  const result = await processUploadedDocument(docId, docUrl, docMimeType);
+                  console.log(`[Documents] Processed ${docId}:`, JSON.stringify(result));
+                } catch (error) {
+                  console.error(`[Documents] Failed ${docId}:`, error);
+                }
+              });
 
               results.push({
                 fileName,
@@ -336,6 +359,35 @@ export const appRouter = router({
           })
         );
         return statuses.filter(Boolean);
+      }),
+
+    // Reprocess a document
+    reprocess: approvedProcedure
+      .input(z.object({ documentId: z.number() }))
+      .mutation(async ({ input }) => {
+        const doc = await getDocumentById(input.documentId);
+        if (!doc) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Document not found",
+          });
+        }
+
+        // Reset status and start processing
+        const { updateDocumentStatus } = await import("./db");
+        await updateDocumentStatus(input.documentId, 'processing');
+
+        setImmediate(async () => {
+          try {
+            console.log(`[Documents] Reprocessing document ${input.documentId}`);
+            const result = await processUploadedDocument(input.documentId, doc.fileUrl, doc.mimeType || 'image/jpeg');
+            console.log(`[Documents] Reprocessed ${input.documentId}:`, JSON.stringify(result));
+          } catch (error) {
+            console.error(`[Documents] Failed to reprocess ${input.documentId}:`, error);
+          }
+        });
+
+        return { success: true, message: 'Document queued for reprocessing' };
       }),
   }),
 

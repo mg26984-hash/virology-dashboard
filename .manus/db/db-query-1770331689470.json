@@ -1,0 +1,45 @@
+{
+  "query": "SELECT id, fileName, processingStatus, processingError, createdAt FROM documents ORDER BY id DESC LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute SELECT id, fileName, processingStatus, processingError, createdAt FROM documents ORDER BY id DESC LIMIT 10;",
+  "rows": [
+    {
+      "id": "5",
+      "fileName": "test-report.jpg",
+      "processingStatus": "processing",
+      "processingError": "NULL",
+      "createdAt": "2026-02-05 22:42:40"
+    },
+    {
+      "id": "4",
+      "fileName": "test-report.jpg",
+      "processingStatus": "processing",
+      "processingError": "NULL",
+      "createdAt": "2026-02-05 22:33:05"
+    },
+    {
+      "id": "3",
+      "fileName": "test-report.jpg",
+      "processingStatus": "processing",
+      "processingError": "NULL",
+      "createdAt": "2026-02-05 22:32:18"
+    },
+    {
+      "id": "2",
+      "fileName": "test-report.jpg",
+      "processingStatus": "processing",
+      "processingError": "NULL",
+      "createdAt": "2026-02-05 22:26:10"
+    },
+    {
+      "id": "1",
+      "fileName": "test-report.jpg",
+      "processingStatus": "processing",
+      "processingError": "NULL",
+      "createdAt": "2026-02-05 22:19:27"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tfileName\tprocessingStatus\tprocessingError\tcreatedAt\n5\ttest-report.jpg\tprocessing\tNULL\t2026-02-05 22:42:40\n4\ttest-report.jpg\tprocessing\tNULL\t2026-02-05 22:33:05\n3\ttest-report.jpg\tprocessing\tNULL\t2026-02-05 22:32:18\n2\ttest-report.jpg\tprocessing\tNULL\t2026-02-05 22:26:10\n1\ttest-report.jpg\tprocessing\tNULL\t2026-02-05 22:19:27\n",
+  "stderr": "",
+  "execution_time_ms": 1604
+}
