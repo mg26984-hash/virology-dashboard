@@ -14,19 +14,22 @@ import {
   Image,
   FileType,
   FileArchive,
-  Copy
+  Copy,
+  RefreshCw,
+  Clock
 } from "lucide-react";
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { toast } from "sonner";
 
 interface FileWithPreview {
   file: File;
   preview?: string;
-  status: 'pending' | 'uploading' | 'extracting' | 'completed' | 'failed' | 'discarded' | 'duplicate';
+  status: 'pending' | 'uploading' | 'extracting' | 'processing' | 'completed' | 'failed' | 'discarded' | 'duplicate';
   error?: string;
   documentId?: number;
   isZip?: boolean;
   extractedCount?: number;
+  processingStatus?: string;
 }
 
 export default function Upload() {
@@ -34,13 +37,104 @@ export default function Upload() {
   const [files, setFiles] = useState<FileWithPreview[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isPolling, setIsPolling] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const uploadMutation = trpc.documents.upload.useMutation();
   const bulkUploadMutation = trpc.documents.bulkUpload.useMutation();
   const zipUploadMutation = trpc.documents.uploadZip.useMutation();
 
   const utils = trpc.useUtils();
+
+  // Get document IDs that need status polling
+  const processingDocIds = files
+    .filter(f => f.documentId && (f.status === 'completed' || f.status === 'processing'))
+    .map(f => f.documentId!)
+    .filter(Boolean);
+
+  // Query for document statuses
+  const { data: statusData, refetch: refetchStatuses } = trpc.documents.getStatuses.useQuery(
+    { documentIds: processingDocIds },
+    { 
+      enabled: processingDocIds.length > 0,
+      refetchInterval: isPolling ? 3000 : false, // Poll every 3 seconds when active
+    }
+  );
+
+  // Update file statuses based on polling results
+  useEffect(() => {
+    if (statusData && statusData.length > 0) {
+      let hasProcessing = false;
+      let newlyCompleted = 0;
+      let newlyFailed = 0;
+
+      setFiles(prev => prev.map(f => {
+        if (!f.documentId) return f;
+        
+        const status = statusData.find(s => s?.id === f.documentId);
+        if (!status) return f;
+
+        // Check if status changed
+        const prevProcessingStatus = f.processingStatus;
+        
+        if (status.status === 'pending' || status.status === 'processing') {
+          hasProcessing = true;
+          return { ...f, status: 'processing', processingStatus: status.status };
+        } else if (status.status === 'completed') {
+          if (prevProcessingStatus !== 'completed') {
+            newlyCompleted++;
+          }
+          return { ...f, status: 'completed', processingStatus: status.status };
+        } else if (status.status === 'failed') {
+          if (prevProcessingStatus !== 'failed') {
+            newlyFailed++;
+          }
+          return { ...f, status: 'failed', error: status.error || 'Processing failed', processingStatus: status.status };
+        } else if (status.status === 'discarded') {
+          return { ...f, status: 'discarded', error: status.error || 'No test results found', processingStatus: status.status };
+        }
+        
+        return f;
+      }));
+
+      // Show notifications for newly completed/failed
+      if (newlyCompleted > 0) {
+        toast.success(`${newlyCompleted} document${newlyCompleted > 1 ? 's' : ''} processed successfully!`);
+        utils.dashboard.stats.invalidate();
+        utils.patients.search.invalidate();
+      }
+      if (newlyFailed > 0) {
+        toast.error(`${newlyFailed} document${newlyFailed > 1 ? 's' : ''} failed to process`);
+      }
+
+      // Stop polling if no more processing documents
+      if (!hasProcessing && isPolling) {
+        setIsPolling(false);
+      }
+    }
+  }, [statusData, utils, isPolling]);
+
+  // Start polling when we have processing documents
+  useEffect(() => {
+    const hasProcessingDocs = files.some(f => 
+      f.documentId && (f.status === 'completed' || f.status === 'processing') && 
+      f.processingStatus !== 'completed' && f.processingStatus !== 'failed' && f.processingStatus !== 'discarded'
+    );
+    
+    if (hasProcessingDocs && !isPolling) {
+      setIsPolling(true);
+    }
+  }, [files, isPolling]);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, []);
 
   const handleFiles = useCallback((newFiles: FileList | File[]) => {
     const validFiles: FileWithPreview[] = [];
@@ -143,14 +237,15 @@ export default function Upload() {
             f === zipFile 
               ? { 
                   ...f, 
-                  status: result.successful > 0 ? 'completed' : 'failed',
+                  status: result.successful > 0 ? 'processing' : 'failed',
                   extractedCount: result.total,
-                  error: result.failed > 0 ? `${result.failed} files failed` : undefined
+                  error: result.failed > 0 ? `${result.failed} files failed` : undefined,
+                  processingStatus: 'pending'
                 }
               : f
           ));
 
-          toast.success(`ZIP processed: ${result.successful} of ${result.total} files uploaded`);
+          toast.success(`ZIP processed: ${result.successful} of ${result.total} files uploaded and queued for processing`);
           if (result.failed > 0) {
             toast.error(`${result.failed} files from ZIP failed to upload`);
           }
@@ -182,7 +277,7 @@ export default function Upload() {
 
           setFiles(prev => prev.map(f => 
             f === regularFiles[0] 
-              ? { ...f, status: 'completed', documentId: result.documentId }
+              ? { ...f, status: 'processing', documentId: result.documentId, processingStatus: 'pending' }
               : f
           ));
 
@@ -209,20 +304,24 @@ export default function Upload() {
             if (resultItem) {
               return {
                 ...f,
-                status: resultItem.success ? 'completed' : 'failed',
+                status: resultItem.success ? 'processing' : 'failed',
                 documentId: resultItem.documentId,
                 error: resultItem.error,
+                processingStatus: resultItem.success ? 'pending' : undefined,
               };
             }
             return f;
           }));
 
-          toast.success(`Uploaded ${result.successful} of ${result.total} files`);
+          toast.success(`Uploaded ${result.successful} of ${result.total} files - processing started`);
           if (result.failed > 0) {
             toast.error(`${result.failed} files failed to upload`);
           }
         }
       }
+
+      // Start polling for status updates
+      setIsPolling(true);
 
       // Invalidate queries to refresh data
       utils.dashboard.stats.invalidate();
@@ -250,6 +349,11 @@ export default function Upload() {
     });
   };
 
+  const refreshStatuses = () => {
+    refetchStatuses();
+    toast.info('Refreshing processing status...');
+  };
+
   const getFileIcon = (file: FileWithPreview) => {
     if (file.isZip) {
       return <FileArchive className="h-8 w-8 text-yellow-400" />;
@@ -260,10 +364,82 @@ export default function Upload() {
     return <Image className="h-8 w-8 text-blue-400" />;
   };
 
-  const completedCount = files.filter(f => f.status === 'completed').length;
+  const getStatusBadge = (file: FileWithPreview) => {
+    switch (file.status) {
+      case 'pending':
+        return <Badge variant="outline">Pending</Badge>;
+      case 'uploading':
+        return (
+          <Badge variant="secondary">
+            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+            Uploading
+          </Badge>
+        );
+      case 'extracting':
+        return (
+          <Badge variant="secondary">
+            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+            Extracting ZIP
+          </Badge>
+        );
+      case 'processing':
+        return (
+          <Badge variant="secondary" className="bg-blue-600/20 text-blue-400 border-blue-600/30">
+            <Clock className="mr-1 h-3 w-3 animate-pulse" />
+            Processing
+          </Badge>
+        );
+      case 'completed':
+        if (file.processingStatus === 'completed') {
+          return (
+            <Badge className="bg-green-600">
+              <CheckCircle2 className="mr-1 h-3 w-3" />
+              Completed
+            </Badge>
+          );
+        }
+        return (
+          <Badge variant="secondary" className="bg-blue-600/20 text-blue-400 border-blue-600/30">
+            <Clock className="mr-1 h-3 w-3 animate-pulse" />
+            Processing
+          </Badge>
+        );
+      case 'failed':
+        return (
+          <Badge variant="destructive">
+            <AlertCircle className="mr-1 h-3 w-3" />
+            Failed
+          </Badge>
+        );
+      case 'discarded':
+        return (
+          <Badge variant="secondary" className="border-orange-500/30 text-orange-400">
+            <AlertCircle className="mr-1 h-3 w-3" />
+            Discarded
+          </Badge>
+        );
+      case 'duplicate':
+        return (
+          <Badge variant="outline" className="border-yellow-500 text-yellow-500">
+            <Copy className="mr-1 h-3 w-3" />
+            Duplicate
+          </Badge>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const completedCount = files.filter(f => f.status === 'completed' && f.processingStatus === 'completed').length;
   const failedCount = files.filter(f => f.status === 'failed').length;
   const pendingCount = files.filter(f => f.status === 'pending').length;
-  const uploadingCount = files.filter(f => f.status === 'uploading' || f.status === 'extracting').length;
+  const processingCount = files.filter(f => 
+    f.status === 'uploading' || 
+    f.status === 'extracting' || 
+    f.status === 'processing' ||
+    (f.status === 'completed' && f.processingStatus !== 'completed')
+  ).length;
+  const discardedCount = files.filter(f => f.status === 'discarded').length;
   const duplicateCount = files.filter(f => f.status === 'duplicate').length;
 
   return (
@@ -333,14 +509,21 @@ export default function Upload() {
               <CardTitle>Selected Files ({files.length})</CardTitle>
               <CardDescription>
                 {pendingCount > 0 && `${pendingCount} pending`}
-                {uploadingCount > 0 && ` • ${uploadingCount} processing`}
+                {processingCount > 0 && ` • ${processingCount} processing`}
                 {completedCount > 0 && ` • ${completedCount} completed`}
                 {failedCount > 0 && ` • ${failedCount} failed`}
+                {discardedCount > 0 && ` • ${discardedCount} discarded`}
                 {duplicateCount > 0 && ` • ${duplicateCount} duplicates`}
               </CardDescription>
             </div>
             <div className="flex gap-2">
-              {(completedCount > 0 || failedCount > 0 || duplicateCount > 0) && (
+              {processingCount > 0 && (
+                <Button variant="outline" size="sm" onClick={refreshStatuses}>
+                  <RefreshCw className={`mr-2 h-4 w-4 ${isPolling ? 'animate-spin' : ''}`} />
+                  {isPolling ? 'Auto-refreshing' : 'Refresh Status'}
+                </Button>
+              )}
+              {(completedCount > 0 || failedCount > 0 || discardedCount > 0 || duplicateCount > 0) && (
                 <Button variant="outline" size="sm" onClick={clearCompleted}>
                   Clear Completed
                 </Button>
@@ -352,7 +535,7 @@ export default function Upload() {
                 {isUploading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Processing...
+                    Uploading...
                   </>
                 ) : (
                   <>
@@ -397,42 +580,7 @@ export default function Upload() {
 
                   {/* Status */}
                   <div className="shrink-0 flex items-center gap-2">
-                    {fileItem.status === 'pending' && (
-                      <Badge variant="outline">Pending</Badge>
-                    )}
-                    {fileItem.status === 'uploading' && (
-                      <Badge variant="secondary">
-                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                        Uploading
-                      </Badge>
-                    )}
-                    {fileItem.status === 'extracting' && (
-                      <Badge variant="secondary">
-                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                        Extracting ZIP
-                      </Badge>
-                    )}
-                    {fileItem.status === 'completed' && (
-                      <Badge className="bg-green-600">
-                        <CheckCircle2 className="mr-1 h-3 w-3" />
-                        Uploaded
-                      </Badge>
-                    )}
-                    {fileItem.status === 'failed' && (
-                      <Badge variant="destructive">
-                        <AlertCircle className="mr-1 h-3 w-3" />
-                        Failed
-                      </Badge>
-                    )}
-                    {fileItem.status === 'discarded' && (
-                      <Badge variant="secondary">Discarded</Badge>
-                    )}
-                    {fileItem.status === 'duplicate' && (
-                      <Badge variant="outline" className="border-yellow-500 text-yellow-500">
-                        <Copy className="mr-1 h-3 w-3" />
-                        Duplicate
-                      </Badge>
-                    )}
+                    {getStatusBadge(fileItem)}
 
                     {fileItem.status === 'pending' && (
                       <Button 
@@ -449,6 +597,26 @@ export default function Upload() {
                   </div>
                 </div>
               ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Processing Status Indicator */}
+      {isPolling && processingCount > 0 && (
+        <Card className="border-blue-600/30 bg-blue-600/5">
+          <CardContent className="py-4">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Loader2 className="h-5 w-5 text-blue-400 animate-spin" />
+              </div>
+              <div>
+                <p className="font-medium text-blue-400">Processing Documents</p>
+                <p className="text-sm text-muted-foreground">
+                  {processingCount} document{processingCount > 1 ? 's' : ''} being processed. 
+                  Status updates automatically every 3 seconds.
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -484,7 +652,7 @@ export default function Upload() {
               <ul className="text-sm text-muted-foreground space-y-1">
                 <li>• Documents without test results are automatically discarded</li>
                 <li>• Duplicate test results are automatically detected and skipped</li>
-                <li>• ZIP files are extracted and each file processed individually</li>
+                <li>• Status updates automatically while processing</li>
                 <li>• Processing typically takes 10-30 seconds per file</li>
               </ul>
             </div>

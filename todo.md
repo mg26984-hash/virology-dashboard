@@ -51,3 +51,15 @@
 - [x] Check for duplicate tests by Civil ID, test type, and accession date
 - [x] Automatically skip/discard duplicate results during processing
 - [x] Show duplicate status in upload results
+
+
+## Date Range Filters
+- [x] Add date picker controls on Patients page
+- [x] Filter tests by accession date range
+- [x] Clear filters functionality
+
+## Processing Status Notifications
+- [x] Real-time status updates for document processing
+- [x] Auto-refresh mechanism for pending documents (3-second polling)
+- [x] Toast notifications when processing completes
+- [x] Auto-refresh for recent documents on dashboard (10-second interval)

@@ -169,6 +169,8 @@ export interface SearchPatientsParams {
   name?: string;
   nationality?: string;
   dateOfBirth?: string;
+  accessionDateFrom?: Date;
+  accessionDateTo?: Date;
   limit?: number;
   offset?: number;
 }
@@ -202,6 +204,32 @@ export async function searchPatients(params: SearchPatientsParams) {
   
   if (params.dateOfBirth) {
     conditions.push(eq(patients.dateOfBirth, params.dateOfBirth));
+  }
+
+  // If date range filters are provided, we need to join with virologyTests
+  // to find patients who have tests within the date range
+  if (params.accessionDateFrom || params.accessionDateTo) {
+    // Get patient IDs that have tests within the date range
+    const testConditions = [];
+    if (params.accessionDateFrom) {
+      testConditions.push(gte(virologyTests.accessionDate, params.accessionDateFrom));
+    }
+    if (params.accessionDateTo) {
+      testConditions.push(lte(virologyTests.accessionDate, params.accessionDateTo));
+    }
+    
+    const patientsWithTests = await db.selectDistinct({ patientId: virologyTests.patientId })
+      .from(virologyTests)
+      .where(and(...testConditions));
+    
+    const patientIds = patientsWithTests.map(p => p.patientId);
+    
+    if (patientIds.length === 0) {
+      return { patients: [], total: 0 };
+    }
+    
+    // Add condition to filter by these patient IDs
+    conditions.push(sql`${patients.id} IN (${sql.join(patientIds.map(id => sql`${id}`), sql`, `)})`);
   }
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;

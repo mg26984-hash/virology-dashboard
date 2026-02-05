@@ -231,6 +231,77 @@ describe("ZIP Upload", () => {
   });
 });
 
+describe("Date Range Filters", () => {
+  it("search accepts date range parameters", async () => {
+    const approvedUser = createMockUser({ status: "approved" });
+    const ctx = createMockContext(approvedUser);
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.patients.search({ 
+      accessionDateFrom: "2026-01-01",
+      accessionDateTo: "2026-12-31",
+      limit: 10 
+    });
+    expect(result).toHaveProperty("patients");
+    expect(result).toHaveProperty("total");
+    expect(Array.isArray(result.patients)).toBe(true);
+  });
+
+  it("search with only from date works", async () => {
+    const approvedUser = createMockUser({ status: "approved" });
+    const ctx = createMockContext(approvedUser);
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.patients.search({ 
+      accessionDateFrom: "2026-01-01",
+      limit: 10 
+    });
+    expect(result).toHaveProperty("patients");
+    expect(result).toHaveProperty("total");
+  });
+
+  it("search with only to date works", async () => {
+    const approvedUser = createMockUser({ status: "approved" });
+    const ctx = createMockContext(approvedUser);
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.patients.search({ 
+      accessionDateTo: "2026-12-31",
+      limit: 10 
+    });
+    expect(result).toHaveProperty("patients");
+    expect(result).toHaveProperty("total");
+  });
+});
+
+describe("Document Status Polling", () => {
+  it("approved users can get document statuses", async () => {
+    const approvedUser = createMockUser({ status: "approved" });
+    const ctx = createMockContext(approvedUser);
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.documents.getStatuses({ documentIds: [1, 2, 3] });
+    expect(Array.isArray(result)).toBe(true);
+  });
+
+  it("pending users cannot get document statuses", async () => {
+    const pendingUser = createMockUser({ status: "pending" });
+    const ctx = createMockContext(pendingUser);
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(caller.documents.getStatuses({ documentIds: [1] })).rejects.toThrow();
+  });
+
+  it("empty document IDs returns empty array", async () => {
+    const approvedUser = createMockUser({ status: "approved" });
+    const ctx = createMockContext(approvedUser);
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.documents.getStatuses({ documentIds: [] });
+    expect(result).toEqual([]);
+  });
+});
+
 describe("Auth Flow", () => {
   it("auth.me returns user info for authenticated users", async () => {
     const user = createMockUser();

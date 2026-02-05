@@ -28,7 +28,10 @@ export default function Home() {
 
   const { data: recentDocs } = trpc.documents.recent.useQuery(
     { limit: 5 },
-    { enabled: user?.status === 'approved' }
+    { 
+      enabled: user?.status === 'approved',
+      refetchInterval: 10000, // Auto-refresh every 10 seconds
+    }
   );
 
   const { data: searchResults } = trpc.patients.search.useQuery(

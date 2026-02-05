@@ -6,13 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Table,
   TableBody,
   TableCell,
@@ -26,7 +19,6 @@ import {
   ChevronRight,
   User,
   Calendar,
-  Globe,
   X,
   Loader2
 } from "lucide-react";
@@ -49,6 +41,8 @@ export default function Patients() {
     name: '',
     nationality: '',
     dateOfBirth: '',
+    accessionDateFrom: '',
+    accessionDateTo: '',
   });
   const [page, setPage] = useState(0);
   const pageSize = 20;
@@ -60,6 +54,8 @@ export default function Patients() {
     name: filters.name || undefined,
     nationality: filters.nationality || undefined,
     dateOfBirth: filters.dateOfBirth || undefined,
+    accessionDateFrom: filters.accessionDateFrom || undefined,
+    accessionDateTo: filters.accessionDateTo || undefined,
     limit: pageSize,
     offset: page * pageSize,
   };
@@ -83,12 +79,15 @@ export default function Patients() {
       name: '',
       nationality: '',
       dateOfBirth: '',
+      accessionDateFrom: '',
+      accessionDateTo: '',
     });
     setSearchQuery('');
     setPage(0);
   };
 
   const hasActiveFilters = Object.values(filters).some(v => v) || searchQuery;
+  const hasDateRangeFilter = filters.accessionDateFrom || filters.accessionDateTo;
 
   const totalPages = data ? Math.ceil(data.total / pageSize) : 0;
 
@@ -152,7 +151,8 @@ export default function Patients() {
               )}
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-6">
+            {/* Patient Info Filters */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-2">
                 <Label htmlFor="civilId">Civil ID</Label>
@@ -203,6 +203,48 @@ export default function Patients() {
                 />
               </div>
             </div>
+
+            {/* Date Range Filters */}
+            <div className="border-t pt-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Calendar className="h-4 w-4 text-primary" />
+                <h4 className="font-medium">Test Date Range</h4>
+                {hasDateRangeFilter && (
+                  <Badge variant="outline" className="text-xs">
+                    Filtering by test dates
+                  </Badge>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground mb-4">
+                Filter patients by the accession date of their virology tests
+              </p>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="dateFrom">From Date</Label>
+                  <Input
+                    id="dateFrom"
+                    type="date"
+                    value={filters.accessionDateFrom}
+                    onChange={(e) => {
+                      setFilters(prev => ({ ...prev, accessionDateFrom: e.target.value }));
+                      setPage(0);
+                    }}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="dateTo">To Date</Label>
+                  <Input
+                    id="dateTo"
+                    type="date"
+                    value={filters.accessionDateTo}
+                    onChange={(e) => {
+                      setFilters(prev => ({ ...prev, accessionDateTo: e.target.value }));
+                      setPage(0);
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -215,6 +257,7 @@ export default function Patients() {
               <CardTitle>Results</CardTitle>
               <CardDescription>
                 {data ? `${data.total} patients found` : 'Loading...'}
+                {hasDateRangeFilter && ' (filtered by test date range)'}
               </CardDescription>
             </div>
             {isFetching && (

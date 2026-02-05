@@ -320,6 +320,23 @@ export const appRouter = router({
       .query(async ({ input }) => {
         return getRecentDocuments(input.limit || 20);
       }),
+
+    // Get processing status for multiple documents (for polling)
+    getStatuses: approvedProcedure
+      .input(z.object({ documentIds: z.array(z.number()) }))
+      .query(async ({ input }) => {
+        const statuses = await Promise.all(
+          input.documentIds.map(async (id) => {
+            const doc = await getDocumentById(id);
+            return doc ? {
+              id: doc.id,
+              status: doc.processingStatus,
+              error: doc.processingError,
+            } : null;
+          })
+        );
+        return statuses.filter(Boolean);
+      }),
   }),
 
   // Patient search and management
@@ -331,11 +348,17 @@ export const appRouter = router({
         name: z.string().optional(),
         nationality: z.string().optional(),
         dateOfBirth: z.string().optional(),
+        accessionDateFrom: z.string().optional(),
+        accessionDateTo: z.string().optional(),
         limit: z.number().optional(),
         offset: z.number().optional(),
       }))
       .query(async ({ input }) => {
-        return searchPatients(input);
+        return searchPatients({
+          ...input,
+          accessionDateFrom: input.accessionDateFrom ? new Date(input.accessionDateFrom) : undefined,
+          accessionDateTo: input.accessionDateTo ? new Date(input.accessionDateTo) : undefined,
+        });
       }),
 
     getById: approvedProcedure
