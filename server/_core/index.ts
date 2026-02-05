@@ -30,10 +30,10 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
-  // Configure body parser with larger size limit for file uploads
-  app.use(express.json({ limit: "100mb" }));
-  app.use(express.urlencoded({ limit: "100mb", extended: true }));
-  app.use(express.raw({ limit: "100mb", type: "*/*" }));
+  // Configure body parser with larger size limit for file uploads (200MB for large ZIP files)
+  app.use(express.json({ limit: "200mb" }));
+  app.use(express.urlencoded({ limit: "200mb", extended: true }));
+  app.use(express.raw({ limit: "200mb", type: "*/*" }));
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
   // tRPC API

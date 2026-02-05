@@ -48,9 +48,13 @@ export default function Upload() {
 
   const utils = trpc.useUtils();
 
-  // Get document IDs that need status polling
+  // Get document IDs that need status polling - include any file with a documentId that hasn't reached a final state
   const processingDocIds = files
-    .filter(f => f.documentId && (f.status === 'completed' || f.status === 'processing'))
+    .filter(f => f.documentId && 
+      f.processingStatus !== 'completed' && 
+      f.processingStatus !== 'failed' && 
+      f.processingStatus !== 'discarded'
+    )
     .map(f => f.documentId!)
     .filter(Boolean);
 
@@ -119,14 +123,20 @@ export default function Upload() {
   // Start polling when we have processing documents
   useEffect(() => {
     const hasProcessingDocs = files.some(f => 
-      f.documentId && (f.status === 'completed' || f.status === 'processing') && 
-      f.processingStatus !== 'completed' && f.processingStatus !== 'failed' && f.processingStatus !== 'discarded'
+      f.documentId && 
+      f.processingStatus !== 'completed' && 
+      f.processingStatus !== 'failed' && 
+      f.processingStatus !== 'discarded'
     );
     
     if (hasProcessingDocs && !isPolling) {
+      console.log('[Upload] Starting polling for', processingDocIds.length, 'documents');
       setIsPolling(true);
+    } else if (!hasProcessingDocs && isPolling) {
+      console.log('[Upload] Stopping polling - all documents processed');
+      setIsPolling(false);
     }
-  }, [files, isPolling]);
+  }, [files, isPolling, processingDocIds.length]);
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -148,6 +158,14 @@ export default function Upload() {
       
       if (!allowedTypes.includes(file.type) && !isZip) {
         toast.error(`${file.name}: Invalid file type. Only JPEG, PNG, PDF, and ZIP are allowed.`);
+        return;
+      }
+
+      // File size limits: 100MB for ZIP, 20MB for individual files
+      const maxSize = isZip ? 100 * 1024 * 1024 : 20 * 1024 * 1024;
+      const maxSizeLabel = isZip ? '100MB' : '20MB';
+      if (file.size > maxSize) {
+        toast.error(`${file.name}: File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum size is ${maxSizeLabel}.`);
         return;
       }
 
@@ -259,12 +277,14 @@ export default function Upload() {
             toast.error(`${result.failed} files from ZIP failed to upload`);
           }
         } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to process ZIP file';
+          console.error('[Upload] ZIP upload error:', error);
           setFiles(prev => prev.map(f => 
             f === zipFile 
-              ? { ...f, status: 'failed', error: 'Failed to process ZIP file' }
+              ? { ...f, status: 'failed', error: errorMessage }
               : f
           ));
-          toast.error(`Failed to process ${zipFile.file.name}`);
+          toast.error(`Failed to process ${zipFile.file.name}: ${errorMessage}`);
         }
       }
 
@@ -506,6 +526,9 @@ export default function Upload() {
             </p>
             <p className="text-xs text-muted-foreground mt-2">
               Supported formats: JPEG, PNG, PDF, ZIP (containing images/PDFs)
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Max file size: 20MB per file, 100MB for ZIP archives
             </p>
           </div>
         </CardContent>

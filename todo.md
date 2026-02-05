@@ -70,3 +70,6 @@
 - [x] Fix document processing failures - added setImmediate for async processing and reprocess button
 - [x] Fix ZIP file processing failures - increased body size limit and added logging
 - [x] Added debugging logs for file upload flow
+- [x] Fix UI stuck in 'processing' state even after data is added - fixed polling logic
+- [x] Fix ZIP file processing failure - added 100MB file size limit with clear error message
+- [x] Ensure processing completion shows success message - fixed status polling

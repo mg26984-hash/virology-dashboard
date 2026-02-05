@@ -1,0 +1,42 @@
+{
+  "query": "SELECT id, fileName, processingStatus, processingError, fileSize, createdAt FROM documents ORDER BY createdAt DESC LIMIT 20;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute SELECT id, fileName, processingStatus, processingError, fileSize, createdAt FROM documents ORDER BY createdAt DESC LIMIT 20;",
+  "rows": [
+    {
+      "id": "9",
+      "fileName": "83412875-d0b3-41cc-a5d0-da10976eb13a.jpeg",
+      "processingStatus": "completed",
+      "processingError": "NULL",
+      "fileSize": "376435",
+      "createdAt": "2026-02-05 23:12:04"
+    },
+    {
+      "id": "8",
+      "fileName": "test-report.jpg",
+      "processingStatus": "discarded",
+      "processingError": "Document does not contain valid virology test results",
+      "fileSize": "100",
+      "createdAt": "2026-02-05 23:08:58"
+    },
+    {
+      "id": "7",
+      "fileName": "test-report.jpg",
+      "processingStatus": "processing",
+      "processingError": "NULL",
+      "fileSize": "100",
+      "createdAt": "2026-02-05 23:08:50"
+    },
+    {
+      "id": "6",
+      "fileName": "5999e776-3464-41e4-bbe1-43730f564f58.jpeg",
+      "processingStatus": "completed",
+      "processingError": "NULL",
+      "fileSize": "327990",
+      "createdAt": "2026-02-05 23:02:18"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tfileName\tprocessingStatus\tprocessingError\tfileSize\tcreatedAt\n9\t83412875-d0b3-41cc-a5d0-da10976eb13a.jpeg\tcompleted\tNULL\t376435\t2026-02-05 23:12:04\n8\ttest-report.jpg\tdiscarded\tDocument does not contain valid virology test results\t100\t2026-02-05 23:08:58\n7\ttest-report.jpg\tprocessing\tNULL\t100\t2026-02-05 23:08:50\n6\t5999e776-3464-41e4-bbe1-43730f564f58.jpeg\tcompleted\tNULL\t327990\t2026-02-05 23:02:18\n",
+  "stderr": "",
+  "execution_time_ms": 1755
+}
