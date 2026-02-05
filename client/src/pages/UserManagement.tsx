@@ -22,6 +22,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
 import { 
   Users,
   Shield,
@@ -31,7 +33,11 @@ import {
   Ban,
   History,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  RefreshCw,
+  FileText,
+  AlertTriangle,
+  Trash2
 } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
@@ -43,6 +49,8 @@ export default function UserManagement() {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [actionType, setActionType] = useState<'approve' | 'ban' | null>(null);
   const [reason, setReason] = useState('');
+  const [reprocessStatuses, setReprocessStatuses] = useState<string[]>(['failed', 'discarded']);
+  const [isReprocessing, setIsReprocessing] = useState(false);
 
   const { data: users, isLoading: usersLoading, refetch: refetchUsers } = trpc.users.list.useQuery(
     undefined,
@@ -54,6 +62,16 @@ export default function UserManagement() {
     { enabled: user?.role === 'admin' }
   );
 
+  const { data: docStats, isLoading: statsLoading, refetch: refetchStats } = trpc.documents.stats.useQuery(
+    undefined,
+    { enabled: user?.role === 'admin' }
+  );
+
+  const { data: failedDocs, isLoading: failedDocsLoading, refetch: refetchFailedDocs } = trpc.documents.getByStatus.useQuery(
+    { statuses: ['failed', 'discarded'] },
+    { enabled: user?.role === 'admin' }
+  );
+
   const updateStatusMutation = trpc.users.updateStatus.useMutation({
     onSuccess: () => {
       toast.success(`User ${actionType === 'approve' ? 'approved' : 'status updated'} successfully`);
@@ -62,6 +80,30 @@ export default function UserManagement() {
     },
     onError: (error) => {
       toast.error(`Failed to update user: ${error.message}`);
+    }
+  });
+
+  const batchReprocessMutation = trpc.documents.batchReprocess.useMutation({
+    onSuccess: (result) => {
+      toast.success(result.message);
+      setIsReprocessing(false);
+      refetchStats();
+      refetchFailedDocs();
+    },
+    onError: (error) => {
+      toast.error(`Batch reprocess failed: ${error.message}`);
+      setIsReprocessing(false);
+    }
+  });
+
+  const reprocessSingleMutation = trpc.documents.reprocess.useMutation({
+    onSuccess: () => {
+      toast.success('Document queued for reprocessing');
+      refetchStats();
+      refetchFailedDocs();
+    },
+    onError: (error) => {
+      toast.error(`Reprocess failed: ${error.message}`);
     }
   });
 
@@ -111,6 +153,22 @@ export default function UserManagement() {
     });
   };
 
+  const handleBatchReprocess = () => {
+    if (reprocessStatuses.length === 0) {
+      toast.error('Please select at least one status to reprocess');
+      return;
+    }
+    setIsReprocessing(true);
+    batchReprocessMutation.mutate({
+      statuses: reprocessStatuses as ('failed' | 'discarded')[],
+      limit: 50,
+    });
+  };
+
+  const handleSingleReprocess = (docId: number) => {
+    reprocessSingleMutation.mutate({ documentId: docId });
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'approved':
@@ -131,24 +189,44 @@ export default function UserManagement() {
     return <Badge variant="secondary">User</Badge>;
   };
 
+  const getDocStatusBadge = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return <Badge className="bg-green-600">Completed</Badge>;
+      case 'processing':
+        return <Badge className="bg-blue-500">Processing</Badge>;
+      case 'pending':
+        return <Badge variant="outline" className="text-yellow-500 border-yellow-500">Pending</Badge>;
+      case 'failed':
+        return <Badge variant="destructive">Failed</Badge>;
+      case 'discarded':
+        return <Badge variant="secondary">Discarded</Badge>;
+      default:
+        return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+
   const pendingUsers = users?.filter(u => u.status === 'pending') || [];
   const approvedUsers = users?.filter(u => u.status === 'approved') || [];
   const bannedUsers = users?.filter(u => u.status === 'banned') || [];
 
+  const totalDocs = docStats?.total || 0;
+  const completedPercent = totalDocs > 0 ? ((docStats?.completed || 0) / totalDocs) * 100 : 0;
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">User Management</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Admin Dashboard</h1>
         <p className="text-muted-foreground">
-          Manage user access and view audit history
+          Manage users, view audit history, and reprocess documents
         </p>
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Pending Approval</CardTitle>
+            <CardTitle className="text-sm font-medium">Pending Users</CardTitle>
             <Clock className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
@@ -166,11 +244,38 @@ export default function UserManagement() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Banned Users</CardTitle>
-            <Ban className="h-4 w-4 text-destructive" />
+            <CardTitle className="text-sm font-medium">Total Docs</CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{bannedUsers.length}</div>
+            <div className="text-2xl font-bold">{docStats?.total || 0}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Completed</CardTitle>
+            <CheckCircle2 className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{docStats?.completed || 0}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Failed</CardTitle>
+            <XCircle className="h-4 w-4 text-destructive" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{docStats?.failed || 0}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Discarded</CardTitle>
+            <Trash2 className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{docStats?.discarded || 0}</div>
           </CardContent>
         </Card>
       </div>
@@ -178,7 +283,7 @@ export default function UserManagement() {
       <Tabs defaultValue="pending" className="space-y-4">
         <TabsList>
           <TabsTrigger value="pending" className="relative">
-            Pending
+            Pending Users
             {pendingUsers.length > 0 && (
               <span className="ml-2 bg-yellow-500 text-black text-xs px-1.5 py-0.5 rounded-full">
                 {pendingUsers.length}
@@ -186,6 +291,14 @@ export default function UserManagement() {
             )}
           </TabsTrigger>
           <TabsTrigger value="all">All Users</TabsTrigger>
+          <TabsTrigger value="reprocess" className="relative">
+            Batch Reprocess
+            {((docStats?.failed || 0) + (docStats?.discarded || 0)) > 0 && (
+              <span className="ml-2 bg-destructive text-destructive-foreground text-xs px-1.5 py-0.5 rounded-full">
+                {(docStats?.failed || 0) + (docStats?.discarded || 0)}
+              </span>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="audit">Audit Log</TabsTrigger>
         </TabsList>
 
@@ -284,7 +397,7 @@ export default function UserManagement() {
                         <TableHead>Email</TableHead>
                         <TableHead>Role</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Last Sign In</TableHead>
+                        <TableHead>Last Active</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -341,6 +454,188 @@ export default function UserManagement() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Batch Reprocess Tab */}
+        <TabsContent value="reprocess">
+          <div className="space-y-6">
+            {/* Processing Stats Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <RefreshCw className="h-5 w-5" />
+                  Document Processing Overview
+                </CardTitle>
+                <CardDescription>
+                  Monitor and reprocess failed or discarded documents
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {statsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Processing Progress</span>
+                        <span>{completedPercent.toFixed(1)}% completed</span>
+                      </div>
+                      <Progress value={completedPercent} className="h-2" />
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-5">
+                      <div className="p-4 rounded-lg bg-muted/50 text-center">
+                        <div className="text-2xl font-bold text-yellow-500">{docStats?.pending || 0}</div>
+                        <div className="text-sm text-muted-foreground">Pending</div>
+                      </div>
+                      <div className="p-4 rounded-lg bg-muted/50 text-center">
+                        <div className="text-2xl font-bold text-blue-500">{docStats?.processing || 0}</div>
+                        <div className="text-sm text-muted-foreground">Processing</div>
+                      </div>
+                      <div className="p-4 rounded-lg bg-muted/50 text-center">
+                        <div className="text-2xl font-bold text-green-500">{docStats?.completed || 0}</div>
+                        <div className="text-sm text-muted-foreground">Completed</div>
+                      </div>
+                      <div className="p-4 rounded-lg bg-muted/50 text-center">
+                        <div className="text-2xl font-bold text-destructive">{docStats?.failed || 0}</div>
+                        <div className="text-sm text-muted-foreground">Failed</div>
+                      </div>
+                      <div className="p-4 rounded-lg bg-muted/50 text-center">
+                        <div className="text-2xl font-bold text-muted-foreground">{docStats?.discarded || 0}</div>
+                        <div className="text-sm text-muted-foreground">Discarded</div>
+                      </div>
+                    </div>
+
+                    <div className="border-t pt-6">
+                      <h4 className="font-medium mb-4">Batch Reprocess Options</h4>
+                      <div className="flex flex-wrap items-center gap-6">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox 
+                            id="failed" 
+                            checked={reprocessStatuses.includes('failed')}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setReprocessStatuses([...reprocessStatuses, 'failed']);
+                              } else {
+                                setReprocessStatuses(reprocessStatuses.filter(s => s !== 'failed'));
+                              }
+                            }}
+                          />
+                          <Label htmlFor="failed" className="flex items-center gap-2">
+                            <XCircle className="h-4 w-4 text-destructive" />
+                            Failed Documents ({docStats?.failed || 0})
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox 
+                            id="discarded" 
+                            checked={reprocessStatuses.includes('discarded')}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setReprocessStatuses([...reprocessStatuses, 'discarded']);
+                              } else {
+                                setReprocessStatuses(reprocessStatuses.filter(s => s !== 'discarded'));
+                              }
+                            }}
+                          />
+                          <Label htmlFor="discarded" className="flex items-center gap-2">
+                            <Trash2 className="h-4 w-4 text-muted-foreground" />
+                            Discarded Documents ({docStats?.discarded || 0})
+                          </Label>
+                        </div>
+                        <Button 
+                          onClick={handleBatchReprocess}
+                          disabled={isReprocessing || reprocessStatuses.length === 0}
+                        >
+                          {isReprocessing ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <RefreshCw className="mr-2 h-4 w-4" />
+                          )}
+                          Reprocess Selected (up to 50)
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Failed/Discarded Documents List */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                  Failed & Discarded Documents
+                </CardTitle>
+                <CardDescription>
+                  Documents that need attention or reprocessing
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {failedDocsLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : failedDocs && failedDocs.length > 0 ? (
+                  <div className="rounded-lg border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>File Name</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Error/Reason</TableHead>
+                          <TableHead>Uploaded</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {failedDocs.map((doc) => (
+                          <TableRow key={doc.id}>
+                            <TableCell>
+                              <div className="font-medium truncate max-w-[200px]" title={doc.fileName}>
+                                {doc.fileName}
+                              </div>
+                            </TableCell>
+                            <TableCell>{getDocStatusBadge(doc.processingStatus || 'unknown')}</TableCell>
+                            <TableCell>
+                              <div className="text-sm text-muted-foreground truncate max-w-[300px]" title={doc.processingError || '-'}>
+                                {doc.processingError || '-'}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {new Date(doc.createdAt).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleSingleReprocess(doc.id)}
+                                disabled={reprocessSingleMutation.isPending}
+                              >
+                                <RefreshCw className="mr-1 h-4 w-4" />
+                                Reprocess
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <CheckCircle2 className="h-12 w-12 mx-auto text-green-500/50 mb-4" />
+                    <h3 className="text-lg font-medium mb-1">All Documents Processed</h3>
+                    <p className="text-muted-foreground">
+                      No failed or discarded documents to reprocess
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         {/* Audit Log Tab */}

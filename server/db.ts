@@ -409,6 +409,42 @@ export async function getRecentDocuments(limit: number = 20) {
     .limit(limit);
 }
 
+export async function getDocumentsByStatus(
+  statuses: Array<'pending' | 'processing' | 'completed' | 'failed' | 'discarded'>,
+  limit: number = 100
+) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return db.select()
+    .from(documents)
+    .where(sql`${documents.processingStatus} IN (${sql.join(statuses.map(s => sql`${s}`), sql`, `)})`)
+    .orderBy(desc(documents.createdAt))
+    .limit(limit);
+}
+
+export async function getDocumentStats() {
+  const db = await getDb();
+  if (!db) return { pending: 0, processing: 0, completed: 0, failed: 0, discarded: 0, total: 0 };
+  
+  const result = await db.select({
+    status: documents.processingStatus,
+    count: sql<number>`count(*)`
+  })
+    .from(documents)
+    .groupBy(documents.processingStatus);
+  
+  const stats: Record<string, number> = { pending: 0, processing: 0, completed: 0, failed: 0, discarded: 0, total: 0 };
+  result.forEach(r => {
+    if (r.status) {
+      stats[r.status] = r.count;
+      stats.total += r.count;
+    }
+  });
+  
+  return stats;
+}
+
 // ============ AUDIT LOG FUNCTIONS ============
 
 export async function getAuditLogs(limit: number = 100) {

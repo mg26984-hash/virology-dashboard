@@ -4,14 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { 
   ArrowLeft,
   User,
@@ -19,13 +11,34 @@ import {
   Globe,
   CreditCard,
   Activity,
-  FileText,
-  Clock,
   Loader2,
   AlertTriangle,
-  CheckCircle2
+  TrendingUp
 } from "lucide-react";
 import { useLocation, useParams } from "wouter";
+import { useMemo } from "react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  ReferenceLine
+} from "recharts";
+
+// Color palette for different test types
+const TEST_TYPE_COLORS: Record<string, string> = {
+  'Cytomegalovirus (CMV) DNA in Blood': '#3b82f6',
+  'Polyomaviruses (BKV & JCV) DNA in Urine': '#8b5cf6',
+  'Epstein-Barr Virus (EBV) DNA in Blood': '#10b981',
+  'Adenovirus DNA in Blood': '#f59e0b',
+  'Human Herpesvirus 6 (HHV-6) DNA in Blood': '#ef4444',
+  'Parvovirus B19 DNA in Blood': '#ec4899',
+  'default': '#6b7280'
+};
 
 export default function PatientDetail() {
   const { user } = useAuth();
@@ -44,6 +57,73 @@ export default function PatientDetail() {
   );
 
   const isLoading = patientLoading || testsLoading;
+
+  // Process tests for chart data
+  const chartData = useMemo(() => {
+    if (!tests || tests.length === 0) return { data: [], testTypes: [] };
+
+    // Group tests by date and test type
+    const testTypes = Array.from(new Set(tests.map(t => t.testType)));
+    
+    // Sort tests by date
+    const sortedTests = [...tests].sort((a, b) => {
+      const dateA = a.accessionDate ? new Date(a.accessionDate).getTime() : 0;
+      const dateB = b.accessionDate ? new Date(b.accessionDate).getTime() : 0;
+      return dateA - dateB;
+    });
+
+    // Create chart data points
+    const dataMap = new Map<string, Record<string, number | string | null>>();
+    
+    sortedTests.forEach(test => {
+      if (!test.accessionDate) return;
+      
+      const dateKey = new Date(test.accessionDate).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: '2-digit'
+      });
+      
+      if (!dataMap.has(dateKey)) {
+        dataMap.set(dateKey, { date: dateKey });
+      }
+      
+      const entry = dataMap.get(dateKey)!;
+      
+      // Parse viral load
+      let viralLoadValue: number | null = null;
+      if (test.viralLoad) {
+        const cleanValue = test.viralLoad.replace(/[^0-9.>]/g, '');
+        if (test.viralLoad.includes('>')) {
+          // Above max detection - use a high value
+          viralLoadValue = parseFloat(cleanValue) || 50000000;
+        } else {
+          viralLoadValue = parseFloat(cleanValue) || null;
+        }
+      } else if (test.result.toLowerCase().includes('not detected') || 
+                 test.result.toLowerCase().includes('negative')) {
+        viralLoadValue = 0;
+      }
+      
+      entry[test.testType] = viralLoadValue;
+    });
+
+    return {
+      data: Array.from(dataMap.values()),
+      testTypes
+    };
+  }, [tests]);
+
+  // Check if there's meaningful chart data (at least 2 data points with viral load)
+  const hasChartData = useMemo(() => {
+    if (chartData.data.length < 2) return false;
+    
+    // Check if any test type has at least 2 non-null values
+    return chartData.testTypes.some(testType => {
+      const values = chartData.data.filter(d => d[testType] !== undefined && d[testType] !== null);
+      return values.length >= 2;
+    });
+  }, [chartData]);
 
   // Helper to determine viral load severity
   const getViralLoadBadge = (viralLoad: string | null, result: string) => {
@@ -73,6 +153,35 @@ export default function PatientDetail() {
     } else {
       return <Badge className="bg-green-600">Undetectable</Badge>;
     }
+  };
+
+  // Custom tooltip for chart
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-popover border rounded-lg p-3 shadow-lg">
+          <p className="font-medium mb-2">{label}</p>
+          {payload.map((entry: any, index: number) => (
+            <div key={index} className="flex items-center gap-2 text-sm">
+              <div 
+                className="w-3 h-3 rounded-full" 
+                style={{ backgroundColor: entry.color }}
+              />
+              <span className="text-muted-foreground">{entry.name}:</span>
+              <span className="font-mono">
+                {entry.value === 0 
+                  ? 'Not Detected' 
+                  : entry.value >= 50000000 
+                    ? '>50M' 
+                    : entry.value?.toLocaleString() || 'N/A'
+                } {entry.value > 0 ? 'copies/mL' : ''}
+              </span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    return null;
   };
 
   if (isLoading) {
@@ -176,6 +285,78 @@ export default function PatientDetail() {
         </CardContent>
       </Card>
 
+      {/* Viral Load Trend Chart */}
+      {hasChartData && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Viral Load Trends
+            </CardTitle>
+            <CardDescription>
+              Track viral load changes over time for each test type
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[350px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={chartData.data}
+                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis 
+                    dataKey="date" 
+                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                    tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
+                  />
+                  <YAxis 
+                    scale="log"
+                    domain={[1, 100000000]}
+                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                    tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
+                    tickFormatter={(value) => {
+                      if (value >= 1000000) return `${value / 1000000}M`;
+                      if (value >= 1000) return `${value / 1000}K`;
+                      return value.toString();
+                    }}
+                  />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend 
+                    wrapperStyle={{ paddingTop: '20px' }}
+                    formatter={(value) => (
+                      <span className="text-sm text-foreground">{value}</span>
+                    )}
+                  />
+                  <ReferenceLine 
+                    y={1000} 
+                    stroke="#22c55e" 
+                    strokeDasharray="5 5" 
+                    label={{ value: 'Low threshold', fill: '#22c55e', fontSize: 10 }}
+                  />
+                  {chartData.testTypes.map((testType) => (
+                    <Line
+                      key={testType}
+                      type="monotone"
+                      dataKey={testType}
+                      name={testType}
+                      stroke={TEST_TYPE_COLORS[testType] || TEST_TYPE_COLORS.default}
+                      strokeWidth={2}
+                      dot={{ r: 4 }}
+                      activeDot={{ r: 6 }}
+                      connectNulls
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            <p className="text-xs text-muted-foreground mt-4 text-center">
+              Note: "Not Detected" results are shown as 0 on the chart. Values above 50M indicate results above maximum detection limit.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Test History */}
       <Card>
         <CardHeader>
@@ -196,20 +377,28 @@ export default function PatientDetail() {
                   className="p-4 rounded-lg border bg-card"
                 >
                   <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <h4 className="font-semibold text-lg">{test.testType}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {test.accessionDate 
-                          ? new Date(test.accessionDate).toLocaleDateString('en-US', {
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })
-                          : 'Date not recorded'
-                        }
-                      </p>
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-3 h-3 rounded-full shrink-0"
+                        style={{ 
+                          backgroundColor: TEST_TYPE_COLORS[test.testType] || TEST_TYPE_COLORS.default 
+                        }}
+                      />
+                      <div>
+                        <h4 className="font-semibold text-lg">{test.testType}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          {test.accessionDate 
+                            ? new Date(test.accessionDate).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })
+                            : 'Date not recorded'
+                          }
+                        </p>
+                      </div>
                     </div>
                     {getViralLoadBadge(test.viralLoad, test.result)}
                   </div>

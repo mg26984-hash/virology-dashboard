@@ -26,6 +26,9 @@ import {
   getDocumentById,
   getRecentDocuments,
   getDashboardStats,
+  getDocumentsByStatus,
+  getDocumentStats,
+  updateDocumentStatus,
 } from "./db";
 import { processUploadedDocument } from "./documentProcessor";
 
@@ -544,7 +547,6 @@ export const appRouter = router({
         }
 
         // Reset status and start processing
-        const { updateDocumentStatus } = await import("./db");
         await updateDocumentStatus(input.documentId, 'processing');
 
         setImmediate(async () => {
@@ -558,6 +560,67 @@ export const appRouter = router({
         });
 
         return { success: true, message: 'Document queued for reprocessing' };
+      }),
+
+    // Get document statistics (admin only)
+    stats: adminProcedure.query(async () => {
+      return getDocumentStats();
+    }),
+
+    // Get documents by status (admin only)
+    getByStatus: adminProcedure
+      .input(z.object({
+        statuses: z.array(z.enum(['pending', 'processing', 'completed', 'failed', 'discarded'])),
+        limit: z.number().optional(),
+      }))
+      .query(async ({ input }) => {
+        return getDocumentsByStatus(input.statuses, input.limit || 100);
+      }),
+
+    // Batch reprocess documents (admin only)
+    batchReprocess: adminProcedure
+      .input(z.object({
+        statuses: z.array(z.enum(['failed', 'discarded'])),
+        limit: z.number().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const docs = await getDocumentsByStatus(input.statuses, input.limit || 50);
+        
+        if (docs.length === 0) {
+          return {
+            success: true,
+            message: 'No documents found to reprocess',
+            queued: 0,
+          };
+        }
+
+        // Queue all documents for reprocessing
+        let queued = 0;
+        for (const doc of docs) {
+          await updateDocumentStatus(doc.id, 'processing');
+          
+          const docId = doc.id;
+          const docUrl = doc.fileUrl;
+          const docMimeType = doc.mimeType || 'image/jpeg';
+          
+          setImmediate(async () => {
+            try {
+              console.log(`[BatchReprocess] Processing document ${docId}`);
+              const result = await processUploadedDocument(docId, docUrl, docMimeType);
+              console.log(`[BatchReprocess] Completed ${docId}:`, JSON.stringify(result));
+            } catch (error) {
+              console.error(`[BatchReprocess] Failed ${docId}:`, error);
+            }
+          });
+          
+          queued++;
+        }
+
+        return {
+          success: true,
+          message: `Queued ${queued} documents for reprocessing`,
+          queued,
+        };
       }),
   }),
 

@@ -81,3 +81,17 @@
 - [x] Support ZIP files up to 200MB
 - [x] Reassemble chunks on server and process
 - [x] Tested with 139MB ZIP file containing 751 files
+
+
+## Viral Load Trend Charts
+- [x] Add Recharts line chart to patient profile page
+- [x] Display viral load over time for each test type
+- [x] Handle multiple test types with different colors
+- [x] Show "Not Detected" results as zero or separate indicator
+
+## Batch Reprocessing (Admin)
+- [x] Add batch reprocess endpoint for failed/discarded documents
+- [x] Create admin UI for batch reprocessing with stats overview
+- [x] Show progress and results of batch reprocessing
+- [x] Allow filtering by status (failed, discarded)
+- [x] Single document reprocess button in failed docs list
