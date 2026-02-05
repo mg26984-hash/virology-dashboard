@@ -12,7 +12,9 @@ import {
   AlertCircle,
   Loader2,
   Image,
-  FileType
+  FileType,
+  FileArchive,
+  Copy
 } from "lucide-react";
 import { useState, useCallback, useRef } from "react";
 import { toast } from "sonner";
@@ -20,9 +22,11 @@ import { toast } from "sonner";
 interface FileWithPreview {
   file: File;
   preview?: string;
-  status: 'pending' | 'uploading' | 'completed' | 'failed' | 'discarded';
+  status: 'pending' | 'uploading' | 'extracting' | 'completed' | 'failed' | 'discarded' | 'duplicate';
   error?: string;
   documentId?: number;
+  isZip?: boolean;
+  extractedCount?: number;
 }
 
 export default function Upload() {
@@ -34,16 +38,21 @@ export default function Upload() {
 
   const uploadMutation = trpc.documents.upload.useMutation();
   const bulkUploadMutation = trpc.documents.bulkUpload.useMutation();
+  const zipUploadMutation = trpc.documents.uploadZip.useMutation();
 
   const utils = trpc.useUtils();
 
   const handleFiles = useCallback((newFiles: FileList | File[]) => {
     const validFiles: FileWithPreview[] = [];
-    const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+    const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf', 'application/zip', 'application/x-zip-compressed'];
 
     Array.from(newFiles).forEach(file => {
-      if (!allowedTypes.includes(file.type)) {
-        toast.error(`${file.name}: Invalid file type. Only JPEG, PNG, and PDF are allowed.`);
+      const isZip = file.type === 'application/zip' || 
+                    file.type === 'application/x-zip-compressed' || 
+                    file.name.toLowerCase().endsWith('.zip');
+      
+      if (!allowedTypes.includes(file.type) && !isZip) {
+        toast.error(`${file.name}: Invalid file type. Only JPEG, PNG, PDF, and ZIP are allowed.`);
         return;
       }
 
@@ -55,6 +64,7 @@ export default function Upload() {
         file,
         preview,
         status: 'pending',
+        isZip,
       });
     });
 
@@ -111,60 +121,106 @@ export default function Upload() {
     setIsUploading(true);
 
     try {
-      if (pendingFiles.length === 1) {
-        // Single file upload
-        const fileData = await fileToBase64(pendingFiles[0].file);
-        setFiles(prev => prev.map((f, i) => 
-          f === pendingFiles[0] ? { ...f, status: 'uploading' } : f
-        ));
+      // Separate ZIP files from regular files
+      const zipFiles = pendingFiles.filter(f => f.isZip);
+      const regularFiles = pendingFiles.filter(f => !f.isZip);
 
-        const result = await uploadMutation.mutateAsync({
-          fileName: pendingFiles[0].file.name,
-          fileData,
-          mimeType: pendingFiles[0].file.type,
-          fileSize: pendingFiles[0].file.size,
-        });
+      // Process ZIP files first
+      for (const zipFile of zipFiles) {
+        try {
+          setFiles(prev => prev.map(f => 
+            f === zipFile ? { ...f, status: 'extracting' } : f
+          ));
 
-        setFiles(prev => prev.map(f => 
-          f === pendingFiles[0] 
-            ? { ...f, status: 'completed', documentId: result.documentId }
-            : f
-        ));
+          const fileData = await fileToBase64(zipFile.file);
+          const result = await zipUploadMutation.mutateAsync({
+            fileName: zipFile.file.name,
+            fileData,
+            fileSize: zipFile.file.size,
+          });
 
-        toast.success('File uploaded and queued for processing');
-      } else {
-        // Bulk upload
-        setFiles(prev => prev.map(f => 
-          pendingFiles.includes(f) ? { ...f, status: 'uploading' } : f
-        ));
+          setFiles(prev => prev.map(f => 
+            f === zipFile 
+              ? { 
+                  ...f, 
+                  status: result.successful > 0 ? 'completed' : 'failed',
+                  extractedCount: result.total,
+                  error: result.failed > 0 ? `${result.failed} files failed` : undefined
+                }
+              : f
+          ));
 
-        const filesData = await Promise.all(
-          pendingFiles.map(async (f) => ({
-            fileName: f.file.name,
-            fileData: await fileToBase64(f.file),
-            mimeType: f.file.type,
-            fileSize: f.file.size,
-          }))
-        );
-
-        const result = await bulkUploadMutation.mutateAsync({ files: filesData });
-
-        setFiles(prev => prev.map(f => {
-          const resultItem = result.results.find(r => r.fileName === f.file.name);
-          if (resultItem) {
-            return {
-              ...f,
-              status: resultItem.success ? 'completed' : 'failed',
-              documentId: resultItem.documentId,
-              error: resultItem.error,
-            };
+          toast.success(`ZIP processed: ${result.successful} of ${result.total} files uploaded`);
+          if (result.failed > 0) {
+            toast.error(`${result.failed} files from ZIP failed to upload`);
           }
-          return f;
-        }));
+        } catch (error) {
+          setFiles(prev => prev.map(f => 
+            f === zipFile 
+              ? { ...f, status: 'failed', error: 'Failed to process ZIP file' }
+              : f
+          ));
+          toast.error(`Failed to process ${zipFile.file.name}`);
+        }
+      }
 
-        toast.success(`Uploaded ${result.successful} of ${result.total} files`);
-        if (result.failed > 0) {
-          toast.error(`${result.failed} files failed to upload`);
+      // Process regular files
+      if (regularFiles.length > 0) {
+        if (regularFiles.length === 1) {
+          // Single file upload
+          const fileData = await fileToBase64(regularFiles[0].file);
+          setFiles(prev => prev.map(f => 
+            f === regularFiles[0] ? { ...f, status: 'uploading' } : f
+          ));
+
+          const result = await uploadMutation.mutateAsync({
+            fileName: regularFiles[0].file.name,
+            fileData,
+            mimeType: regularFiles[0].file.type,
+            fileSize: regularFiles[0].file.size,
+          });
+
+          setFiles(prev => prev.map(f => 
+            f === regularFiles[0] 
+              ? { ...f, status: 'completed', documentId: result.documentId }
+              : f
+          ));
+
+          toast.success('File uploaded and queued for processing');
+        } else {
+          // Bulk upload
+          setFiles(prev => prev.map(f => 
+            regularFiles.includes(f) ? { ...f, status: 'uploading' } : f
+          ));
+
+          const filesData = await Promise.all(
+            regularFiles.map(async (f) => ({
+              fileName: f.file.name,
+              fileData: await fileToBase64(f.file),
+              mimeType: f.file.type,
+              fileSize: f.file.size,
+            }))
+          );
+
+          const result = await bulkUploadMutation.mutateAsync({ files: filesData });
+
+          setFiles(prev => prev.map(f => {
+            const resultItem = result.results.find(r => r.fileName === f.file.name);
+            if (resultItem) {
+              return {
+                ...f,
+                status: resultItem.success ? 'completed' : 'failed',
+                documentId: resultItem.documentId,
+                error: resultItem.error,
+              };
+            }
+            return f;
+          }));
+
+          toast.success(`Uploaded ${result.successful} of ${result.total} files`);
+          if (result.failed > 0) {
+            toast.error(`${result.failed} files failed to upload`);
+          }
         }
       }
 
@@ -173,7 +229,7 @@ export default function Upload() {
       utils.documents.recent.invalidate();
     } catch (error) {
       setFiles(prev => prev.map(f => 
-        f.status === 'uploading' 
+        f.status === 'uploading' || f.status === 'extracting'
           ? { ...f, status: 'failed', error: 'Upload failed' }
           : f
       ));
@@ -194,8 +250,11 @@ export default function Upload() {
     });
   };
 
-  const getFileIcon = (mimeType: string) => {
-    if (mimeType === 'application/pdf') {
+  const getFileIcon = (file: FileWithPreview) => {
+    if (file.isZip) {
+      return <FileArchive className="h-8 w-8 text-yellow-400" />;
+    }
+    if (file.file.type === 'application/pdf') {
       return <FileType className="h-8 w-8 text-red-400" />;
     }
     return <Image className="h-8 w-8 text-blue-400" />;
@@ -204,7 +263,8 @@ export default function Upload() {
   const completedCount = files.filter(f => f.status === 'completed').length;
   const failedCount = files.filter(f => f.status === 'failed').length;
   const pendingCount = files.filter(f => f.status === 'pending').length;
-  const uploadingCount = files.filter(f => f.status === 'uploading').length;
+  const uploadingCount = files.filter(f => f.status === 'uploading' || f.status === 'extracting').length;
+  const duplicateCount = files.filter(f => f.status === 'duplicate').length;
 
   return (
     <div className="space-y-6">
@@ -220,7 +280,7 @@ export default function Upload() {
         <CardHeader>
           <CardTitle>Upload Files</CardTitle>
           <CardDescription>
-            Drag and drop files or click to browse. Supports JPEG, PNG, and PDF formats.
+            Drag and drop files or click to browse. Supports JPEG, PNG, PDF, and ZIP files containing multiple reports.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -242,7 +302,7 @@ export default function Upload() {
               ref={fileInputRef}
               type="file"
               multiple
-              accept="image/jpeg,image/png,application/pdf"
+              accept="image/jpeg,image/png,application/pdf,.zip"
               onChange={(e) => e.target.files && handleFiles(e.target.files)}
               className="hidden"
             />
@@ -259,7 +319,7 @@ export default function Upload() {
               or click to browse your computer
             </p>
             <p className="text-xs text-muted-foreground mt-2">
-              Supported formats: JPEG, PNG, PDF
+              Supported formats: JPEG, PNG, PDF, ZIP (containing images/PDFs)
             </p>
           </div>
         </CardContent>
@@ -273,13 +333,14 @@ export default function Upload() {
               <CardTitle>Selected Files ({files.length})</CardTitle>
               <CardDescription>
                 {pendingCount > 0 && `${pendingCount} pending`}
-                {uploadingCount > 0 && ` • ${uploadingCount} uploading`}
+                {uploadingCount > 0 && ` • ${uploadingCount} processing`}
                 {completedCount > 0 && ` • ${completedCount} completed`}
                 {failedCount > 0 && ` • ${failedCount} failed`}
+                {duplicateCount > 0 && ` • ${duplicateCount} duplicates`}
               </CardDescription>
             </div>
             <div className="flex gap-2">
-              {(completedCount > 0 || failedCount > 0) && (
+              {(completedCount > 0 || failedCount > 0 || duplicateCount > 0) && (
                 <Button variant="outline" size="sm" onClick={clearCompleted}>
                   Clear Completed
                 </Button>
@@ -291,7 +352,7 @@ export default function Upload() {
                 {isUploading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Uploading...
+                    Processing...
                   </>
                 ) : (
                   <>
@@ -318,7 +379,7 @@ export default function Upload() {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      getFileIcon(fileItem.file.type)
+                      getFileIcon(fileItem)
                     )}
                   </div>
 
@@ -327,6 +388,7 @@ export default function Upload() {
                     <p className="font-medium truncate">{fileItem.file.name}</p>
                     <p className="text-sm text-muted-foreground">
                       {(fileItem.file.size / 1024).toFixed(1)} KB
+                      {fileItem.isZip && fileItem.extractedCount && ` • ${fileItem.extractedCount} files extracted`}
                     </p>
                     {fileItem.error && (
                       <p className="text-sm text-destructive">{fileItem.error}</p>
@@ -344,6 +406,12 @@ export default function Upload() {
                         Uploading
                       </Badge>
                     )}
+                    {fileItem.status === 'extracting' && (
+                      <Badge variant="secondary">
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                        Extracting ZIP
+                      </Badge>
+                    )}
                     {fileItem.status === 'completed' && (
                       <Badge className="bg-green-600">
                         <CheckCircle2 className="mr-1 h-3 w-3" />
@@ -358,6 +426,12 @@ export default function Upload() {
                     )}
                     {fileItem.status === 'discarded' && (
                       <Badge variant="secondary">Discarded</Badge>
+                    )}
+                    {fileItem.status === 'duplicate' && (
+                      <Badge variant="outline" className="border-yellow-500 text-yellow-500">
+                        <Copy className="mr-1 h-3 w-3" />
+                        Duplicate
+                      </Badge>
                     )}
 
                     {fileItem.status === 'pending' && (
@@ -393,6 +467,7 @@ export default function Upload() {
                 <li>• JPEG images (.jpg, .jpeg)</li>
                 <li>• PNG images (.png)</li>
                 <li>• PDF documents (.pdf)</li>
+                <li>• ZIP archives (.zip) containing images/PDFs</li>
               </ul>
             </div>
             <div className="p-4 rounded-lg bg-muted/50">
@@ -408,8 +483,9 @@ export default function Upload() {
               <h4 className="font-medium mb-2">Processing Notes</h4>
               <ul className="text-sm text-muted-foreground space-y-1">
                 <li>• Documents without test results are automatically discarded</li>
+                <li>• Duplicate test results are automatically detected and skipped</li>
+                <li>• ZIP files are extracted and each file processed individually</li>
                 <li>• Processing typically takes 10-30 seconds per file</li>
-                <li>• Bulk uploads are processed in parallel</li>
               </ul>
             </div>
           </div>

@@ -39,3 +39,15 @@
 - [x] Filter controls panel
 - [x] Clean, professional medical UI design
 - [x] Dark theme with medical aesthetic
+
+
+## ZIP File Bulk Upload
+- [x] Server-side ZIP file extraction
+- [x] Process extracted files (JPEG, PNG, PDF) from ZIP
+- [x] Update upload interface to accept ZIP files
+- [x] Show extraction progress for ZIP uploads
+
+## Duplicate Detection
+- [x] Check for duplicate tests by Civil ID, test type, and accession date
+- [x] Automatically skip/discard duplicate results during processing
+- [x] Show duplicate status in upload results

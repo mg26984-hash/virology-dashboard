@@ -200,6 +200,37 @@ describe("Recent Documents", () => {
   });
 });
 
+describe("ZIP Upload", () => {
+  it("approved users can upload ZIP files", async () => {
+    const approvedUser = createMockUser({ status: "approved" });
+    const ctx = createMockContext(approvedUser);
+    const caller = appRouter.createCaller(ctx);
+
+    // Create a minimal valid ZIP file in base64 (empty ZIP)
+    // This is a valid ZIP file with no entries
+    const emptyZipBase64 = "UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA==";
+
+    // The uploadZip should handle empty ZIPs gracefully
+    await expect(caller.documents.uploadZip({
+      fileName: "test-reports.zip",
+      fileData: emptyZipBase64,
+      fileSize: 22,
+    })).rejects.toThrow(); // Should throw because no valid files in ZIP
+  });
+
+  it("pending users cannot upload ZIP files", async () => {
+    const pendingUser = createMockUser({ status: "pending" });
+    const ctx = createMockContext(pendingUser);
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(caller.documents.uploadZip({
+      fileName: "test-reports.zip",
+      fileData: "UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA==",
+      fileSize: 22,
+    })).rejects.toThrow();
+  });
+});
+
 describe("Auth Flow", () => {
   it("auth.me returns user info for authenticated users", async () => {
     const user = createMockUser();

@@ -6,6 +6,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { storagePut } from "./storage";
 import { nanoid } from "nanoid";
+import AdmZip from "adm-zip";
 import {
   getAllUsers,
   updateUserStatus,
@@ -195,6 +196,117 @@ export const appRouter = router({
           failed: results.filter(r => !r.success).length,
           results,
         };
+      }),
+
+    uploadZip: approvedProcedure
+      .input(z.object({
+        fileName: z.string(),
+        fileData: z.string(), // Base64 encoded ZIP file
+        fileSize: z.number(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const results: Array<{
+          fileName: string;
+          success: boolean;
+          documentId?: number;
+          error?: string;
+        }> = [];
+        const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+        const allowedExtensions = ['.jpg', '.jpeg', '.png', '.pdf'];
+
+        try {
+          // Decode and extract ZIP file
+          const zipBuffer = Buffer.from(input.fileData, 'base64');
+          const zip = new AdmZip(zipBuffer);
+          const zipEntries = zip.getEntries();
+
+          // Filter valid files (skip directories and hidden files)
+          const validEntries = zipEntries.filter(entry => {
+            if (entry.isDirectory) return false;
+            const fileName = entry.entryName.split('/').pop() || '';
+            if (fileName.startsWith('.') || fileName.startsWith('__MACOSX')) return false;
+            const ext = fileName.toLowerCase().slice(fileName.lastIndexOf('.'));
+            return allowedExtensions.includes(ext);
+          });
+
+          if (validEntries.length === 0) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "No valid files found in ZIP. Only JPEG, PNG, and PDF files are supported.",
+            });
+          }
+
+          // Process each file from the ZIP
+          for (const entry of validEntries) {
+            try {
+              const fileName = entry.entryName.split('/').pop() || entry.entryName;
+              const fileBuffer = entry.getData();
+              const ext = fileName.toLowerCase().slice(fileName.lastIndexOf('.'));
+              
+              // Determine MIME type from extension
+              let mimeType = 'application/octet-stream';
+              if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
+              else if (ext === '.png') mimeType = 'image/png';
+              else if (ext === '.pdf') mimeType = 'application/pdf';
+
+              if (!allowedTypes.includes(mimeType)) {
+                results.push({
+                  fileName,
+                  success: false,
+                  error: 'Invalid file type',
+                });
+                continue;
+              }
+
+              // Upload to S3
+              const fileKey = `virology-reports/${ctx.user!.id}/${nanoid()}-${fileName}`;
+              const { url } = await storagePut(fileKey, fileBuffer, mimeType);
+
+              // Create document record
+              const document = await createDocument({
+                uploadedBy: ctx.user!.id,
+                fileName,
+                fileKey,
+                fileUrl: url,
+                mimeType,
+                fileSize: fileBuffer.length,
+                processingStatus: 'pending',
+              });
+
+              // Process asynchronously
+              processUploadedDocument(document.id, url, mimeType)
+                .then(result => console.log(`[Documents] Processed ${document.id}:`, result))
+                .catch(error => console.error(`[Documents] Failed ${document.id}:`, error));
+
+              results.push({
+                fileName,
+                success: true,
+                documentId: document.id,
+              });
+            } catch (error) {
+              const fileName = entry.entryName.split('/').pop() || entry.entryName;
+              results.push({
+                fileName,
+                success: false,
+                error: error instanceof Error ? error.message : 'Processing failed',
+              });
+            }
+          }
+
+          return {
+            zipFileName: input.fileName,
+            total: validEntries.length,
+            successful: results.filter(r => r.success).length,
+            failed: results.filter(r => !r.success).length,
+            results,
+          };
+        } catch (error) {
+          if (error instanceof TRPCError) throw error;
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: error instanceof Error ? error.message : "Failed to process ZIP file",
+          });
+        }
       }),
 
     getById: approvedProcedure

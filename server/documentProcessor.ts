@@ -2,7 +2,8 @@ import { invokeLLM } from "./_core/llm";
 import { 
   updateDocumentStatus, 
   upsertPatient, 
-  createVirologyTest
+  createVirologyTest,
+  checkDuplicateTest
 } from "./db";
 
 export interface ExtractedVirologyData {
@@ -224,10 +225,12 @@ export async function extractFromPdf(pdfUrl: string): Promise<ExtractedVirologyD
 export interface ProcessDocumentResult {
   success: boolean;
   documentId: number;
-  status: 'completed' | 'failed' | 'discarded';
+  status: 'completed' | 'failed' | 'discarded' | 'duplicate';
   patientId?: number;
   testsCreated?: number;
+  testsSkipped?: number;
   error?: string;
+  duplicateInfo?: string;
 }
 
 export async function processUploadedDocument(
@@ -272,9 +275,29 @@ export async function processUploadedDocument(
       passportNo: extracted.patient.passportNo || null,
     });
 
-    // Create virology tests
+    // Create virology tests with duplicate detection
     let testsCreated = 0;
+    let testsSkipped = 0;
+    const duplicateTests: string[] = [];
+
     for (const test of extracted.tests) {
+      const accessionDate = test.accessionDate ? new Date(test.accessionDate) : new Date();
+      
+      // Check for duplicate test
+      const existingTest = await checkDuplicateTest(
+        patient.id,
+        test.testType,
+        accessionDate
+      );
+
+      if (existingTest) {
+        // Skip duplicate test
+        testsSkipped++;
+        duplicateTests.push(`${test.testType} on ${accessionDate.toISOString().split('T')[0]}`);
+        console.log(`[DocumentProcessor] Skipping duplicate test: ${test.testType} for patient ${patient.civilId} on ${accessionDate.toISOString()}`);
+        continue;
+      }
+
       await createVirologyTest({
         patientId: patient.id,
         documentId: documentId,
@@ -285,12 +308,31 @@ export async function processUploadedDocument(
         sampleNo: test.sampleNo || null,
         accessionNo: test.accessionNo || null,
         departmentNo: test.departmentNo || null,
-        accessionDate: test.accessionDate ? new Date(test.accessionDate) : null,
+        accessionDate: accessionDate,
         signedBy: test.signedBy || null,
         signedAt: test.signedAt ? new Date(test.signedAt) : null,
         location: test.location || null,
       });
       testsCreated++;
+    }
+
+    // If all tests were duplicates, mark document as duplicate
+    if (testsCreated === 0 && testsSkipped > 0) {
+      await updateDocumentStatus(
+        documentId, 
+        'discarded', 
+        `All ${testsSkipped} test(s) already exist in database: ${duplicateTests.join(', ')}`,
+        extracted.rawExtraction
+      );
+      return {
+        success: false,
+        documentId,
+        status: 'duplicate',
+        patientId: patient.id,
+        testsCreated: 0,
+        testsSkipped,
+        duplicateInfo: `Duplicate tests: ${duplicateTests.join(', ')}`
+      };
     }
 
     await updateDocumentStatus(documentId, 'completed', undefined, extracted.rawExtraction);
@@ -300,7 +342,9 @@ export async function processUploadedDocument(
       documentId,
       status: 'completed',
       patientId: patient.id,
-      testsCreated
+      testsCreated,
+      testsSkipped,
+      duplicateInfo: testsSkipped > 0 ? `Skipped ${testsSkipped} duplicate(s): ${duplicateTests.join(', ')}` : undefined
     };
 
   } catch (error) {

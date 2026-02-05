@@ -235,6 +235,36 @@ export async function createVirologyTest(test: InsertVirologyTest): Promise<Viro
   return inserted[0];
 }
 
+// Check for duplicate test result based on patient, test type, and accession date
+export async function checkDuplicateTest(
+  patientId: number,
+  testType: string,
+  accessionDate: Date
+): Promise<VirologyTest | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  // Check for existing test with same patient, test type, and accession date (within same day)
+  const startOfDay = new Date(accessionDate);
+  startOfDay.setHours(0, 0, 0, 0);
+  const endOfDay = new Date(accessionDate);
+  endOfDay.setHours(23, 59, 59, 999);
+
+  const existing = await db.select()
+    .from(virologyTests)
+    .where(
+      and(
+        eq(virologyTests.patientId, patientId),
+        eq(virologyTests.testType, testType),
+        gte(virologyTests.accessionDate, startOfDay),
+        lte(virologyTests.accessionDate, endOfDay)
+      )
+    )
+    .limit(1);
+
+  return existing.length > 0 ? existing[0] : null;
+}
+
 export async function getTestsByPatientId(patientId: number) {
   const db = await getDb();
   if (!db) return [];
