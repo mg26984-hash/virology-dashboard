@@ -45,6 +45,11 @@ export default function Upload() {
   const bulkUploadMutation = trpc.documents.bulkUpload.useMutation();
   const zipUploadMutation = trpc.documents.uploadZip.useMutation();
   const reprocessMutation = trpc.documents.reprocess.useMutation();
+  
+  // Chunked upload mutations for large files
+  const initChunkedUploadMutation = trpc.documents.initChunkedUpload.useMutation();
+  const uploadChunkMutation = trpc.documents.uploadChunk.useMutation();
+  const finalizeChunkedUploadMutation = trpc.documents.finalizeChunkedUpload.useMutation();
 
   const utils = trpc.useUtils();
 
@@ -161,9 +166,9 @@ export default function Upload() {
         return;
       }
 
-      // File size limits: 100MB for ZIP, 20MB for individual files
-      const maxSize = isZip ? 100 * 1024 * 1024 : 20 * 1024 * 1024;
-      const maxSizeLabel = isZip ? '100MB' : '20MB';
+      // File size limits: 200MB for ZIP, 20MB for individual files
+      const maxSize = isZip ? 200 * 1024 * 1024 : 20 * 1024 * 1024;
+      const maxSizeLabel = isZip ? '200MB' : '20MB';
       if (file.size > maxSize) {
         toast.error(`${file.name}: File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum size is ${maxSizeLabel}.`);
         return;
@@ -246,35 +251,108 @@ export default function Upload() {
       const zipFiles = pendingFiles.filter(f => f.isZip);
       const regularFiles = pendingFiles.filter(f => !f.isZip);
 
-      // Process ZIP files first
+      // Process ZIP files using chunked upload for large files
       for (const zipFile of zipFiles) {
         try {
           setFiles(prev => prev.map(f => 
             f === zipFile ? { ...f, status: 'extracting' } : f
           ));
 
-          const fileData = await fileToBase64(zipFile.file);
-          const result = await zipUploadMutation.mutateAsync({
-            fileName: zipFile.file.name,
-            fileData,
-            fileSize: zipFile.file.size,
-          });
+          // Use chunked upload for files > 50MB, regular upload for smaller files
+          const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
+          const USE_CHUNKED_THRESHOLD = 50 * 1024 * 1024; // 50MB
 
-          setFiles(prev => prev.map(f => 
-            f === zipFile 
-              ? { 
-                  ...f, 
-                  status: result.successful > 0 ? 'processing' : 'failed',
-                  extractedCount: result.total,
-                  error: result.failed > 0 ? `${result.failed} files failed` : undefined,
-                  processingStatus: 'pending'
-                }
-              : f
-          ));
+          if (zipFile.file.size > USE_CHUNKED_THRESHOLD) {
+            // Chunked upload for large files
+            const uploadId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            const totalChunks = Math.ceil(zipFile.file.size / CHUNK_SIZE);
 
-          toast.success(`ZIP processed: ${result.successful} of ${result.total} files uploaded and queued for processing`);
-          if (result.failed > 0) {
-            toast.error(`${result.failed} files from ZIP failed to upload`);
+            console.log(`[Upload] Starting chunked upload: ${zipFile.file.name}, ${totalChunks} chunks, ${zipFile.file.size} bytes`);
+
+            // Initialize chunked upload
+            await initChunkedUploadMutation.mutateAsync({
+              uploadId,
+              fileName: zipFile.file.name,
+              totalChunks,
+              totalSize: zipFile.file.size,
+            });
+
+            // Upload chunks sequentially
+            for (let i = 0; i < totalChunks; i++) {
+              const start = i * CHUNK_SIZE;
+              const end = Math.min(start + CHUNK_SIZE, zipFile.file.size);
+              const chunk = zipFile.file.slice(start, end);
+              
+              // Convert chunk to base64
+              const chunkBase64 = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(chunk);
+                reader.onload = () => {
+                  const result = reader.result as string;
+                  resolve(result.split(',')[1]);
+                };
+                reader.onerror = reject;
+              });
+
+              await uploadChunkMutation.mutateAsync({
+                uploadId,
+                chunkIndex: i,
+                chunkData: chunkBase64,
+              });
+
+              // Update progress
+              const progress = Math.round(((i + 1) / totalChunks) * 100);
+              console.log(`[Upload] Chunk ${i + 1}/${totalChunks} uploaded (${progress}%)`);
+            }
+
+            // Finalize and process
+            setFiles(prev => prev.map(f => 
+              f === zipFile ? { ...f, status: 'processing' } : f
+            ));
+
+            const result = await finalizeChunkedUploadMutation.mutateAsync({ uploadId });
+
+            setFiles(prev => prev.map(f => 
+              f === zipFile 
+                ? { 
+                    ...f, 
+                    status: result.successful > 0 ? 'processing' : 'failed',
+                    extractedCount: result.total,
+                    error: result.failed > 0 ? `${result.failed} files failed` : undefined,
+                    processingStatus: 'pending'
+                  }
+                : f
+            ));
+
+            toast.success(`ZIP processed: ${result.successful} of ${result.total} files uploaded and queued for processing`);
+            if (result.failed > 0) {
+              toast.error(`${result.failed} files from ZIP failed to upload`);
+            }
+          } else {
+            // Regular upload for smaller ZIP files
+            const fileData = await fileToBase64(zipFile.file);
+            const result = await zipUploadMutation.mutateAsync({
+              fileName: zipFile.file.name,
+              fileData,
+              fileSize: zipFile.file.size,
+            });
+
+            setFiles(prev => prev.map(f => 
+              f === zipFile 
+                ? { 
+                    ...f, 
+                    status: result.successful > 0 ? 'processing' : 'failed',
+                    extractedCount: result.total,
+                    error: result.failed > 0 ? `${result.failed} files failed` : undefined,
+                    processingStatus: 'pending'
+                  }
+                : f
+            ));
+
+            toast.success(`ZIP processed: ${result.successful} of ${result.total} files uploaded and queued for processing`);
+            if (result.failed > 0) {
+              toast.error(`${result.failed} files from ZIP failed to upload`);
+            }
           }
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Failed to process ZIP file';
@@ -528,7 +606,7 @@ export default function Upload() {
               Supported formats: JPEG, PNG, PDF, ZIP (containing images/PDFs)
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              Max file size: 20MB per file, 100MB for ZIP archives
+              Max file size: 20MB per file, 200MB for ZIP archives
             </p>
           </div>
         </CardContent>

@@ -1,0 +1,9 @@
+{
+  "query": "UPDATE documents SET processingStatus = 'discarded', processingError = 'Test file - no valid content' WHERE id = 17 AND processingStatus = 'processing';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute UPDATE documents SET processingStatus = 'discarded', processingError = 'Test file - no valid content' WHERE id = 17 AND processingStatus = 'processing';",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1699
+}

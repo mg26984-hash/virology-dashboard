@@ -8,6 +8,13 @@ import { storagePut } from "./storage";
 import { nanoid } from "nanoid";
 import AdmZip from "adm-zip";
 import {
+  initChunkedUpload,
+  addChunk,
+  getCompleteFile,
+  cleanupUpload,
+  getUploadStatus,
+} from "./chunkManager";
+import {
   getAllUsers,
   updateUserStatus,
   getAuditLogs,
@@ -359,6 +366,169 @@ export const appRouter = router({
           })
         );
         return statuses.filter(Boolean);
+      }),
+
+    // Initialize chunked upload for large files
+    initChunkedUpload: approvedProcedure
+      .input(z.object({
+        uploadId: z.string(),
+        fileName: z.string(),
+        totalChunks: z.number(),
+        totalSize: z.number(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        initChunkedUpload(
+          input.uploadId,
+          input.fileName,
+          input.totalChunks,
+          input.totalSize,
+          ctx.user!.id
+        );
+        return { success: true, uploadId: input.uploadId };
+      }),
+
+    // Upload a single chunk
+    uploadChunk: approvedProcedure
+      .input(z.object({
+        uploadId: z.string(),
+        chunkIndex: z.number(),
+        chunkData: z.string(), // Base64 encoded chunk
+      }))
+      .mutation(async ({ input }) => {
+        const chunkBuffer = Buffer.from(input.chunkData, 'base64');
+        const result = addChunk(input.uploadId, input.chunkIndex, chunkBuffer);
+        return result;
+      }),
+
+    // Finalize chunked upload and process the ZIP file
+    finalizeChunkedUpload: approvedProcedure
+      .input(z.object({
+        uploadId: z.string(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const fileData = getCompleteFile(input.uploadId);
+        if (!fileData) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Upload not found or incomplete",
+          });
+        }
+
+        const results: Array<{
+          fileName: string;
+          success: boolean;
+          documentId?: number;
+          error?: string;
+        }> = [];
+        const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+        const allowedExtensions = ['.jpg', '.jpeg', '.png', '.pdf'];
+
+        try {
+          // Extract ZIP file
+          const zip = new AdmZip(fileData.buffer);
+          const zipEntries = zip.getEntries();
+
+          // Filter valid files
+          const validEntries = zipEntries.filter(entry => {
+            if (entry.isDirectory) return false;
+            const fileName = entry.entryName.split('/').pop() || '';
+            if (fileName.startsWith('.') || fileName.startsWith('__MACOSX')) return false;
+            const ext = fileName.toLowerCase().slice(fileName.lastIndexOf('.'));
+            return allowedExtensions.includes(ext);
+          });
+
+          if (validEntries.length === 0) {
+            cleanupUpload(input.uploadId);
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "No valid files found in ZIP. Only JPEG, PNG, and PDF files are supported.",
+            });
+          }
+
+          console.log(`[ChunkedUpload] Processing ${validEntries.length} files from ${fileData.fileName}`);
+
+          // Process each file from the ZIP
+          for (const entry of validEntries) {
+            try {
+              const fileName = entry.entryName.split('/').pop() || entry.entryName;
+              const fileBuffer = entry.getData();
+              const ext = fileName.toLowerCase().slice(fileName.lastIndexOf('.'));
+              
+              let mimeType = 'application/octet-stream';
+              if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
+              else if (ext === '.png') mimeType = 'image/png';
+              else if (ext === '.pdf') mimeType = 'application/pdf';
+
+              if (!allowedTypes.includes(mimeType)) {
+                results.push({ fileName, success: false, error: 'Invalid file type' });
+                continue;
+              }
+
+              // Upload to S3
+              const fileKey = `virology-reports/${ctx.user!.id}/${nanoid()}-${fileName}`;
+              const { url } = await storagePut(fileKey, fileBuffer, mimeType);
+
+              // Create document record
+              const document = await createDocument({
+                uploadedBy: ctx.user!.id,
+                fileName,
+                fileKey,
+                fileUrl: url,
+                mimeType,
+                fileSize: fileBuffer.length,
+                processingStatus: 'pending',
+              });
+
+              // Process asynchronously
+              const docId = document.id;
+              const docUrl = url;
+              const docMimeType = mimeType;
+              setImmediate(async () => {
+                try {
+                  console.log(`[Documents] Starting processing for document ${docId}`);
+                  const result = await processUploadedDocument(docId, docUrl, docMimeType);
+                  console.log(`[Documents] Processed ${docId}:`, JSON.stringify(result));
+                } catch (error) {
+                  console.error(`[Documents] Failed ${docId}:`, error);
+                }
+              });
+
+              results.push({ fileName, success: true, documentId: document.id });
+            } catch (error) {
+              const fileName = entry.entryName.split('/').pop() || entry.entryName;
+              results.push({
+                fileName,
+                success: false,
+                error: error instanceof Error ? error.message : 'Processing failed',
+              });
+            }
+          }
+
+          // Clean up the upload
+          cleanupUpload(input.uploadId);
+
+          return {
+            zipFileName: fileData.fileName,
+            total: validEntries.length,
+            successful: results.filter(r => r.success).length,
+            failed: results.filter(r => !r.success).length,
+            results,
+          };
+        } catch (error) {
+          cleanupUpload(input.uploadId);
+          if (error instanceof TRPCError) throw error;
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: error instanceof Error ? error.message : "Failed to process ZIP file",
+          });
+        }
+      }),
+
+    // Get chunked upload status
+    getChunkedUploadStatus: approvedProcedure
+      .input(z.object({ uploadId: z.string() }))
+      .query(async ({ input }) => {
+        return getUploadStatus(input.uploadId);
       }),
 
     // Reprocess a document

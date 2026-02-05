@@ -302,6 +302,92 @@ describe("Document Status Polling", () => {
   });
 });
 
+describe("Chunked Upload", () => {
+  it("approved users can initialize chunked upload", async () => {
+    const approvedUser = createMockUser({ status: "approved" });
+    const ctx = createMockContext(approvedUser);
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.documents.initChunkedUpload({
+      uploadId: "test-upload-123",
+      fileName: "test-large-file.zip",
+      totalChunks: 10,
+      totalSize: 50000000,
+    });
+    expect(result).toHaveProperty("success", true);
+    expect(result).toHaveProperty("uploadId", "test-upload-123");
+  });
+
+  it("pending users cannot initialize chunked upload", async () => {
+    const pendingUser = createMockUser({ status: "pending" });
+    const ctx = createMockContext(pendingUser);
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(caller.documents.initChunkedUpload({
+      uploadId: "test-upload-456",
+      fileName: "test-large-file.zip",
+      totalChunks: 10,
+      totalSize: 50000000,
+    })).rejects.toThrow();
+  });
+
+  it("approved users can upload chunks", async () => {
+    const approvedUser = createMockUser({ status: "approved" });
+    const ctx = createMockContext(approvedUser);
+    const caller = appRouter.createCaller(ctx);
+
+    // First initialize the upload
+    await caller.documents.initChunkedUpload({
+      uploadId: "test-chunk-upload",
+      fileName: "test-file.zip",
+      totalChunks: 2,
+      totalSize: 1000,
+    });
+
+    // Upload first chunk
+    const result = await caller.documents.uploadChunk({
+      uploadId: "test-chunk-upload",
+      chunkIndex: 0,
+      chunkData: "dGVzdCBjaHVuayBkYXRh", // "test chunk data" in base64
+    });
+    expect(result).toHaveProperty("complete", false);
+    expect(result).toHaveProperty("receivedChunks", 1);
+    expect(result).toHaveProperty("totalChunks", 2);
+  });
+
+  it("get chunked upload status works", async () => {
+    const approvedUser = createMockUser({ status: "approved" });
+    const ctx = createMockContext(approvedUser);
+    const caller = appRouter.createCaller(ctx);
+
+    // Initialize upload
+    await caller.documents.initChunkedUpload({
+      uploadId: "test-status-upload",
+      fileName: "test-file.zip",
+      totalChunks: 3,
+      totalSize: 3000,
+    });
+
+    const status = await caller.documents.getChunkedUploadStatus({
+      uploadId: "test-status-upload",
+    });
+    expect(status).toHaveProperty("exists", true);
+    expect(status).toHaveProperty("receivedChunks", 0);
+    expect(status).toHaveProperty("totalChunks", 3);
+  });
+
+  it("non-existent upload returns exists: false", async () => {
+    const approvedUser = createMockUser({ status: "approved" });
+    const ctx = createMockContext(approvedUser);
+    const caller = appRouter.createCaller(ctx);
+
+    const status = await caller.documents.getChunkedUploadStatus({
+      uploadId: "non-existent-upload",
+    });
+    expect(status).toHaveProperty("exists", false);
+  });
+});
+
 describe("Auth Flow", () => {
   it("auth.me returns user info for authenticated users", async () => {
     const user = createMockUser();

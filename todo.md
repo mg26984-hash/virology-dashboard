@@ -73,3 +73,11 @@
 - [x] Fix UI stuck in 'processing' state even after data is added - fixed polling logic
 - [x] Fix ZIP file processing failure - added 100MB file size limit with clear error message
 - [x] Ensure processing completion shows success message - fixed status polling
+
+
+## Chunked Upload for Large Files
+- [x] Implement server-side chunked upload endpoint (chunkManager.ts)
+- [x] Update client-side to split large files into 5MB chunks
+- [x] Support ZIP files up to 200MB
+- [x] Reassemble chunks on server and process
+- [x] Tested with 139MB ZIP file containing 751 files
