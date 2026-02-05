@@ -63,3 +63,7 @@
 - [x] Auto-refresh mechanism for pending documents (3-second polling)
 - [x] Toast notifications when processing completes
 - [x] Auto-refresh for recent documents on dashboard (10-second interval)
+
+
+## Bug Fixes
+- [x] Fix search bar mobile responsiveness - Search button overlapping input field

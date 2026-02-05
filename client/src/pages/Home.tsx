@@ -101,20 +101,23 @@ export default function Home() {
             Search patients by Civil ID, name, or browse the complete database
           </p>
           
-          <form onSubmit={handleSearch} className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search by Civil ID or patient name..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-12 pr-4 h-14 text-lg bg-background/80 backdrop-blur border-primary/30 focus:border-primary"
-            />
+          <form onSubmit={handleSearch} className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search by Civil ID or patient name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-12 pr-4 h-14 text-lg bg-background/80 backdrop-blur border-primary/30 focus:border-primary"
+              />
+            </div>
             <Button 
               type="submit" 
-              className="absolute right-2 top-1/2 -translate-y-1/2"
+              className="w-full h-12"
               disabled={!searchQuery.trim()}
             >
+              <Search className="mr-2 h-4 w-4" />
               Search
             </Button>
           </form>
