@@ -200,3 +200,16 @@
 - [x] Clear date range button
 - [x] Fix column name bug (accession_date vs accessionDate) in getTestsByNationality
 - [x] Write tests for date range analytics endpoints
+
+## Dashboard Printable PDF Summary Report
+- [x] Backend endpoint to generate dashboard PDF with current analytics data
+- [x] Include summary stats (total patients, tests, documents, pending)
+- [x] Include test volume by month table
+- [x] Include result distribution breakdown table
+- [x] Include top test types table
+- [x] Include tests by nationality table
+- [x] Support optional date range filter matching dashboard view
+- [x] Monochrome, printer-friendly design
+- [x] Add "Download Report" button to dashboard analytics section
+- [x] Audit log the report generation
+- [x] Write tests for dashboard PDF endpoint

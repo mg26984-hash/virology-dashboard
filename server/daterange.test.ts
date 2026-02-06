@@ -82,3 +82,38 @@ describe("Dashboard analytics with date range", () => {
     expect(Array.isArray(result)).toBe(true);
   });
 });
+
+describe("Dashboard PDF report generation", () => {
+  it("generateReport returns a URL without date range", async () => {
+    const approvedUser = createMockUser({ status: "approved" });
+    const ctx = createMockContext(approvedUser);
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.dashboard.generateReport();
+    expect(result).toHaveProperty("url");
+    expect(typeof result.url).toBe("string");
+    expect(result.url).toMatch(/\.pdf/);
+  });
+
+  it("generateReport returns a URL with date range", async () => {
+    const approvedUser = createMockUser({ status: "approved" });
+    const ctx = createMockContext(approvedUser);
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.dashboard.generateReport({ from: "2024-01-01", to: "2024-12-31" });
+    expect(result).toHaveProperty("url");
+    expect(typeof result.url).toBe("string");
+    expect(result.url).toMatch(/\.pdf/);
+  });
+
+  it("generateReport rejects unapproved users", async () => {
+    const pendingUser = createMockUser({ status: "pending" });
+    const ctx = createMockContext(pendingUser);
+    const caller = appRouter.createCaller(ctx);
+    await expect(caller.dashboard.generateReport()).rejects.toThrow();
+  });
+
+  it("generateReport rejects unauthenticated users", async () => {
+    const ctx = createMockContext(null);
+    const caller = appRouter.createCaller(ctx);
+    await expect(caller.dashboard.generateReport()).rejects.toThrow();
+  });
+});

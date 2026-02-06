@@ -21,7 +21,10 @@ import {
   Globe,
   CalendarIcon,
   X,
+  Download,
+  Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useState, useMemo, useCallback } from "react";
 import { useLocation } from "wouter";
 import { format, subMonths, subDays } from "date-fns";
@@ -177,6 +180,21 @@ export default function Home() {
     setDateRange(undefined);
     setActivePreset("All time");
   }, []);
+
+  const generateReport = trpc.dashboard.generateReport.useMutation({
+    onSuccess: (data) => {
+      // Open the PDF in a new tab
+      window.open(data.url, '_blank');
+      toast.success('Dashboard report generated successfully');
+    },
+    onError: (err) => {
+      toast.error(`Failed to generate report: ${err.message}`);
+    },
+  });
+
+  const handleDownloadReport = useCallback(() => {
+    generateReport.mutate(dateParams ?? undefined);
+  }, [dateParams, generateReport]);
 
   // Show pending approval message
   if (user?.status === 'pending') {
@@ -376,6 +394,20 @@ export default function Home() {
                   <X className="h-3.5 w-3.5" />
                 </Button>
               )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs h-8 gap-1.5 ml-1"
+                onClick={handleDownloadReport}
+                disabled={generateReport.isPending}
+              >
+                {generateReport.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Download className="h-3.5 w-3.5" />
+                )}
+                {generateReport.isPending ? 'Generating...' : 'Download Report'}
+              </Button>
             </div>
           </div>
         </CardHeader>

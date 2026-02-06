@@ -43,6 +43,7 @@ import {
 import ExcelJS from "exceljs";
 import { processUploadedDocument } from "./documentProcessor";
 import { generatePatientPDF, generateBulkPatientPDF } from "./pdfReport";
+import { generateDashboardPDF } from "./dashboardPdfReport";
 
 // Middleware to check if user is approved
 const approvedProcedure = protectedProcedure.use(async ({ ctx, next }) => {
@@ -928,6 +929,49 @@ export const appRouter = router({
       .input(z.object({ limit: z.number().min(1).max(20).optional(), from: z.string().optional(), to: z.string().optional() }).optional())
       .query(async ({ input }) => {
         return getTestsByNationality(input?.limit ?? 10, input?.from, input?.to);
+      }),
+
+    // Generate dashboard analytics PDF report
+    generateReport: approvedProcedure
+      .input(z.object({ from: z.string().optional(), to: z.string().optional() }).optional())
+      .mutation(async ({ input, ctx }) => {
+        const from = input?.from;
+        const to = input?.to;
+
+        // Gather all analytics data in parallel
+        const [stats, volumeByMonth, resultDistribution, topTestTypes, testsByNationality] = await Promise.all([
+          getDashboardStats(),
+          getTestVolumeByMonth(from, to),
+          getResultDistribution(from, to),
+          getTopTestTypes(10, from, to),
+          getTestsByNationality(10, from, to),
+        ]);
+
+        const pdfBuffer = await generateDashboardPDF({
+          stats,
+          volumeByMonth,
+          resultDistribution,
+          topTestTypes,
+          testsByNationality,
+          dateRange: { from, to },
+        });
+
+        // Upload to S3
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        const fileKey = `reports/dashboard-report-${timestamp}-${nanoid(6)}.pdf`;
+        const { url } = await storagePut(fileKey, pdfBuffer, "application/pdf");
+
+        // Audit log
+        await createAuditLog({
+          userId: ctx.user!.id,
+          action: "dashboard_report_generated",
+          metadata: JSON.stringify({
+            dateRange: { from, to },
+            stats: { totalPatients: stats.totalPatients, totalTests: stats.totalTests },
+          }),
+        });
+
+        return { url };
       }),
   }),
 
