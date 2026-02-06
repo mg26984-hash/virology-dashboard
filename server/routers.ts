@@ -45,6 +45,7 @@ import {
   updateUserRole,
   updatePatientDemographics,
   autocompletePatients,
+  getProcessingQueue,
 } from "./db";
 import { ENV } from './_core/env';
 import ExcelJS from "exceljs";
@@ -687,6 +688,13 @@ export const appRouter = router({
         });
 
         return { success: true, message: 'Document queued for reprocessing' };
+      }),
+
+    // Real-time processing queue
+    processingQueue: approvedProcedure
+      .input(z.object({ limit: z.number().optional() }).optional())
+      .query(async ({ input }) => {
+        return getProcessingQueue(input?.limit || 50);
       }),
 
     // Get document statistics (admin only)

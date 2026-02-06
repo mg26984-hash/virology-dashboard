@@ -344,3 +344,13 @@
 - [x] Added extraction progress UI with progress bar
 - [x] Filters out __MACOSX, .DS_Store, and non-image/PDF files
 - [x] Test large ZIP upload end-to-end
+
+## Real-Time Processing Queue on Dashboard
+- [x] Add backend tRPC endpoint to fetch pending/processing documents with details
+- [x] Build real-time processing queue UI component with auto-refresh polling
+- [x] Show document status (pending, processing, completed, failed, discarded) with live updates
+- [x] Color-coded progress bar and legend (green/blue/yellow/red)
+- [x] Add cancel/retry actions for individual documents in the queue
+- [x] Auto-refresh: 3s when active items, 15s when idle
+- [x] Collapsible card with Live indicator
+- [ ] Write tests for the processing queue endpoint

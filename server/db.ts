@@ -522,6 +522,51 @@ export async function getDocumentStats() {
   return stats;
 }
 
+// ============ PROCESSING QUEUE ============
+
+export async function getProcessingQueue(limit: number = 50) {
+  const db = await getDb();
+  if (!db) return { items: [], counts: { pending: 0, processing: 0, failed: 0, completed: 0, discarded: 0 } };
+
+  const [items, countResult] = await Promise.all([
+    db.select({
+      id: documents.id,
+      fileName: documents.fileName,
+      fileSize: documents.fileSize,
+      mimeType: documents.mimeType,
+      processingStatus: documents.processingStatus,
+      processingError: documents.processingError,
+      createdAt: documents.createdAt,
+      updatedAt: documents.updatedAt,
+      uploadedByName: users.name,
+      uploadedByEmail: users.email,
+    })
+      .from(documents)
+      .leftJoin(users, eq(documents.uploadedBy, users.id))
+      .where(
+        sql`${documents.processingStatus} IN ('pending', 'processing', 'failed')`
+      )
+      .orderBy(
+        sql`FIELD(${documents.processingStatus}, 'processing', 'pending', 'failed')`,
+        desc(documents.createdAt)
+      )
+      .limit(limit),
+    db.select({
+      status: documents.processingStatus,
+      count: sql<number>`count(*)`
+    })
+      .from(documents)
+      .groupBy(documents.processingStatus),
+  ]);
+
+  const counts: Record<string, number> = { pending: 0, processing: 0, failed: 0, completed: 0, discarded: 0 };
+  countResult.forEach(r => {
+    if (r.status) counts[r.status] = r.count;
+  });
+
+  return { items, counts };
+}
+
 // ============ AUDIT LOG FUNCTIONS ============
 
 export async function getAuditLogs(limit: number = 100, actionFilter?: string) {

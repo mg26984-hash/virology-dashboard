@@ -28,6 +28,7 @@ import {
 import { toast } from "sonner";
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
+import ProcessingQueue from "@/components/ProcessingQueue";
 import { format, subMonths, subDays, subWeeks } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import {
@@ -178,6 +179,7 @@ export default function Home() {
     { limit: 5 },
     { enabled: isApproved, refetchInterval: 10000 }
   );
+
 
   // Debounced autocomplete
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -484,6 +486,9 @@ export default function Home() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Real-Time Processing Queue */}
+      <ProcessingQueue />
 
       {/* Date Range Picker for Analytics */}
       <Card>
