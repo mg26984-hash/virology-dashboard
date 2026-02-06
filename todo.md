@@ -169,3 +169,16 @@
 
 ## Bug Fix: Export Data Page Crash
 - [x] Fix Export Data page crashing with "An unexpected error occurred" (empty string SelectItem values)
+
+## Dashboard Analytics Charts
+- [x] Backend endpoint: test volume by month (line/area chart)
+- [x] Backend endpoint: result distribution breakdown (pie/donut chart)
+- [x] Backend endpoint: top test types by count (bar chart)
+- [x] Backend endpoint: tests by nationality breakdown
+- [x] Add Recharts dependency (was already installed)
+- [x] Test volume trend chart (area chart, monthly)
+- [x] Result distribution chart (donut chart)
+- [x] Top test types chart (horizontal bar chart)
+- [x] Tests by nationality chart (bar chart)
+- [x] Responsive layout for charts on dashboard
+- [x] Write tests for analytics endpoints

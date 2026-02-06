@@ -685,3 +685,103 @@ export async function getDistinctTestValues(): Promise<{ testTypes: string[]; te
     testResults: resultResults.map(r => r.result).filter(v => v && v.trim()) as string[],
   };
 }
+
+
+// ============ ANALYTICS / CHART DATA ============
+
+/**
+ * Test volume by month – returns the last 12 months of test counts.
+ */
+export async function getTestVolumeByMonth(): Promise<{ month: string; count: number }[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  const results = await db.execute(sql`
+    SELECT 
+      DATE_FORMAT(${virologyTests.accessionDate}, '%Y-%m') AS month,
+      COUNT(*) AS count
+    FROM ${virologyTests}
+    WHERE ${virologyTests.accessionDate} IS NOT NULL
+      AND ${virologyTests.accessionDate} >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+    GROUP BY month
+    ORDER BY month ASC
+  `);
+
+  return (results as any)[0]?.map((r: any) => ({
+    month: r.month as string,
+    count: Number(r.count),
+  })) ?? [];
+}
+
+/**
+ * Result distribution – counts per distinct result value.
+ */
+export async function getResultDistribution(): Promise<{ result: string; count: number }[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  const results = await db.execute(sql`
+    SELECT 
+      ${virologyTests.result} AS result,
+      COUNT(*) AS count
+    FROM ${virologyTests}
+    WHERE ${virologyTests.result} IS NOT NULL AND ${virologyTests.result} != ''
+    GROUP BY result
+    ORDER BY count DESC
+    LIMIT 10
+  `);
+
+  return (results as any)[0]?.map((r: any) => ({
+    result: r.result as string,
+    count: Number(r.count),
+  })) ?? [];
+}
+
+/**
+ * Top test types by volume.
+ */
+export async function getTopTestTypes(limit = 10): Promise<{ testType: string; count: number }[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  const results = await db.execute(sql`
+    SELECT 
+      ${virologyTests.testType} AS testType,
+      COUNT(*) AS count
+    FROM ${virologyTests}
+    WHERE ${virologyTests.testType} IS NOT NULL AND ${virologyTests.testType} != ''
+    GROUP BY testType
+    ORDER BY count DESC
+    LIMIT ${limit}
+  `);
+
+  return (results as any)[0]?.map((r: any) => ({
+    testType: r.testType as string,
+    count: Number(r.count),
+  })) ?? [];
+}
+
+/**
+ * Tests by nationality – top nationalities by test count.
+ */
+export async function getTestsByNationality(limit = 10): Promise<{ nationality: string; count: number }[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  const results = await db.execute(sql`
+    SELECT 
+      p.nationality AS nationality,
+      COUNT(vt.id) AS count
+    FROM ${virologyTests} vt
+    INNER JOIN ${patients} p ON vt.patientId = p.id
+    WHERE p.nationality IS NOT NULL AND p.nationality != ''
+    GROUP BY p.nationality
+    ORDER BY count DESC
+    LIMIT ${limit}
+  `);
+
+  return (results as any)[0]?.map((r: any) => ({
+    nationality: r.nationality as string,
+    count: Number(r.count),
+  })) ?? [];
+}

@@ -853,3 +853,106 @@ describe("Audit Logging", () => {
     await expect(caller.users.auditLogs({ limit: 50 })).rejects.toThrow();
   });
 });
+
+// ============ DASHBOARD ANALYTICS TESTS ============
+
+describe("Dashboard Analytics Endpoints", () => {
+  it("testVolumeByMonth returns array of month/count objects", async () => {
+    const user = createMockUser({ status: "approved" });
+    const ctx = createMockContext(user);
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.dashboard.testVolumeByMonth();
+
+    expect(Array.isArray(result)).toBe(true);
+    if (result.length > 0) {
+      expect(result[0]).toHaveProperty("month");
+      expect(result[0]).toHaveProperty("count");
+      expect(typeof result[0].month).toBe("string");
+      expect(typeof result[0].count).toBe("number");
+      // Month should be in YYYY-MM format
+      expect(result[0].month).toMatch(/^\d{4}-\d{2}$/);
+    }
+  });
+
+  it("resultDistribution returns array of result/count objects", async () => {
+    const user = createMockUser({ status: "approved" });
+    const ctx = createMockContext(user);
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.dashboard.resultDistribution();
+
+    expect(Array.isArray(result)).toBe(true);
+    if (result.length > 0) {
+      expect(result[0]).toHaveProperty("result");
+      expect(result[0]).toHaveProperty("count");
+      expect(typeof result[0].result).toBe("string");
+      expect(typeof result[0].count).toBe("number");
+    }
+  });
+
+  it("topTestTypes returns array of testType/count objects", async () => {
+    const user = createMockUser({ status: "approved" });
+    const ctx = createMockContext(user);
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.dashboard.topTestTypes();
+
+    expect(Array.isArray(result)).toBe(true);
+    if (result.length > 0) {
+      expect(result[0]).toHaveProperty("testType");
+      expect(result[0]).toHaveProperty("count");
+      expect(typeof result[0].testType).toBe("string");
+      expect(typeof result[0].count).toBe("number");
+    }
+  });
+
+  it("topTestTypes respects limit parameter", async () => {
+    const user = createMockUser({ status: "approved" });
+    const ctx = createMockContext(user);
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.dashboard.topTestTypes({ limit: 3 });
+
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBeLessThanOrEqual(3);
+  });
+
+  it("testsByNationality returns array of nationality/count objects", async () => {
+    const user = createMockUser({ status: "approved" });
+    const ctx = createMockContext(user);
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.dashboard.testsByNationality();
+
+    expect(Array.isArray(result)).toBe(true);
+    if (result.length > 0) {
+      expect(result[0]).toHaveProperty("nationality");
+      expect(result[0]).toHaveProperty("count");
+      expect(typeof result[0].nationality).toBe("string");
+      expect(typeof result[0].count).toBe("number");
+    }
+  });
+
+  it("testsByNationality respects limit parameter", async () => {
+    const user = createMockUser({ status: "approved" });
+    const ctx = createMockContext(user);
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.dashboard.testsByNationality({ limit: 5 });
+
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBeLessThanOrEqual(5);
+  });
+
+  it("unapproved user cannot access analytics", async () => {
+    const pendingUser = createMockUser({ status: "pending" });
+    const ctx = createMockContext(pendingUser);
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(caller.dashboard.testVolumeByMonth()).rejects.toThrow();
+    await expect(caller.dashboard.resultDistribution()).rejects.toThrow();
+    await expect(caller.dashboard.topTestTypes()).rejects.toThrow();
+    await expect(caller.dashboard.testsByNationality()).rejects.toThrow();
+  });
+});

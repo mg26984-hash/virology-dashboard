@@ -35,6 +35,10 @@ import {
   getDistinctNationalities,
   getDistinctTestValues,
   createAuditLog,
+  getTestVolumeByMonth,
+  getResultDistribution,
+  getTopTestTypes,
+  getTestsByNationality,
 } from "./db";
 import ExcelJS from "exceljs";
 import { processUploadedDocument } from "./documentProcessor";
@@ -815,6 +819,30 @@ export const appRouter = router({
     processingStats: approvedProcedure.query(async () => {
       return getProcessingStats();
     }),
+
+    // Analytics: test volume by month (last 12 months)
+    testVolumeByMonth: approvedProcedure.query(async () => {
+      return getTestVolumeByMonth();
+    }),
+
+    // Analytics: result distribution (top 10)
+    resultDistribution: approvedProcedure.query(async () => {
+      return getResultDistribution();
+    }),
+
+    // Analytics: top test types by count
+    topTestTypes: approvedProcedure
+      .input(z.object({ limit: z.number().min(1).max(20).optional() }).optional())
+      .query(async ({ input }) => {
+        return getTopTestTypes(input?.limit ?? 10);
+      }),
+
+    // Analytics: tests by nationality
+    testsByNationality: approvedProcedure
+      .input(z.object({ limit: z.number().min(1).max(20).optional() }).optional())
+      .query(async ({ input }) => {
+        return getTestsByNationality(input?.limit ?? 10);
+      }),
   }),
 
   // Export (admin only)

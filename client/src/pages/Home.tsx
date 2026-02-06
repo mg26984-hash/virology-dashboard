@@ -12,32 +12,138 @@ import {
   Activity,
   AlertCircle,
   Clock,
-  ChevronRight
+  ChevronRight,
+  TrendingUp,
+  BarChart3,
+  PieChart as PieChartIcon,
+  Globe,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  Legend,
+} from "recharts";
+
+// Chart color palette matching the theme
+const CHART_COLORS = [
+  "oklch(0.65 0.18 175)",  // chart-1 teal
+  "oklch(0.6 0.15 200)",   // chart-2 blue
+  "oklch(0.55 0.12 230)",  // chart-3 indigo
+  "oklch(0.7 0.14 150)",   // chart-4 green
+  "oklch(0.75 0.16 100)",  // chart-5 yellow
+  "oklch(0.6 0.18 30)",    // orange
+  "oklch(0.55 0.2 330)",   // pink
+  "oklch(0.65 0.15 280)",  // purple
+  "oklch(0.7 0.1 60)",     // warm
+  "oklch(0.5 0.15 250)",   // deep blue
+];
+
+// Custom tooltip for dark theme
+function ChartTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-lg border bg-card px-3 py-2 shadow-lg">
+      <p className="text-sm font-medium text-card-foreground">{label}</p>
+      {payload.map((entry: any, i: number) => (
+        <p key={i} className="text-sm" style={{ color: entry.color }}>
+          {entry.name}: <span className="font-semibold">{entry.value.toLocaleString()}</span>
+        </p>
+      ))}
+    </div>
+  );
+}
+
+function PieTooltip({ active, payload }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-lg border bg-card px-3 py-2 shadow-lg">
+      <p className="text-sm font-medium text-card-foreground">{payload[0].name}</p>
+      <p className="text-sm text-muted-foreground">
+        Count: <span className="font-semibold text-card-foreground">{payload[0].value.toLocaleString()}</span>
+      </p>
+      <p className="text-sm text-muted-foreground">
+        Share: <span className="font-semibold text-card-foreground">{(payload[0].percent * 100).toFixed(1)}%</span>
+      </p>
+    </div>
+  );
+}
+
+// Custom label for pie chart
+function renderPieLabel({ name, percent }: any) {
+  if (percent < 0.05) return null;
+  return `${name} (${(percent * 100).toFixed(0)}%)`;
+}
 
 export default function Home() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
 
+  const isApproved = user?.status === 'approved';
+
   const { data: stats } = trpc.dashboard.stats.useQuery(undefined, {
-    enabled: user?.status === 'approved',
+    enabled: isApproved,
   });
 
   const { data: recentDocs } = trpc.documents.recent.useQuery(
     { limit: 5 },
     { 
-      enabled: user?.status === 'approved',
-      refetchInterval: 10000, // Auto-refresh every 10 seconds
+      enabled: isApproved,
+      refetchInterval: 10000,
     }
   );
 
   const { data: searchResults } = trpc.patients.search.useQuery(
     { query: searchQuery, limit: 10 },
-    { enabled: user?.status === 'approved' && searchQuery.length >= 2 }
+    { enabled: isApproved && searchQuery.length >= 2 }
   );
+
+  // Analytics queries
+  const { data: volumeData } = trpc.dashboard.testVolumeByMonth.useQuery(undefined, {
+    enabled: isApproved,
+  });
+
+  const { data: resultData } = trpc.dashboard.resultDistribution.useQuery(undefined, {
+    enabled: isApproved,
+  });
+
+  const { data: topTests } = trpc.dashboard.topTestTypes.useQuery(undefined, {
+    enabled: isApproved,
+  });
+
+  const { data: nationalityData } = trpc.dashboard.testsByNationality.useQuery(undefined, {
+    enabled: isApproved,
+  });
+
+  // Format month labels for area chart
+  const formattedVolumeData = useMemo(() => {
+    if (!volumeData) return [];
+    return volumeData.map(d => ({
+      ...d,
+      label: new Date(d.month + '-01').toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+    }));
+  }, [volumeData]);
+
+  // Truncate long test type names for bar chart
+  const formattedTopTests = useMemo(() => {
+    if (!topTests) return [];
+    return topTests.map(d => ({
+      ...d,
+      shortName: d.testType.length > 35 ? d.testType.substring(0, 32) + '...' : d.testType,
+    }));
+  }, [topTests]);
 
   // Show pending approval message
   if (user?.status === 'pending') {
@@ -155,7 +261,7 @@ export default function Home() {
             <Users className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.totalPatients || 0}</div>
+            <div className="text-2xl font-bold">{stats?.totalPatients?.toLocaleString() || 0}</div>
             <p className="text-xs text-muted-foreground">In database</p>
           </CardContent>
         </Card>
@@ -166,7 +272,7 @@ export default function Home() {
             <Activity className="h-4 w-4 text-chart-2" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.totalTests || 0}</div>
+            <div className="text-2xl font-bold">{stats?.totalTests?.toLocaleString() || 0}</div>
             <p className="text-xs text-muted-foreground">Virology results</p>
           </CardContent>
         </Card>
@@ -177,7 +283,7 @@ export default function Home() {
             <FileText className="h-4 w-4 text-chart-3" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.totalDocuments || 0}</div>
+            <div className="text-2xl font-bold">{stats?.totalDocuments?.toLocaleString() || 0}</div>
             <p className="text-xs text-muted-foreground">Uploaded reports</p>
           </CardContent>
         </Card>
@@ -190,6 +296,253 @@ export default function Home() {
           <CardContent>
             <div className="text-2xl font-bold">{stats?.pendingDocuments || 0}</div>
             <p className="text-xs text-muted-foreground">Processing queue</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Analytics Charts Row 1: Volume Trend + Result Distribution */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Test Volume Trend - Area Chart */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-primary" />
+              <div>
+                <CardTitle>Test Volume Trend</CardTitle>
+                <CardDescription>Monthly test count over the last 12 months</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {formattedVolumeData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={280}>
+                <AreaChart data={formattedVolumeData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="volumeGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="oklch(0.65 0.18 175)" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="oklch(0.65 0.18 175)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.3 0.02 260)" />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 12 }}
+                    axisLine={{ stroke: 'oklch(0.3 0.02 260)' }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 12 }}
+                    axisLine={{ stroke: 'oklch(0.3 0.02 260)' }}
+                    tickLine={false}
+                    allowDecimals={false}
+                  />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Area
+                    type="monotone"
+                    dataKey="count"
+                    name="Tests"
+                    stroke="oklch(0.65 0.18 175)"
+                    strokeWidth={2}
+                    fill="url(#volumeGradient)"
+                    dot={{ fill: 'oklch(0.65 0.18 175)', r: 3 }}
+                    activeDot={{ r: 5, stroke: 'oklch(0.65 0.18 175)', strokeWidth: 2 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[280px] text-muted-foreground">
+                <div className="text-center">
+                  <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>No test data available yet</p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Result Distribution - Donut Chart */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <PieChartIcon className="h-5 w-5 text-chart-2" />
+              <div>
+                <CardTitle>Result Distribution</CardTitle>
+                <CardDescription>Top 10 result categories</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {resultData && resultData.length > 0 ? (
+              <div className="space-y-4">
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie
+                      data={resultData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={85}
+                      paddingAngle={2}
+                      dataKey="count"
+                      nameKey="result"
+                    >
+                      {resultData.map((_: any, index: number) => (
+                        <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<PieTooltip />} />
+                  </PieChart>
+                </ResponsiveContainer>
+                {/* Legend */}
+                <div className="space-y-1.5 max-h-[120px] overflow-y-auto">
+                  {resultData.map((item: any, index: number) => (
+                    <div key={item.result} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
+                        />
+                        <span className="text-muted-foreground truncate max-w-[140px]" title={item.result}>
+                          {item.result}
+                        </span>
+                      </div>
+                      <span className="font-medium tabular-nums">{item.count.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-[280px] text-muted-foreground">
+                <div className="text-center">
+                  <PieChartIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>No result data available yet</p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Analytics Charts Row 2: Top Test Types + Nationality */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Top Test Types - Horizontal Bar Chart */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-chart-3" />
+              <div>
+                <CardTitle>Top Test Types</CardTitle>
+                <CardDescription>Most frequently ordered tests</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {formattedTopTests.length > 0 ? (
+              <ResponsiveContainer width="100%" height={Math.max(280, formattedTopTests.length * 32)}>
+                <BarChart
+                  data={formattedTopTests}
+                  layout="vertical"
+                  margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.3 0.02 260)" horizontal={false} />
+                  <XAxis
+                    type="number"
+                    tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 12 }}
+                    axisLine={{ stroke: 'oklch(0.3 0.02 260)' }}
+                    tickLine={false}
+                    allowDecimals={false}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="shortName"
+                    width={200}
+                    tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 11 }}
+                    axisLine={{ stroke: 'oklch(0.3 0.02 260)' }}
+                    tickLine={false}
+                  />
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (!active || !payload?.length) return null;
+                      const d = payload[0].payload;
+                      return (
+                        <div className="rounded-lg border bg-card px-3 py-2 shadow-lg max-w-xs">
+                          <p className="text-sm font-medium text-card-foreground break-words">{d.testType}</p>
+                          <p className="text-sm text-muted-foreground">
+                            Count: <span className="font-semibold text-card-foreground">{d.count.toLocaleString()}</span>
+                          </p>
+                        </div>
+                      );
+                    }}
+                  />
+                  <Bar dataKey="count" name="Tests" radius={[0, 4, 4, 0]}>
+                    {formattedTopTests.map((_: any, index: number) => (
+                      <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[280px] text-muted-foreground">
+                <div className="text-center">
+                  <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>No test type data available yet</p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Tests by Nationality - Bar Chart */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Globe className="h-5 w-5 text-chart-4" />
+              <div>
+                <CardTitle>Tests by Nationality</CardTitle>
+                <CardDescription>Patient nationality distribution</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {nationalityData && nationalityData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart
+                  data={nationalityData}
+                  margin={{ top: 5, right: 10, left: 0, bottom: 60 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.3 0.02 260)" />
+                  <XAxis
+                    dataKey="nationality"
+                    tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 11 }}
+                    axisLine={{ stroke: 'oklch(0.3 0.02 260)' }}
+                    tickLine={false}
+                    angle={-45}
+                    textAnchor="end"
+                    interval={0}
+                    height={80}
+                  />
+                  <YAxis
+                    tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 12 }}
+                    axisLine={{ stroke: 'oklch(0.3 0.02 260)' }}
+                    tickLine={false}
+                    allowDecimals={false}
+                  />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Bar dataKey="count" name="Tests" radius={[4, 4, 0, 0]}>
+                    {nationalityData.map((_: any, index: number) => (
+                      <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[280px] text-muted-foreground">
+                <div className="text-center">
+                  <Globe className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>No nationality data available yet</p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
