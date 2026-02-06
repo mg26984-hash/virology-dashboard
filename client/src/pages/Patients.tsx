@@ -329,7 +329,7 @@ export default function Patients() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="_all_">All test types</SelectItem>
-                      {filterOptions?.testTypes.map((t) => (
+                      {filterOptions?.testTypes.filter(t => t && t.trim()).map((t) => (
                         <SelectItem key={t} value={t}>{t}</SelectItem>
                       ))}
                     </SelectContent>
@@ -349,7 +349,7 @@ export default function Patients() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="_all_">All results</SelectItem>
-                      {filterOptions?.testResults.map((r) => (
+                      {filterOptions?.testResults.filter(r => r && r.trim()).map((r) => (
                         <SelectItem key={r} value={r}>{r}</SelectItem>
                       ))}
                     </SelectContent>

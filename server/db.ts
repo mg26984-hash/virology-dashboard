@@ -648,9 +648,10 @@ export async function getDistinctTestTypes(): Promise<string[]> {
   const results = await db
     .selectDistinct({ testType: virologyTests.testType })
     .from(virologyTests)
+    .where(sql`${virologyTests.testType} IS NOT NULL AND ${virologyTests.testType} != ''`)
     .orderBy(virologyTests.testType);
 
-  return results.map((r) => r.testType);
+  return results.map((r) => r.testType).filter(Boolean) as string[];
 }
 
 export async function getDistinctNationalities(): Promise<string[]> {
@@ -680,7 +681,7 @@ export async function getDistinctTestValues(): Promise<{ testTypes: string[]; te
   ]);
 
   return {
-    testTypes: typeResults.map(r => r.testType),
-    testResults: resultResults.map(r => r.result),
+    testTypes: typeResults.map(r => r.testType).filter(v => v && v.trim()) as string[],
+    testResults: resultResults.map(r => r.result).filter(v => v && v.trim()) as string[],
   };
 }

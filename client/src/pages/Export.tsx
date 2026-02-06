@@ -213,7 +213,7 @@ export default function Export() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={ALL_VALUE}>All test types</SelectItem>
-                  {filterOptions?.testTypes.map((t) => (
+                  {filterOptions?.testTypes.filter(t => t && t.trim()).map((t) => (
                     <SelectItem key={t} value={t}>
                       {t}
                     </SelectItem>
@@ -231,7 +231,7 @@ export default function Export() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={ALL_VALUE}>All nationalities</SelectItem>
-                  {filterOptions?.nationalities.map((n) => (
+                  {filterOptions?.nationalities.filter(n => n && n.trim()).map((n) => (
                     <SelectItem key={n} value={n}>
                       {n}
                     </SelectItem>

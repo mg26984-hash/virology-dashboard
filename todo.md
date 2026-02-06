@@ -166,3 +166,6 @@
 - [x] Log PDF report generation events
 - [x] Create audit log viewer page for admins
 - [x] Write tests for audit logging
+
+## Bug Fix: Export Data Page Crash
+- [x] Fix Export Data page crashing with "An unexpected error occurred" (empty string SelectItem values)
