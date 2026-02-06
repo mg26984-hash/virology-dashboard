@@ -1,0 +1,40 @@
+{
+  "query": "SELECT p.id, p.name, p.civilId, COUNT(*) as test_count FROM patients p JOIN virologyTests vt ON p.id = vt.patientId WHERE p.id NOT IN (SELECT DISTINCT patientId FROM virologyTests WHERE viralLoad IS NOT NULL AND viralLoad != '' AND viralLoad != '0' AND viralLoad != '0.00') GROUP BY p.id HAVING test_count >= 3 ORDER BY test_count DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute SELECT p.id, p.name, p.civilId, COUNT(*) as test_count FROM patients p JOIN virologyTests vt ON p.id = vt.patientId WHERE p.id NOT IN (SELECT DISTINCT patientId FROM virologyTests WHERE viralLoad IS NOT NULL AND viralLoad != '' AND viralLoad != '0' AND viralLoad != '0.00') GROUP BY p.id HAVING test_count >= 3 ORDER BY test_count DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "129",
+      "name": "Abdulaziz Turki abdulaziz Alsulitin",
+      "civilId": "305112101049",
+      "test_count": "22"
+    },
+    {
+      "id": "180111",
+      "name": "MESHAL THAAR ABDULLAH",
+      "civilId": "288080900281",
+      "test_count": "15"
+    },
+    {
+      "id": "180066",
+      "name": "KANTILAL MEENA GOTAM JI MEENA",
+      "civilId": "268010131335",
+      "test_count": "14"
+    },
+    {
+      "id": "90001",
+      "name": "AYED KAREEM",
+      "civilId": "264072700638",
+      "test_count": "14"
+    },
+    {
+      "id": "150001",
+      "name": "MOHAMMAD ULLAH SHAHID",
+      "civilId": "275041603863",
+      "test_count": "14"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tcivilId\ttest_count\n129\tAbdulaziz Turki abdulaziz Alsulitin\t305112101049\t22\n180111\tMESHAL THAAR ABDULLAH\t288080900281\t15\n180066\tKANTILAL MEENA GOTAM JI MEENA\t268010131335\t14\n90001\tAYED KAREEM\t264072700638\t14\n150001\tMOHAMMAD ULLAH SHAHID\t275041603863\t14\n",
+  "stderr": "",
+  "execution_time_ms": 1772
+}

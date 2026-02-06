@@ -391,14 +391,17 @@ export default function PatientDetail() {
     };
   }, [tests]);
 
-  // Check if there's meaningful chart data (at least 2 data points with viral load)
+  // Check if there's meaningful chart data for a trend line
+  // Requires at least one test type with 2+ data points where at least one has a quantitative value > 0
+  // Hides chart when: only qualitative results, single data point, or no real viral load values
   const hasChartData = useMemo(() => {
     if (chartData.data.length < 2) return false;
     
-    // Check if any test type has at least 2 non-null values
     return chartData.testTypes.some(testType => {
-      const values = chartData.data.filter(d => d[testType] !== undefined && d[testType] !== null);
-      return values.length >= 2;
+      const dataPoints = chartData.data.filter(d => d[testType] !== undefined && d[testType] !== null);
+      if (dataPoints.length < 2) return false;
+      // At least one data point must have a real quantitative value > 0
+      return dataPoints.some(d => typeof d[testType] === 'number' && d[testType] > 0);
     });
   }, [chartData]);
 

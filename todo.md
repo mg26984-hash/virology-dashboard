@@ -330,3 +330,7 @@
 - [x] Redesign Viral Load Trends section on patient detail page for mobile
 - [x] Make legend list compact/collapsible instead of long vertical list
 - [x] Ensure chart area is usable on small screens
+
+## Viral Load Chart: Only Show with Quantitative Data
+- [x] Update hasChartData logic to require 2+ data points with at least one numeric viral load value > 0
+- [x] Hide chart entirely for patients with only qualitative results or single-date data
