@@ -29,6 +29,7 @@ import {
   getDocumentsByStatus,
   getDocumentStats,
   updateDocumentStatus,
+  getProcessingStats,
 } from "./db";
 import { processUploadedDocument } from "./documentProcessor";
 
@@ -683,6 +684,11 @@ export const appRouter = router({
   dashboard: router({
     stats: approvedProcedure.query(async () => {
       return getDashboardStats();
+    }),
+    
+    // Processing stats for ETA calculation
+    processingStats: approvedProcedure.query(async () => {
+      return getProcessingStats();
     }),
   }),
 });

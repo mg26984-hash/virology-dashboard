@@ -416,3 +416,36 @@ describe("Auth Flow", () => {
     expect(ctx.res.clearCookie).toHaveBeenCalled();
   });
 });
+
+
+describe("Processing Stats (ETA)", () => {
+  it("approved users can get processing stats", async () => {
+    const approvedUser = createMockUser({ status: "approved" });
+    const ctx = createMockContext(approvedUser);
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.dashboard.processingStats();
+    expect(result).toHaveProperty("avgProcessingTime");
+    expect(result).toHaveProperty("pendingCount");
+    expect(result).toHaveProperty("processingCount");
+    expect(result).toHaveProperty("completedLast5Min");
+    expect(typeof result.avgProcessingTime).toBe("number");
+    expect(result.avgProcessingTime).toBeGreaterThanOrEqual(5000); // Minimum 5 seconds
+  });
+
+  it("pending users cannot get processing stats", async () => {
+    const pendingUser = createMockUser({ status: "pending" });
+    const ctx = createMockContext(pendingUser);
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(caller.dashboard.processingStats()).rejects.toThrow();
+  });
+
+  it("banned users cannot get processing stats", async () => {
+    const bannedUser = createMockUser({ status: "banned" });
+    const ctx = createMockContext(bannedUser);
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(caller.dashboard.processingStats()).rejects.toThrow();
+  });
+});

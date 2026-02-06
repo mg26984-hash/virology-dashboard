@@ -16,9 +16,10 @@ import {
   FileArchive,
   Copy,
   RefreshCw,
-  Clock
+  Clock,
+  Timer
 } from "lucide-react";
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 
 interface FileWithPreview {
@@ -33,6 +34,31 @@ interface FileWithPreview {
   uploadProgress?: number; // 0-100 for upload progress
   chunksUploaded?: number;
   totalChunks?: number;
+  processingStartTime?: number; // Timestamp when processing started
+}
+
+// Helper function to format time remaining
+function formatTimeRemaining(ms: number): string {
+  if (ms <= 0) return 'Almost done...';
+  
+  const seconds = Math.ceil(ms / 1000);
+  if (seconds < 60) {
+    return `~${seconds} second${seconds !== 1 ? 's' : ''} remaining`;
+  }
+  
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  
+  if (minutes < 60) {
+    if (remainingSeconds === 0) {
+      return `~${minutes} minute${minutes !== 1 ? 's' : ''} remaining`;
+    }
+    return `~${minutes}m ${remainingSeconds}s remaining`;
+  }
+  
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return `~${hours}h ${remainingMinutes}m remaining`;
 }
 
 export default function Upload() {
@@ -43,6 +69,7 @@ export default function Upload() {
   const [isPolling, setIsPolling] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [currentTime, setCurrentTime] = useState(Date.now());
 
   const uploadMutation = trpc.documents.upload.useMutation();
   const bulkUploadMutation = trpc.documents.bulkUpload.useMutation();
@@ -55,6 +82,23 @@ export default function Upload() {
   const finalizeChunkedUploadMutation = trpc.documents.finalizeChunkedUpload.useMutation();
 
   const utils = trpc.useUtils();
+
+  // Get processing stats for ETA calculation
+  const { data: processingStats } = trpc.dashboard.processingStats.useQuery(undefined, {
+    enabled: isPolling,
+    refetchInterval: isPolling ? 5000 : false,
+  });
+
+  // Update current time every second for ETA countdown
+  useEffect(() => {
+    if (!isPolling) return;
+    
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [isPolling]);
 
   // Get document IDs that need status polling - include any file with a documentId that hasn't reached a final state
   const processingDocIds = files
@@ -75,6 +119,24 @@ export default function Upload() {
     }
   );
 
+  // Calculate ETA for processing files
+  const calculateETA = useCallback((file: FileWithPreview): string | null => {
+    if (!file.processingStartTime || !processingStats) return null;
+    
+    const avgTime = processingStats.avgProcessingTime || 15000; // Default 15 seconds
+    const elapsed = currentTime - file.processingStartTime;
+    const remaining = avgTime - elapsed;
+    
+    // If it's a ZIP file with extracted count, multiply by file count
+    if (file.isZip && file.extractedCount) {
+      const totalEstimate = avgTime * file.extractedCount;
+      const remainingForZip = totalEstimate - elapsed;
+      return formatTimeRemaining(remainingForZip);
+    }
+    
+    return formatTimeRemaining(remaining);
+  }, [processingStats, currentTime]);
+
   // Update file statuses based on polling results
   useEffect(() => {
     if (statusData && statusData.length > 0) {
@@ -93,7 +155,9 @@ export default function Upload() {
         
         if (status.status === 'pending' || status.status === 'processing') {
           hasProcessing = true;
-          return { ...f, status: 'processing', processingStatus: status.status };
+          // Set processing start time if not already set
+          const processingStartTime = f.processingStartTime || Date.now();
+          return { ...f, status: 'processing', processingStatus: status.status, processingStartTime };
         } else if (status.status === 'completed') {
           if (prevProcessingStatus !== 'completed') {
             newlyCompleted++;
@@ -281,18 +345,13 @@ export default function Upload() {
 
             // Initialize chunked upload
             console.log('[Upload] Calling initChunkedUpload...');
-            try {
-              await initChunkedUploadMutation.mutateAsync({
-                uploadId,
-                fileName: zipFile.file.name,
-                totalChunks,
-                totalSize: zipFile.file.size,
-              });
-              console.log('[Upload] initChunkedUpload successful');
-            } catch (initError) {
-              console.error('[Upload] initChunkedUpload failed:', initError);
-              throw initError;
-            }
+            await initChunkedUploadMutation.mutateAsync({
+              uploadId,
+              fileName: zipFile.file.name,
+              totalChunks,
+              totalSize: zipFile.file.size,
+            });
+            console.log('[Upload] initChunkedUpload successful');
 
             // Upload chunks sequentially
             for (let i = 0; i < totalChunks; i++) {
@@ -331,7 +390,7 @@ export default function Upload() {
 
             // Finalize and process
             setFiles(prev => prev.map(f => 
-              f === zipFile ? { ...f, status: 'processing' } : f
+              f === zipFile ? { ...f, status: 'processing', processingStartTime: Date.now() } : f
             ));
 
             const result = await finalizeChunkedUploadMutation.mutateAsync({ uploadId });
@@ -343,7 +402,8 @@ export default function Upload() {
                     status: result.successful > 0 ? 'processing' : 'failed',
                     extractedCount: result.total,
                     error: result.failed > 0 ? `${result.failed} files failed` : undefined,
-                    processingStatus: 'pending'
+                    processingStatus: 'pending',
+                    processingStartTime: Date.now()
                   }
                 : f
             ));
@@ -368,7 +428,8 @@ export default function Upload() {
                     status: result.successful > 0 ? 'processing' : 'failed',
                     extractedCount: result.total,
                     error: result.failed > 0 ? `${result.failed} files failed` : undefined,
-                    processingStatus: 'pending'
+                    processingStatus: 'pending',
+                    processingStartTime: Date.now()
                   }
                 : f
             ));
@@ -409,7 +470,7 @@ export default function Upload() {
 
           setFiles(prev => prev.map(f => 
             f === regularFiles[0] 
-              ? { ...f, status: 'processing', documentId: result.documentId, processingStatus: 'pending' }
+              ? { ...f, status: 'processing', documentId: result.documentId, processingStatus: 'pending', processingStartTime: Date.now() }
               : f
           ));
 
@@ -440,6 +501,7 @@ export default function Upload() {
                 documentId: resultItem.documentId,
                 error: resultItem.error,
                 processingStatus: resultItem.success ? 'pending' : undefined,
+                processingStartTime: resultItem.success ? Date.now() : undefined,
               };
             }
             return f;
@@ -573,6 +635,35 @@ export default function Upload() {
   ).length;
   const discardedCount = files.filter(f => f.status === 'discarded').length;
   const duplicateCount = files.filter(f => f.status === 'duplicate').length;
+
+  // Calculate total ETA for all processing files
+  const totalETA = useMemo(() => {
+    if (!processingStats || processingCount === 0) return null;
+    
+    const processingFiles = files.filter(f => 
+      f.status === 'processing' || 
+      (f.status === 'completed' && f.processingStatus !== 'completed')
+    );
+    
+    if (processingFiles.length === 0) return null;
+    
+    const avgTime = processingStats.avgProcessingTime || 15000;
+    let totalRemaining = 0;
+    
+    for (const file of processingFiles) {
+      if (file.processingStartTime) {
+        const elapsed = currentTime - file.processingStartTime;
+        const fileCount = file.isZip && file.extractedCount ? file.extractedCount : 1;
+        const remaining = Math.max(0, (avgTime * fileCount) - elapsed);
+        totalRemaining += remaining;
+      } else {
+        const fileCount = file.isZip && file.extractedCount ? file.extractedCount : 1;
+        totalRemaining += avgTime * fileCount;
+      }
+    }
+    
+    return formatTimeRemaining(totalRemaining);
+  }, [files, processingStats, processingCount, currentTime]);
 
   return (
     <div className="space-y-6">
@@ -720,12 +811,17 @@ export default function Upload() {
                       </div>
                     )}
                     
-                    {/* Processing Progress */}
+                    {/* Processing Progress with ETA */}
                     {fileItem.status === 'processing' && (
                       <div className="mt-2 space-y-1">
                         <div className="flex justify-between text-xs text-muted-foreground">
-                          <span>Processing document...</span>
-                          <Loader2 className="h-3 w-3 animate-spin" />
+                          <span className="flex items-center gap-1">
+                            <Timer className="h-3 w-3" />
+                            Processing document...
+                          </span>
+                          <span className="text-blue-400 font-medium">
+                            {calculateETA(fileItem) || 'Calculating...'}
+                          </span>
                         </div>
                         <Progress value={undefined} className="h-2 animate-pulse" />
                       </div>
@@ -762,7 +858,7 @@ export default function Upload() {
                             {
                               onSuccess: () => {
                                 setFiles(prev => prev.map((f, i) => 
-                                  i === index ? { ...f, status: 'processing', error: undefined } : f
+                                  i === index ? { ...f, status: 'processing', error: undefined, processingStartTime: Date.now() } : f
                                 ));
                                 toast.success('Document queued for reprocessing');
                               },
@@ -799,21 +895,32 @@ export default function Upload() {
         </Card>
       )}
 
-      {/* Processing Status Indicator */}
+      {/* Processing Status Indicator with Total ETA */}
       {isPolling && processingCount > 0 && (
         <Card className="border-blue-600/30 bg-blue-600/5">
           <CardContent className="py-4">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <Loader2 className="h-5 w-5 text-blue-400 animate-spin" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <Loader2 className="h-5 w-5 text-blue-400 animate-spin" />
+                </div>
+                <div>
+                  <p className="font-medium text-blue-400">Processing Documents</p>
+                  <p className="text-sm text-muted-foreground">
+                    {processingCount} document{processingCount > 1 ? 's' : ''} being processed. 
+                    Status updates automatically every 3 seconds.
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="font-medium text-blue-400">Processing Documents</p>
-                <p className="text-sm text-muted-foreground">
-                  {processingCount} document{processingCount > 1 ? 's' : ''} being processed. 
-                  Status updates automatically every 3 seconds.
-                </p>
-              </div>
+              {totalETA && (
+                <div className="text-right">
+                  <p className="text-sm text-muted-foreground">Estimated time remaining</p>
+                  <p className="text-lg font-semibold text-blue-400 flex items-center gap-2">
+                    <Timer className="h-4 w-4" />
+                    {totalETA}
+                  </p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

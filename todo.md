@@ -110,3 +110,10 @@
 - [x] Show processing progress with animated indicator
 - [x] Display progress percentage and status text
 - [x] Show file size in MB format
+
+
+## Estimated Time Remaining
+- [x] Track average processing time per document
+- [x] Calculate ETA based on pending documents and average time
+- [x] Display estimated time remaining during processing
+- [x] Update ETA dynamically as documents complete

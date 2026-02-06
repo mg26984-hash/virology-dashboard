@@ -484,3 +484,73 @@ export async function getDashboardStats() {
     pendingDocuments: pendingCount[0]?.count || 0,
   };
 }
+
+
+// ============ PROCESSING TIME STATS ============
+
+export async function getAverageProcessingTime(): Promise<number> {
+  const db = await getDb();
+  if (!db) return 15000; // Default 15 seconds if no data
+  
+  // Calculate average processing time from completed documents
+  // Processing time = updatedAt - createdAt for completed documents
+  const result = await db.select({
+    avgTime: sql<number>`AVG(TIMESTAMPDIFF(SECOND, ${documents.createdAt}, ${documents.updatedAt}))`
+  })
+    .from(documents)
+    .where(eq(documents.processingStatus, 'completed'));
+  
+  const avgSeconds = result[0]?.avgTime || 15;
+  return Math.max(avgSeconds * 1000, 5000); // Return in milliseconds, minimum 5 seconds
+}
+
+export async function getProcessingStats() {
+  const db = await getDb();
+  if (!db) return { 
+    avgProcessingTime: 15000, 
+    pendingCount: 0, 
+    processingCount: 0,
+    completedLast5Min: 0 
+  };
+  
+  const now = new Date();
+  const fiveMinAgo = new Date(now.getTime() - 5 * 60 * 1000);
+  
+  const [avgResult, pendingResult, processingResult, recentCompletedResult] = await Promise.all([
+    // Average processing time
+    db.select({
+      avgTime: sql<number>`AVG(TIMESTAMPDIFF(SECOND, ${documents.createdAt}, ${documents.updatedAt}))`
+    })
+      .from(documents)
+      .where(eq(documents.processingStatus, 'completed')),
+    
+    // Pending count
+    db.select({ count: sql<number>`count(*)` })
+      .from(documents)
+      .where(eq(documents.processingStatus, 'pending')),
+    
+    // Processing count
+    db.select({ count: sql<number>`count(*)` })
+      .from(documents)
+      .where(eq(documents.processingStatus, 'processing')),
+    
+    // Completed in last 5 minutes
+    db.select({ count: sql<number>`count(*)` })
+      .from(documents)
+      .where(
+        and(
+          eq(documents.processingStatus, 'completed'),
+          gte(documents.updatedAt, fiveMinAgo)
+        )
+      ),
+  ]);
+  
+  const avgSeconds = avgResult[0]?.avgTime || 15;
+  
+  return {
+    avgProcessingTime: Math.max(avgSeconds * 1000, 5000), // milliseconds, min 5s
+    pendingCount: pendingResult[0]?.count || 0,
+    processingCount: processingResult[0]?.count || 0,
+    completedLast5Min: recentCompletedResult[0]?.count || 0,
+  };
+}
