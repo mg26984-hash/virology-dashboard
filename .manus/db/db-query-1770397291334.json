@@ -1,0 +1,130 @@
+{
+  "query": "SELECT result, COUNT(*) as cnt FROM virologyTests GROUP BY result ORDER BY cnt DESC LIMIT 30",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute SELECT result, COUNT(*) as cnt FROM virologyTests GROUP BY result ORDER BY cnt DESC LIMIT 30",
+  "rows": [
+    {
+      "result": "Not detected",
+      "cnt": "209"
+    },
+    {
+      "result": "Non Reactive",
+      "cnt": "126"
+    },
+    {
+      "result": "Reactive",
+      "cnt": "105"
+    },
+    {
+      "result": "NonReactive",
+      "cnt": "92"
+    },
+    {
+      "result": "Detected <34.5 IU/mL (Below minimum titer).",
+      "cnt": "42"
+    },
+    {
+      "result": "NEGATIVE",
+      "cnt": "39"
+    },
+    {
+      "result": "Test is currently not available.",
+      "cnt": "30"
+    },
+    {
+      "result": "Positive",
+      "cnt": "14"
+    },
+    {
+      "result": "NA",
+      "cnt": "8"
+    },
+    {
+      "result": "+ve",
+      "cnt": "8"
+    },
+    {
+      "result": "Reactive, please send another sample for confirmation (2 EDTA, 1 Plain Tubes).",
+      "cnt": "8"
+    },
+    {
+      "result": "R NR IND",
+      "cnt": "4"
+    },
+    {
+      "result": "Detected <10 IU/mL (Below minimum titer).",
+      "cnt": "4"
+    },
+    {
+      "result": "N/A",
+      "cnt": "4"
+    },
+    {
+      "result": "BK Virus Detected >100,000,000 Copies/mL (Above the maximum titer of detection). JC Virus Detected >50,000,000 Copies/mL (Above the maximum titer of detection).",
+      "cnt": "4"
+    },
+    {
+      "result": "Detected",
+      "cnt": "4"
+    },
+    {
+      "result": "Positive and Confirmed",
+      "cnt": "4"
+    },
+    {
+      "result": "Indeterminate",
+      "cnt": "3"
+    },
+    {
+      "result": "",
+      "cnt": "2"
+    },
+    {
+      "result": "JC Virus Detected >50,000,000 Copies/mL (Above the maximum titer of detection).",
+      "cnt": "2"
+    },
+    {
+      "result": "BK Virus Detected (20 Copies/mL)",
+      "cnt": "2"
+    },
+    {
+      "result": "Detected <10 Copies/mL (Below minimum titer).",
+      "cnt": "2"
+    },
+    {
+      "result": "NR",
+      "cnt": "2"
+    },
+    {
+      "result": "BK Virus Detected (91 Copies/mL)",
+      "cnt": "2"
+    },
+    {
+      "result": "BK Virus Detected (100,000,000 Copies/mL)",
+      "cnt": "2"
+    },
+    {
+      "result": "BK Virus Detected (24 Copies/mL)",
+      "cnt": "2"
+    },
+    {
+      "result": "BK Virus Detected >100,000,000 Copies/mL (Above the maximum titer of detection).",
+      "cnt": "2"
+    },
+    {
+      "result": "Detected (42.6 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (261 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (66,831 Copies/mL)",
+      "cnt": "1"
+    }
+  ],
+  "messages": [],
+  "stdout": "result\tcnt\nNot detected\t209\nNon Reactive\t126\nReactive\t105\nNonReactive\t92\nDetected <34.5 IU/mL (Below minimum titer).\t42\nNEGATIVE\t39\nTest is currently not available.\t30\nPositive\t14\nNA\t8\n+ve\t8\nReactive, please send another sample for confirmation (2 EDTA, 1 Plain Tubes).\t8\nR NR IND\t4\nDetected <10 IU/mL (Below minimum titer).\t4\nN/A\t4\nBK Virus Detected >100,000,000 Copies/mL (Above the maximum titer of detection). JC Virus Detected >50,000,000 Copies/mL (Above the maximum titer of detection).\t4\nDetected\t4\nPositive and Confirmed\t4\nIndeterminate\t3\n\t2\nJC Virus Detected >50,000,000 Copies/mL (Above the maximum titer of detection).\t2\nBK Virus Detected (20 Copies/mL)\t2\nDetected <10 Copies/mL (Below minimum titer).\t2\nNR\t2\nBK Virus Detected (91 Copies/mL)\t2\nBK Virus Detected (100,000,000 Copies/mL)\t2\nBK Virus Detected (24 Copies/mL)\t2\nBK Virus Detected >100,000,000 Copies/mL (Above the maximum titer of detection).\t2\nDetected (42.6 IU/mL).\t1\nDetected (261 IU/mL).\t1\nBK Virus Detected (66,831 Copies/mL)\t1\n",
+  "stderr": "",
+  "execution_time_ms": 1615
+}

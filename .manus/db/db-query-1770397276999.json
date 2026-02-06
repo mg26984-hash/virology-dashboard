@@ -1,0 +1,874 @@
+{
+  "query": "SELECT result, COUNT(*) as cnt FROM virologyTests GROUP BY result ORDER BY cnt DESC",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute SELECT result, COUNT(*) as cnt FROM virologyTests GROUP BY result ORDER BY cnt DESC",
+  "rows": [
+    {
+      "result": "Not detected",
+      "cnt": "209"
+    },
+    {
+      "result": "Non Reactive",
+      "cnt": "126"
+    },
+    {
+      "result": "Reactive",
+      "cnt": "105"
+    },
+    {
+      "result": "NonReactive",
+      "cnt": "92"
+    },
+    {
+      "result": "Detected <34.5 IU/mL (Below minimum titer).",
+      "cnt": "42"
+    },
+    {
+      "result": "NEGATIVE",
+      "cnt": "39"
+    },
+    {
+      "result": "Test is currently not available.",
+      "cnt": "30"
+    },
+    {
+      "result": "Positive",
+      "cnt": "14"
+    },
+    {
+      "result": "+ve",
+      "cnt": "8"
+    },
+    {
+      "result": "Reactive, please send another sample for confirmation (2 EDTA, 1 Plain Tubes).",
+      "cnt": "8"
+    },
+    {
+      "result": "NA",
+      "cnt": "8"
+    },
+    {
+      "result": "R NR IND",
+      "cnt": "4"
+    },
+    {
+      "result": "Detected <10 IU/mL (Below minimum titer).",
+      "cnt": "4"
+    },
+    {
+      "result": "Positive and Confirmed",
+      "cnt": "4"
+    },
+    {
+      "result": "Detected",
+      "cnt": "4"
+    },
+    {
+      "result": "N/A",
+      "cnt": "4"
+    },
+    {
+      "result": "BK Virus Detected >100,000,000 Copies/mL (Above the maximum titer of detection). JC Virus Detected >50,000,000 Copies/mL (Above the maximum titer of detection).",
+      "cnt": "4"
+    },
+    {
+      "result": "Indeterminate",
+      "cnt": "3"
+    },
+    {
+      "result": "BK Virus Detected (24 Copies/mL)",
+      "cnt": "2"
+    },
+    {
+      "result": "BK Virus Detected (100,000,000 Copies/mL)",
+      "cnt": "2"
+    },
+    {
+      "result": "Detected <10 Copies/mL (Below minimum titer).",
+      "cnt": "2"
+    },
+    {
+      "result": "JC Virus Detected >50,000,000 Copies/mL (Above the maximum titer of detection).",
+      "cnt": "2"
+    },
+    {
+      "result": "",
+      "cnt": "2"
+    },
+    {
+      "result": "NR",
+      "cnt": "2"
+    },
+    {
+      "result": "BK Virus Detected (91 Copies/mL)",
+      "cnt": "2"
+    },
+    {
+      "result": "BK Virus Detected >100,000,000 Copies/mL (Above the maximum titer of detection).",
+      "cnt": "2"
+    },
+    {
+      "result": "BK Virus Detected (20 Copies/mL)",
+      "cnt": "2"
+    },
+    {
+      "result": "> 1000.00",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (1,796 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (742 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (261 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "JC Virus Detected (5,602,228 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (40,209 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (189 Copies/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (62 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (42 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "JC Virus Detected (764 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (62 IU/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "JC Virus Detected (727 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (3,423,746 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "JC Virus Detected (88 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (78 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (625 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (36,100 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "JC Virus Detected (18 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (17,739,118 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (58.4 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (42.6 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (33,435 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected <900 Copies/mL (Below minimum titer).",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (98.5 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (70263 IU/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (287 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (64,816 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (287 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (274,000 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (30,915 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (601,970 IU/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (262 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "JC Virus Detected (57,582 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (30,875 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (7,913,553 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (240 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "JC Virus Detected (1,898,893 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (59,305 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (81,500 Copies/mL), JC Virus Detected (328,000 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (40 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (177,745 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (10,350 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (45 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (296,554 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "JC Virus Detected (60 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (43 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (958,842 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "103.80 IU/L",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (121,453 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (907 IU/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (54,371Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (32,310 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (365 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (38 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (70 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (17 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (3,848 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "JC Virus Detected (121 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (75 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (2,865,000 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (20,017 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (44.4 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (5,216Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (24 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "31.37 IU/L",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (2,083,936 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (553 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "JC Virus Detected >50.000,000 Copies/mL (Above the maximum titer of detection).",
+      "cnt": "1"
+    },
+    {
+      "result": "JC Virus Detected (18,173,909 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (97,000,000 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (125 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (162 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (950 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (192 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (1,727 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "JC Virus Detected (37,450,000 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (297 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (756 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (Weak Positive).",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (130,322 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (42 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (824 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (135 IU/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (814 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (19,012 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (124 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "JC Virus Detected (48,100,000 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "JC Virus Detected (5,773,701 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (1800 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected 72,998,394 Copies/mL",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (493,585 Copies/mL) JC Virus Detected (80,018 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected 11,858 Copies/mL.",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (136,000 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "JC Virus Detected (1,759,021 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (38.1 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (41 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "JC Virus Detected >50.000.000 Copies/mL (Above the maximum titer of detection).",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (737,146 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "2.76",
+      "cnt": "1"
+    },
+    {
+      "result": "JC Virus Detected (5,770,619 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (119 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (4,815 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (101 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (543 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "JC Virus Detected (268 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (26,691 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "JC Virus Detected (1,868 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "JC Virus Detected (2,782 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (21,750 Copies/mL) JC Virus Detected (353,500 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (66,831 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (32 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (58 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (129,325 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (2,208 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (> 100,000,000 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (38,493 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (20,395 Copies/mL) JC Virus Detected (1732 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (50 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (85,008 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (2,975,011 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (537 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (197.5 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (188 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (5,439,342 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (1,110 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (553 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected <10 IU/mL (Below minimum titer of detection).",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (59,720 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (46,185 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (192 Copies/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (38,755,534 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (296 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (29 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "HPIV-2 weak positive",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (233 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (71,800 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (2,370 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (20,123 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (567 Copies/mL) JC Virus Detected (55 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (437 IU/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (110,884 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (53 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (30,158,578 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "JC Virus Detected (93 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Test is currently not available",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (52,500 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "JC Virus Detected (67,816 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (395 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (65 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "JC Virus Detected (50,000,000 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "JC Virus Detected (76 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (13,300 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (254,576 Copies/mL) JC Virus Detected (13,604 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (33,232 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (1,148 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Not detected in Blood",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (191 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (8,482 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (1,216 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (23 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (138 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "JC Virus Detected (44,001,701 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "JC Virus Detected (21 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (53.1 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (600,265 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (6,774 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (14,800,831 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (1,114 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (19,019 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (114 IU/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (9,157 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (327 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (56,468,159 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (18.5 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (12208 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (1,375 Copies/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (25 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (100 Copies/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (2,505 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (85 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (81.7 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (99,341 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (72,309 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (133 IU/mL).",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (130 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (583,162 Copies/mL) JC Virus Detected (70,022 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "Detected (1983 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (79 Copies/mL)",
+      "cnt": "1"
+    },
+    {
+      "result": "BK Virus Detected (288,976 Copies/mL)",
+      "cnt": "1"
+    }
+  ],
+  "messages": [],
+  "stdout": "result\tcnt\nNot detected\t209\nNon Reactive\t126\nReactive\t105\nNonReactive\t92\nDetected <34.5 IU/mL (Below minimum titer).\t42\nNEGATIVE\t39\nTest is currently not available.\t30\nPositive\t14\n+ve\t8\nReactive, please send another sample for confirmation (2 EDTA, 1 Plain Tubes).\t8\nNA\t8\nR NR IND\t4\nDetected <10 IU/mL (Below minimum titer).\t4\nPositive and Confirmed\t4\nDetected\t4\nN/A\t4\nBK Virus Detected >100,000,000 Copies/mL (Above the maximum titer of detection). JC Virus Detected >50,000,000 Copies/mL (Above the maximum titer of detection).\t4\nIndeterminate\t3\nBK Virus Detected (24 Copies/mL)\t2\nBK Virus Detected (100,000,000 Copies/mL)\t2\nDetected <10 Copies/mL (Below minimum titer).\t2\nJC Virus Detected >50,000,000 Copies/mL (Above the maximum titer of detection).\t2\n\t2\nNR\t2\nBK Virus Detected (91 Copies/mL)\t2\nBK Virus Detected >100,000,000 Copies/mL (Above the maximum titer of detection).\t2\nBK Virus Detected (20 Copies/mL)\t2\n> 1000.00\t1\nBK Virus Detected (1,796 Copies/mL)\t1\nBK Virus Detected (742 Copies/mL)\t1\nDetected (261 IU/mL).\t1\nJC Virus Detected (5,602,228 Copies/mL)\t1\nBK Virus Detected (40,209 Copies/mL)\t1\nDetected (189 Copies/mL).\t1\nBK Virus Detected (62 Copies/mL)\t1\nDetected (42 IU/mL).\t1\nJC Virus Detected (764 Copies/mL)\t1\nDetected (62 IU/mL)\t1\nJC Virus Detected (727 Copies/mL)\t1\nBK Virus Detected (3,423,746 Copies/mL)\t1\nJC Virus Detected (88 Copies/mL)\t1\nDetected (78 IU/mL).\t1\nDetected (625 IU/mL).\t1\nBK Virus Detected (36,100 Copies/mL)\t1\nJC Virus Detected (18 Copies/mL)\t1\nBK Virus Detected (17,739,118 Copies/mL)\t1\nDetected (58.4 IU/mL).\t1\nDetected (42.6 IU/mL).\t1\nBK Virus Detected (33,435 Copies/mL)\t1\nDetected <900 Copies/mL (Below minimum titer).\t1\nDetected (98.5 IU/mL).\t1\nDetected (70263 IU/mL)\t1\nDetected (287 IU/mL).\t1\nBK Virus Detected (64,816 Copies/mL)\t1\nBK Virus Detected (287 Copies/mL)\t1\nBK Virus Detected (274,000 Copies/mL)\t1\nBK Virus Detected (30,915 Copies/mL)\t1\nBK Virus Detected (601,970 IU/mL)\t1\nDetected (262 IU/mL).\t1\nJC Virus Detected (57,582 Copies/mL)\t1\nBK Virus Detected (30,875 Copies/mL)\t1\nBK Virus Detected (7,913,553 Copies/mL)\t1\nDetected (240 IU/mL).\t1\nJC Virus Detected (1,898,893 Copies/mL)\t1\nBK Virus Detected (59,305 Copies/mL)\t1\nBK Virus Detected (81,500 Copies/mL), JC Virus Detected (328,000 Copies/mL)\t1\nDetected (40 IU/mL).\t1\nBK Virus Detected (177,745 Copies/mL)\t1\nBK Virus Detected (10,350 Copies/mL)\t1\nDetected (45 IU/mL).\t1\nBK Virus Detected (296,554 Copies/mL)\t1\nJC Virus Detected (60 Copies/mL)\t1\nDetected (43 IU/mL).\t1\nBK Virus Detected (958,842 Copies/mL)\t1\n103.80 IU/L\t1\nBK Virus Detected (121,453 Copies/mL)\t1\nDetected (907 IU/mL)\t1\nBK Virus Detected (54,371Copies/mL)\t1\nBK Virus Detected (32,310 Copies/mL)\t1\nBK Virus Detected (365 Copies/mL)\t1\nBK Virus Detected (38 Copies/mL)\t1\nBK Virus Detected (70 Copies/mL)\t1\nDetected (17 Copies/mL)\t1\nBK Virus Detected (3,848 Copies/mL)\t1\nJC Virus Detected (121 Copies/mL)\t1\nDetected (75 IU/mL).\t1\nBK Virus Detected (2,865,000 Copies/mL)\t1\nBK Virus Detected (20,017 Copies/mL)\t1\nDetected (44.4 IU/mL).\t1\nBK Virus Detected (5,216Copies/mL)\t1\nDetected (24 IU/mL).\t1\n31.37 IU/L\t1\nBK Virus Detected (2,083,936 Copies/mL)\t1\nDetected (553 IU/mL).\t1\nJC Virus Detected >50.000,000 Copies/mL (Above the maximum titer of detection).\t1\nJC Virus Detected (18,173,909 Copies/mL)\t1\nBK Virus Detected (97,000,000 Copies/mL)\t1\nBK Virus Detected (125 Copies/mL)\t1\nBK Virus Detected (162 Copies/mL)\t1\nBK Virus Detected (950 Copies/mL)\t1\nDetected (192 IU/mL).\t1\nBK Virus Detected (1,727 Copies/mL)\t1\nJC Virus Detected (37,450,000 Copies/mL)\t1\nBK Virus Detected (297 Copies/mL)\t1\nDetected (756 IU/mL).\t1\nDetected (Weak Positive).\t1\nBK Virus Detected (130,322 Copies/mL)\t1\nBK Virus Detected (42 Copies/mL)\t1\nBK Virus Detected (824 Copies/mL)\t1\nDetected (135 IU/mL)\t1\nBK Virus Detected (814 Copies/mL)\t1\nBK Virus Detected (19,012 Copies/mL)\t1\nDetected (124 IU/mL).\t1\nJC Virus Detected (48,100,000 Copies/mL)\t1\nJC Virus Detected (5,773,701 Copies/mL)\t1\nBK Virus Detected (1800 Copies/mL)\t1\nDetected 72,998,394 Copies/mL\t1\nBK Virus Detected (493,585 Copies/mL) JC Virus Detected (80,018 Copies/mL)\t1\nDetected 11,858 Copies/mL.\t1\nBK Virus Detected (136,000 Copies/mL)\t1\nJC Virus Detected (1,759,021 Copies/mL)\t1\nDetected (38.1 IU/mL).\t1\nBK Virus Detected (41 Copies/mL)\t1\nJC Virus Detected >50.000.000 Copies/mL (Above the maximum titer of detection).\t1\nDetected (737,146 Copies/mL)\t1\n2.76\t1\nJC Virus Detected (5,770,619 Copies/mL)\t1\nBK Virus Detected (119 Copies/mL)\t1\nBK Virus Detected (4,815 Copies/mL)\t1\nBK Virus Detected (101 Copies/mL)\t1\nDetected (543 IU/mL).\t1\nJC Virus Detected (268 Copies/mL)\t1\nBK Virus Detected (26,691 Copies/mL)\t1\nJC Virus Detected (1,868 Copies/mL)\t1\nJC Virus Detected (2,782 Copies/mL)\t1\nBK Virus Detected (21,750 Copies/mL) JC Virus Detected (353,500 Copies/mL)\t1\nBK Virus Detected (66,831 Copies/mL)\t1\nBK Virus Detected (32 Copies/mL)\t1\nDetected (58 IU/mL).\t1\nDetected (129,325 Copies/mL)\t1\nBK Virus Detected (2,208 Copies/mL)\t1\nBK Virus Detected (> 100,000,000 Copies/mL)\t1\nBK Virus Detected (38,493 Copies/mL)\t1\nBK Virus Detected (20,395 Copies/mL) JC Virus Detected (1732 Copies/mL)\t1\nBK Virus Detected (50 Copies/mL)\t1\nBK Virus Detected (85,008 Copies/mL)\t1\nBK Virus Detected (2,975,011 Copies/mL)\t1\nDetected (537 IU/mL).\t1\nDetected (197.5 IU/mL).\t1\nDetected (188 Copies/mL)\t1\nBK Virus Detected (5,439,342 Copies/mL)\t1\nDetected (1,110 IU/mL).\t1\nBK Virus Detected (553 Copies/mL)\t1\nDetected <10 IU/mL (Below minimum titer of detection).\t1\nBK Virus Detected (59,720 Copies/mL)\t1\nBK Virus Detected (46,185 Copies/mL)\t1\nDetected (192 Copies/mL).\t1\nBK Virus Detected (38,755,534 Copies/mL)\t1\nBK Virus Detected (296 Copies/mL)\t1\nBK Virus Detected (29 Copies/mL)\t1\nHPIV-2 weak positive\t1\nBK Virus Detected (233 Copies/mL)\t1\nBK Virus Detected (71,800 Copies/mL)\t1\nDetected (2,370 IU/mL).\t1\nBK Virus Detected (20,123 Copies/mL)\t1\nBK Virus Detected (567 Copies/mL) JC Virus Detected (55 Copies/mL)\t1\nDetected (437 IU/mL)\t1\nBK Virus Detected (110,884 Copies/mL)\t1\nBK Virus Detected (53 Copies/mL)\t1\nBK Virus Detected (30,158,578 Copies/mL)\t1\nJC Virus Detected (93 Copies/mL)\t1\nTest is currently not available\t1\nBK Virus Detected (52,500 Copies/mL)\t1\nJC Virus Detected (67,816 Copies/mL)\t1\nBK Virus Detected (395 Copies/mL)\t1\nDetected (65 IU/mL).\t1\nJC Virus Detected (50,000,000 Copies/mL)\t1\nJC Virus Detected (76 Copies/mL)\t1\nBK Virus Detected (13,300 Copies/mL)\t1\nBK Virus Detected (254,576 Copies/mL) JC Virus Detected (13,604 Copies/mL)\t1\nBK Virus Detected (33,232 Copies/mL)\t1\nBK Virus Detected (1,148 Copies/mL)\t1\nNot detected in Blood\t1\nBK Virus Detected (191 Copies/mL)\t1\nBK Virus Detected (8,482 Copies/mL)\t1\nBK Virus Detected (1,216 Copies/mL)\t1\nBK Virus Detected (23 Copies/mL)\t1\nDetected (138 IU/mL).\t1\nJC Virus Detected (44,001,701 Copies/mL)\t1\nJC Virus Detected (21 Copies/mL)\t1\nDetected (53.1 IU/mL).\t1\nBK Virus Detected (600,265 Copies/mL)\t1\nBK Virus Detected (6,774 Copies/mL)\t1\nBK Virus Detected (14,800,831 Copies/mL)\t1\nBK Virus Detected (1,114 Copies/mL)\t1\nBK Virus Detected (19,019 Copies/mL)\t1\nDetected (114 IU/mL)\t1\nBK Virus Detected (9,157 Copies/mL)\t1\nDetected (327 IU/mL).\t1\nBK Virus Detected (56,468,159 Copies/mL)\t1\nDetected (18.5 IU/mL).\t1\nBK Virus Detected (12208 Copies/mL)\t1\nDetected (1,375 Copies/mL).\t1\nDetected (25 IU/mL).\t1\nDetected (100 Copies/mL).\t1\nBK Virus Detected (2,505 Copies/mL)\t1\nDetected (85 IU/mL).\t1\nDetected (81.7 IU/mL).\t1\nBK Virus Detected (99,341 Copies/mL)\t1\nBK Virus Detected (72,309 Copies/mL)\t1\nDetected (133 IU/mL).\t1\nBK Virus Detected (130 Copies/mL)\t1\nBK Virus Detected (583,162 Copies/mL) JC Virus Detected (70,022 Copies/mL)\t1\nDetected (1983 Copies/mL)\t1\nBK Virus Detected (79 Copies/mL)\t1\nBK Virus Detected (288,976 Copies/mL)\t1\n",
+  "stderr": "",
+  "execution_time_ms": 1592
+}

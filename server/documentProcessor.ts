@@ -25,6 +25,36 @@ function normalizeNationality(value: string | null): string | null {
   return trimmed.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
 }
 
+/**
+ * Normalize test result strings to consistent values.
+ * Handles casing variations and common OCR/LLM extraction inconsistencies.
+ */
+function normalizeResult(value: string | null | undefined): string {
+  if (!value || !value.trim()) return 'Not Available';
+  const trimmed = value.trim();
+  const lower = trimmed.toLowerCase();
+  
+  // "Not detected" variants → "Not Detected"
+  if (lower === 'not detected' || lower === 'non reactive' || lower === 'nonreactive' || lower === 'non-reactive') {
+    return 'Not Detected';
+  }
+  // "Negative" casing fix
+  if (lower === 'negative') return 'Negative';
+  // "Positive" casing fix
+  if (lower === 'positive') return 'Positive';
+  // "Reactive" casing fix
+  if (lower === 'reactive') return 'Reactive';
+  // "Detected" casing fix (standalone)
+  if (lower === 'detected') return 'Detected';
+  // "Indeterminate" casing fix
+  if (lower === 'indeterminate') return 'Indeterminate';
+  // "Not available" variants
+  if (lower === 'not available' || lower === 'n/a' || lower === 'na') return 'Not Available';
+  
+  // For all other results (quantitative values, specific descriptions), keep as-is
+  return trimmed;
+}
+
 export interface ExtractedVirologyData {
   hasTestResults: boolean;
   patient: {
@@ -321,7 +351,7 @@ export async function processUploadedDocument(
         patientId: patient.id,
         documentId: documentId,
         testType: test.testType,
-        result: test.result,
+        result: normalizeResult(test.result),
         viralLoad: test.viralLoad || null,
         unit: test.unit || 'Copies/mL',
         sampleNo: test.sampleNo || null,

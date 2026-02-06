@@ -219,3 +219,10 @@
 - [x] SQL migration to normalize: KUWAITI/Kuwait/KUWAITT → Kuwaiti, NON KUWAITI/NON KUWAIT/NON → Non-Kuwaiti
 - [x] Add normalizeNationality() to document processing pipeline to prevent future inconsistencies
 - [x] All 86 tests pass after normalization
+
+## Bug Fix: Full Data Normalization (Results, Nationalities, Test Types)
+- [x] Query all result variants and normalize: "Not detected" → "Not Detected", empty strings → "Not Available"
+- [x] Nationalities already clean (Kuwaiti: 183, Non-Kuwaiti: 59, null: 1)
+- [x] Test types already clean - no duplicate variants found
+- [x] Add normalizeResult() to document processing pipeline (handles casing, Non Reactive, NEGATIVE, etc.)
+- [x] Run tests to verify - all 86 tests pass

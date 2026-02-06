@@ -1,0 +1,9 @@
+{
+  "query": "\nUPDATE virologyTests SET result = 'Not Detected' WHERE result = 'Not detected';\nUPDATE virologyTests SET result = 'Not Available' WHERE result = '' OR result IS NULL;\nUPDATE virologyTests SET result = 'Not Detected' WHERE LOWER(result) IN ('non reactive', 'nonreactive', 'non-reactive');\nUPDATE virologyTests SET result = 'Negative' WHERE result = 'NEGATIVE';\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute \nUPDATE virologyTests SET result = 'Not Detected' WHERE result = 'Not detected';\nUPDATE virologyTests SET result = 'Not Available' WHERE result = '' OR result IS NULL;\nUPDATE virologyTests SET result = 'Not Detected' WHERE LOWER(result) IN ('non reactive', 'nonreactive', 'non-reactive');\nUPDATE virologyTests SET result = 'Negative' WHERE result = 'NEGATIVE';\n",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 2285
+}
