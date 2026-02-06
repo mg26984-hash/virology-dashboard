@@ -213,3 +213,9 @@
 - [x] Add "Download Report" button to dashboard analytics section
 - [x] Audit log the report generation
 - [x] Write tests for dashboard PDF endpoint
+
+## Bug Fix: Nationality Data Normalization
+- [x] Query database to identify all nationality variants/typos (found 7 variants)
+- [x] SQL migration to normalize: KUWAITI/Kuwait/KUWAITT → Kuwaiti, NON KUWAITI/NON KUWAIT/NON → Non-Kuwaiti
+- [x] Add normalizeNationality() to document processing pipeline to prevent future inconsistencies
+- [x] All 86 tests pass after normalization

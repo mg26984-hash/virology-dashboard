@@ -1,0 +1,38 @@
+{
+  "query": "SELECT nationality, COUNT(*) as count FROM patients GROUP BY nationality ORDER BY count DESC;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute SELECT nationality, COUNT(*) as count FROM patients GROUP BY nationality ORDER BY count DESC;",
+  "rows": [
+    {
+      "nationality": "KUWAITI",
+      "count": "180"
+    },
+    {
+      "nationality": "NON KUWAITI",
+      "count": "56"
+    },
+    {
+      "nationality": "Kuwait",
+      "count": "2"
+    },
+    {
+      "nationality": "NON",
+      "count": "1"
+    },
+    {
+      "nationality": "NON KUWAIT",
+      "count": "1"
+    },
+    {
+      "nationality": "KUWAITT",
+      "count": "1"
+    },
+    {
+      "nationality": "NULL",
+      "count": "1"
+    }
+  ],
+  "messages": [],
+  "stdout": "nationality\tcount\nKUWAITI\t180\nNON KUWAITI\t56\nKuwait\t2\nNON\t1\nNON KUWAIT\t1\nKUWAITT\t1\nNULL\t1\n",
+  "stderr": "",
+  "execution_time_ms": 2129
+}

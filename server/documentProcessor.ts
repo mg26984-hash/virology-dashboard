@@ -6,6 +6,25 @@ import {
   checkDuplicateTest
 } from "./db";
 
+/**
+ * Normalize nationality strings to consistent values.
+ * Handles common typos and casing variations from OCR/LLM extraction.
+ */
+function normalizeNationality(value: string | null): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const lower = trimmed.toLowerCase().replace(/[^a-z\s]/g, '').trim();
+  // Kuwaiti variants: kuwaiti, kuwait, kuwaitt, etc.
+  if (/^kuwait[i]?[t]?$/i.test(lower)) return 'Kuwaiti';
+  // Non-Kuwaiti variants: non kuwaiti, non kuwait, non-kuwaiti, etc.
+  if (/^non[\s-]*kuwait[i]?[t]?$/i.test(lower)) return 'Non-Kuwaiti';
+  // Just "non" likely means Non-Kuwaiti
+  if (lower === 'non') return 'Non-Kuwaiti';
+  // For any other nationality, title-case it
+  return trimmed.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+}
+
 export interface ExtractedVirologyData {
   hasTestResults: boolean;
   patient: {
@@ -270,7 +289,7 @@ export async function processUploadedDocument(
       civilId: extracted.patient.civilId,
       name: extracted.patient.name || null,
       dateOfBirth: extracted.patient.dateOfBirth || null,
-      nationality: extracted.patient.nationality || null,
+      nationality: normalizeNationality(extracted.patient.nationality || null),
       gender: extracted.patient.gender || null,
       passportNo: extracted.patient.passportNo || null,
     });
