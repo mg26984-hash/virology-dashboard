@@ -95,3 +95,18 @@
 - [x] Show progress and results of batch reprocessing
 - [x] Allow filtering by status (failed, discarded)
 - [x] Single document reprocess button in failed docs list
+
+
+## CRITICAL: ZIP File Processing Fix
+- [ ] Investigate why ZIP upload fails in browser
+- [ ] Test chunked upload with user's 140MB Virology.zip
+- [ ] Fix any issues with chunk reassembly or processing
+- [ ] Verify complete end-to-end ZIP upload flow works
+
+
+## Progress Bar for Upload/Processing
+- [x] Add visual progress bar component
+- [x] Show upload progress for chunked uploads with chunk count
+- [x] Show processing progress with animated indicator
+- [x] Display progress percentage and status text
+- [x] Show file size in MB format

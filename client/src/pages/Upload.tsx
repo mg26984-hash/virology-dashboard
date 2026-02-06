@@ -30,6 +30,9 @@ interface FileWithPreview {
   isZip?: boolean;
   extractedCount?: number;
   processingStatus?: string;
+  uploadProgress?: number; // 0-100 for upload progress
+  chunksUploaded?: number;
+  totalChunks?: number;
 }
 
 export default function Upload() {
@@ -268,14 +271,28 @@ export default function Upload() {
             const totalChunks = Math.ceil(zipFile.file.size / CHUNK_SIZE);
 
             console.log(`[Upload] Starting chunked upload: ${zipFile.file.name}, ${totalChunks} chunks, ${zipFile.file.size} bytes`);
+            
+            // Set initial progress state
+            setFiles(prev => prev.map(f => 
+              f === zipFile 
+                ? { ...f, status: 'uploading', uploadProgress: 0, chunksUploaded: 0, totalChunks } 
+                : f
+            ));
 
             // Initialize chunked upload
-            await initChunkedUploadMutation.mutateAsync({
-              uploadId,
-              fileName: zipFile.file.name,
-              totalChunks,
-              totalSize: zipFile.file.size,
-            });
+            console.log('[Upload] Calling initChunkedUpload...');
+            try {
+              await initChunkedUploadMutation.mutateAsync({
+                uploadId,
+                fileName: zipFile.file.name,
+                totalChunks,
+                totalSize: zipFile.file.size,
+              });
+              console.log('[Upload] initChunkedUpload successful');
+            } catch (initError) {
+              console.error('[Upload] initChunkedUpload failed:', initError);
+              throw initError;
+            }
 
             // Upload chunks sequentially
             for (let i = 0; i < totalChunks; i++) {
@@ -300,9 +317,16 @@ export default function Upload() {
                 chunkData: chunkBase64,
               });
 
-              // Update progress
+              // Update progress state
               const progress = Math.round(((i + 1) / totalChunks) * 100);
               console.log(`[Upload] Chunk ${i + 1}/${totalChunks} uploaded (${progress}%)`);
+              
+              // Update file progress in state
+              setFiles(prev => prev.map(f => 
+                f === zipFile 
+                  ? { ...f, uploadProgress: progress, chunksUploaded: i + 1 } 
+                  : f
+              ));
             }
 
             // Finalize and process
@@ -681,11 +705,45 @@ export default function Upload() {
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{fileItem.file.name}</p>
                     <p className="text-sm text-muted-foreground">
-                      {(fileItem.file.size / 1024).toFixed(1)} KB
+                      {(fileItem.file.size / 1024 / 1024).toFixed(2)} MB
                       {fileItem.isZip && fileItem.extractedCount && ` • ${fileItem.extractedCount} files extracted`}
                     </p>
+                    
+                    {/* Upload Progress Bar */}
+                    {fileItem.status === 'uploading' && fileItem.uploadProgress !== undefined && (
+                      <div className="mt-2 space-y-1">
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>Uploading{fileItem.totalChunks ? ` (${fileItem.chunksUploaded || 0}/${fileItem.totalChunks} chunks)` : ''}...</span>
+                          <span>{fileItem.uploadProgress}%</span>
+                        </div>
+                        <Progress value={fileItem.uploadProgress} className="h-2" />
+                      </div>
+                    )}
+                    
+                    {/* Processing Progress */}
+                    {fileItem.status === 'processing' && (
+                      <div className="mt-2 space-y-1">
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>Processing document...</span>
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        </div>
+                        <Progress value={undefined} className="h-2 animate-pulse" />
+                      </div>
+                    )}
+                    
+                    {/* Extracting Progress (for ZIP files) */}
+                    {fileItem.status === 'extracting' && (
+                      <div className="mt-2 space-y-1">
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>Extracting ZIP contents...</span>
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        </div>
+                        <Progress value={undefined} className="h-2 animate-pulse" />
+                      </div>
+                    )}
+                    
                     {fileItem.error && (
-                      <p className="text-sm text-destructive">{fileItem.error}</p>
+                      <p className="text-sm text-destructive mt-1">{fileItem.error}</p>
                     )}
                   </div>
 
