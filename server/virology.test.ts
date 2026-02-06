@@ -449,3 +449,167 @@ describe("Processing Stats (ETA)", () => {
     await expect(caller.dashboard.processingStats()).rejects.toThrow();
   });
 });
+
+describe("Export Feature (Admin Only)", () => {
+  it("admin can get filter options", async () => {
+    const adminUser = createMockUser({ role: "admin", status: "approved" });
+    const ctx = createMockContext(adminUser);
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.export.filterOptions();
+    expect(result).toHaveProperty("testTypes");
+    expect(result).toHaveProperty("nationalities");
+    expect(Array.isArray(result.testTypes)).toBe(true);
+    expect(Array.isArray(result.nationalities)).toBe(true);
+  });
+
+  it("non-admin cannot get filter options", async () => {
+    const regularUser = createMockUser({ role: "user", status: "approved" });
+    const ctx = createMockContext(regularUser);
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(caller.export.filterOptions()).rejects.toThrow();
+  });
+
+  it("admin can preview export row count with no filters", async () => {
+    const adminUser = createMockUser({ role: "admin", status: "approved" });
+    const ctx = createMockContext(adminUser);
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.export.preview({});
+    expect(result).toHaveProperty("rowCount");
+    expect(typeof result.rowCount).toBe("number");
+    expect(result.rowCount).toBeGreaterThanOrEqual(0);
+  });
+
+  it("admin can preview export with date filters", async () => {
+    const adminUser = createMockUser({ role: "admin", status: "approved" });
+    const ctx = createMockContext(adminUser);
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.export.preview({
+      dateFrom: "2025-01-01",
+      dateTo: "2026-12-31",
+    });
+    expect(result).toHaveProperty("rowCount");
+    expect(typeof result.rowCount).toBe("number");
+  });
+
+  it("admin can preview export with test type filter", async () => {
+    const adminUser = createMockUser({ role: "admin", status: "approved" });
+    const ctx = createMockContext(adminUser);
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.export.preview({
+      testType: "HBV",
+    });
+    expect(result).toHaveProperty("rowCount");
+    expect(typeof result.rowCount).toBe("number");
+  });
+
+  it("admin can preview export with nationality filter", async () => {
+    const adminUser = createMockUser({ role: "admin", status: "approved" });
+    const ctx = createMockContext(adminUser);
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.export.preview({
+      nationality: "KUWAITI",
+    });
+    expect(result).toHaveProperty("rowCount");
+    expect(typeof result.rowCount).toBe("number");
+  });
+
+  it("admin can preview export with civil ID filter", async () => {
+    const adminUser = createMockUser({ role: "admin", status: "approved" });
+    const ctx = createMockContext(adminUser);
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.export.preview({
+      civilId: "267",
+    });
+    expect(result).toHaveProperty("rowCount");
+    expect(typeof result.rowCount).toBe("number");
+  });
+
+  it("admin can preview export with patient name filter", async () => {
+    const adminUser = createMockUser({ role: "admin", status: "approved" });
+    const ctx = createMockContext(adminUser);
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.export.preview({
+      patientName: "test",
+    });
+    expect(result).toHaveProperty("rowCount");
+    expect(typeof result.rowCount).toBe("number");
+  });
+
+  it("non-admin cannot preview export", async () => {
+    const regularUser = createMockUser({ role: "user", status: "approved" });
+    const ctx = createMockContext(regularUser);
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(caller.export.preview({})).rejects.toThrow();
+  });
+
+  it("admin can generate Excel export", async () => {
+    const adminUser = createMockUser({ role: "admin", status: "approved" });
+    const ctx = createMockContext(adminUser);
+    const caller = appRouter.createCaller(ctx);
+
+    // First check if there's data to export
+    const preview = await caller.export.preview({});
+    
+    if (preview.rowCount > 0) {
+      const result = await caller.export.generate({});
+      expect(result).toHaveProperty("base64");
+      expect(result).toHaveProperty("fileName");
+      expect(result).toHaveProperty("rowCount");
+      expect(result).toHaveProperty("uniquePatients");
+      expect(result.fileName).toMatch(/virology-export-.*\.xlsx$/);
+      expect(result.base64.length).toBeGreaterThan(0);
+      expect(result.rowCount).toBeGreaterThan(0);
+      expect(result.uniquePatients).toBeGreaterThan(0);
+    } else {
+      // No data - should throw NOT_FOUND
+      await expect(caller.export.generate({})).rejects.toThrow();
+    }
+  });
+
+  it("admin can generate filtered Excel export", async () => {
+    const adminUser = createMockUser({ role: "admin", status: "approved" });
+    const ctx = createMockContext(adminUser);
+    const caller = appRouter.createCaller(ctx);
+
+    const preview = await caller.export.preview({
+      dateFrom: "2025-01-01",
+      dateTo: "2026-12-31",
+    });
+
+    if (preview.rowCount > 0) {
+      const result = await caller.export.generate({
+        dateFrom: "2025-01-01",
+        dateTo: "2026-12-31",
+      });
+      expect(result.rowCount).toBeGreaterThan(0);
+      expect(result.base64.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("non-admin cannot generate Excel export", async () => {
+    const regularUser = createMockUser({ role: "user", status: "approved" });
+    const ctx = createMockContext(regularUser);
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(caller.export.generate({})).rejects.toThrow();
+  });
+
+  it("pending user cannot access export features", async () => {
+    const pendingUser = createMockUser({ status: "pending" });
+    const ctx = createMockContext(pendingUser);
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(caller.export.filterOptions()).rejects.toThrow();
+    await expect(caller.export.preview({})).rejects.toThrow();
+    await expect(caller.export.generate({})).rejects.toThrow();
+  });
+});

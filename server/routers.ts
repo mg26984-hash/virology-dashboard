@@ -30,7 +30,11 @@ import {
   getDocumentStats,
   updateDocumentStatus,
   getProcessingStats,
+  getExportData,
+  getDistinctTestTypes,
+  getDistinctNationalities,
 } from "./db";
+import ExcelJS from "exceljs";
 import { processUploadedDocument } from "./documentProcessor";
 
 // Middleware to check if user is approved
@@ -690,6 +694,225 @@ export const appRouter = router({
     processingStats: approvedProcedure.query(async () => {
       return getProcessingStats();
     }),
+  }),
+
+  // Export (admin only)
+  export: router({
+    // Get filter options for the export UI
+    filterOptions: adminProcedure.query(async () => {
+      const [testTypes, nationalities] = await Promise.all([
+        getDistinctTestTypes(),
+        getDistinctNationalities(),
+      ]);
+      return { testTypes, nationalities };
+    }),
+
+    // Preview export row count with current filters
+    preview: adminProcedure
+      .input(z.object({
+        dateFrom: z.string().optional(),
+        dateTo: z.string().optional(),
+        testType: z.string().optional(),
+        nationality: z.string().optional(),
+        civilId: z.string().optional(),
+        patientName: z.string().optional(),
+      }))
+      .query(async ({ input }) => {
+        const data = await getExportData({
+          dateFrom: input.dateFrom ? new Date(input.dateFrom) : undefined,
+          dateTo: input.dateTo ? new Date(input.dateTo) : undefined,
+          testType: input.testType || undefined,
+          nationality: input.nationality || undefined,
+          civilId: input.civilId || undefined,
+          patientName: input.patientName || undefined,
+        });
+        return { rowCount: data.length };
+      }),
+
+    // Generate and return Excel file as base64
+    generate: adminProcedure
+      .input(z.object({
+        dateFrom: z.string().optional(),
+        dateTo: z.string().optional(),
+        testType: z.string().optional(),
+        nationality: z.string().optional(),
+        civilId: z.string().optional(),
+        patientName: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const data = await getExportData({
+          dateFrom: input.dateFrom ? new Date(input.dateFrom) : undefined,
+          dateTo: input.dateTo ? new Date(input.dateTo) : undefined,
+          testType: input.testType || undefined,
+          nationality: input.nationality || undefined,
+          civilId: input.civilId || undefined,
+          patientName: input.patientName || undefined,
+        });
+
+        if (data.length === 0) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "No data matches the selected filters.",
+          });
+        }
+
+        // Build Excel workbook
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = 'Virology Dashboard';
+        workbook.created = new Date();
+
+        // ── Sheet 1: All Test Results ──
+        const ws = workbook.addWorksheet('Test Results', {
+          views: [{ state: 'frozen', ySplit: 1 }],
+        });
+
+        ws.columns = [
+          { header: 'Civil ID', key: 'civilId', width: 16 },
+          { header: 'Patient Name', key: 'patientName', width: 28 },
+          { header: 'Date of Birth', key: 'dateOfBirth', width: 14 },
+          { header: 'Nationality', key: 'nationality', width: 16 },
+          { header: 'Gender', key: 'gender', width: 10 },
+          { header: 'Passport No', key: 'passportNo', width: 16 },
+          { header: 'Test Type', key: 'testType', width: 30 },
+          { header: 'Result', key: 'result', width: 20 },
+          { header: 'Viral Load', key: 'viralLoad', width: 18 },
+          { header: 'Unit', key: 'unit', width: 14 },
+          { header: 'Sample No', key: 'sampleNo', width: 14 },
+          { header: 'Accession No', key: 'accessionNo', width: 14 },
+          { header: 'Department No', key: 'departmentNo', width: 14 },
+          { header: 'Accession Date', key: 'accessionDate', width: 18 },
+          { header: 'Signed By', key: 'signedBy', width: 22 },
+          { header: 'Signed At', key: 'signedAt', width: 18 },
+          { header: 'Location', key: 'location', width: 16 },
+        ];
+
+        // Style header row
+        const headerRow = ws.getRow(1);
+        headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        headerRow.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF1F4E79' },
+        };
+        headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+        headerRow.height = 24;
+
+        // Add data rows
+        for (const row of data) {
+          ws.addRow({
+            civilId: row.civilId,
+            patientName: row.patientName || '',
+            dateOfBirth: row.dateOfBirth || '',
+            nationality: row.nationality || '',
+            gender: row.gender || '',
+            passportNo: row.passportNo || '',
+            testType: row.testType,
+            result: row.result,
+            viralLoad: row.viralLoad || '',
+            unit: row.unit || '',
+            sampleNo: row.sampleNo || '',
+            accessionNo: row.accessionNo || '',
+            departmentNo: row.departmentNo || '',
+            accessionDate: row.accessionDate
+              ? new Date(row.accessionDate).toLocaleDateString('en-GB')
+              : '',
+            signedBy: row.signedBy || '',
+            signedAt: row.signedAt
+              ? new Date(row.signedAt).toLocaleDateString('en-GB')
+              : '',
+            location: row.location || '',
+          });
+        }
+
+        // Apply alternating row colors for readability
+        for (let i = 2; i <= ws.rowCount; i++) {
+          const row = ws.getRow(i);
+          if (i % 2 === 0) {
+            row.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFF2F7FB' },
+            };
+          }
+          row.alignment = { vertical: 'middle' };
+        }
+
+        // Add auto-filter
+        ws.autoFilter = {
+          from: { row: 1, column: 1 },
+          to: { row: ws.rowCount, column: ws.columnCount },
+        };
+
+        // ── Sheet 2: Summary Statistics ──
+        const summaryWs = workbook.addWorksheet('Summary');
+
+        // Count unique patients
+        const uniquePatients = new Set(data.map((d) => d.civilId));
+        // Count by test type
+        const testTypeCounts = new Map<string, number>();
+        for (const row of data) {
+          testTypeCounts.set(row.testType, (testTypeCounts.get(row.testType) || 0) + 1);
+        }
+        // Count by nationality
+        const nationalityCounts = new Map<string, number>();
+        for (const row of data) {
+          const nat = row.nationality || 'Unknown';
+          nationalityCounts.set(nat, (nationalityCounts.get(nat) || 0) + 1);
+        }
+
+        summaryWs.columns = [
+          { header: 'Metric', key: 'metric', width: 30 },
+          { header: 'Value', key: 'value', width: 20 },
+        ];
+
+        const summaryHeader = summaryWs.getRow(1);
+        summaryHeader.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        summaryHeader.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF1F4E79' },
+        };
+        summaryHeader.alignment = { vertical: 'middle', horizontal: 'center' };
+
+        summaryWs.addRow({ metric: 'Total Test Records', value: data.length });
+        summaryWs.addRow({ metric: 'Unique Patients', value: uniquePatients.size });
+        summaryWs.addRow({ metric: '', value: '' });
+        summaryWs.addRow({ metric: '--- Tests by Type ---', value: '' });
+        for (const [type, count] of Array.from(testTypeCounts.entries()).sort((a, b) => b[1] - a[1])) {
+          summaryWs.addRow({ metric: type, value: count });
+        }
+        summaryWs.addRow({ metric: '', value: '' });
+        summaryWs.addRow({ metric: '--- Tests by Nationality ---', value: '' });
+        for (const [nat, count] of Array.from(nationalityCounts.entries()).sort((a, b) => b[1] - a[1])) {
+          summaryWs.addRow({ metric: nat, value: count });
+        }
+
+        // Applied filters info
+        summaryWs.addRow({ metric: '', value: '' });
+        summaryWs.addRow({ metric: '--- Applied Filters ---', value: '' });
+        if (input.dateFrom) summaryWs.addRow({ metric: 'Date From', value: input.dateFrom });
+        if (input.dateTo) summaryWs.addRow({ metric: 'Date To', value: input.dateTo });
+        if (input.testType) summaryWs.addRow({ metric: 'Test Type', value: input.testType });
+        if (input.nationality) summaryWs.addRow({ metric: 'Nationality', value: input.nationality });
+        if (input.civilId) summaryWs.addRow({ metric: 'Civil ID', value: input.civilId });
+        if (input.patientName) summaryWs.addRow({ metric: 'Patient Name', value: input.patientName });
+        summaryWs.addRow({ metric: 'Export Date', value: new Date().toISOString() });
+
+        // Generate buffer
+        const buffer = await workbook.xlsx.writeBuffer();
+        const base64 = Buffer.from(buffer).toString('base64');
+
+        // Generate filename
+        const dateStr = new Date().toISOString().slice(0, 10);
+        const fileName = `virology-export-${dateStr}.xlsx`;
+
+        return {
+          base64,
+          fileName,
+          rowCount: data.length,
+          uniquePatients: uniquePatients.size,
+        };
+      }),
   }),
 });
 

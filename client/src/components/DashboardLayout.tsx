@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Users, Upload, Search, Shield } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, Users, Upload, Search, Shield, FileSpreadsheet } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -201,19 +201,34 @@ function DashboardLayoutContent({
               })}
               {/* Admin Menu Item */}
               {user?.role === 'admin' && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    isActive={location === '/admin/users'}
-                    onClick={() => setLocation('/admin/users')}
-                    tooltip="User Management"
-                    className={`h-10 transition-all font-normal`}
-                  >
-                    <Shield
-                      className={`h-4 w-4 ${location === '/admin/users' ? "text-primary" : ""}`}
-                    />
-                    <span>User Management</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                <>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      isActive={location === '/admin/users'}
+                      onClick={() => setLocation('/admin/users')}
+                      tooltip="User Management"
+                      className={`h-10 transition-all font-normal`}
+                    >
+                      <Shield
+                        className={`h-4 w-4 ${location === '/admin/users' ? "text-primary" : ""}`}
+                      />
+                      <span>User Management</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      isActive={location === '/admin/export'}
+                      onClick={() => setLocation('/admin/export')}
+                      tooltip="Export Data"
+                      className={`h-10 transition-all font-normal`}
+                    >
+                      <FileSpreadsheet
+                        className={`h-4 w-4 ${location === '/admin/export' ? "text-primary" : ""}`}
+                      />
+                      <span>Export Data</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </>
               )}
             </SidebarMenu>
           </SidebarContent>

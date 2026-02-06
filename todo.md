@@ -125,3 +125,17 @@
 - [x] Properly poll backend for real processing status
 - [x] Show ETA based on actual backend processing stats
 - [x] Fix status display to reflect actual upload/processing lifecycle
+
+## Folder Drag-and-Drop Support
+- [x] Support dragging entire folders into the upload zone
+- [x] Recursively extract files from dropped folder entries
+- [x] Filter valid file types (JPEG, PNG, PDF) from folder contents
+- [x] Show folder name in staged files list
+
+## Bulk Excel Export for Admins
+- [x] Create backend endpoint for exporting patients/tests data as Excel
+- [x] Support optional filters: date range, test type, nationality, patient name/ID
+- [x] Generate statistics-friendly Excel with proper formatting
+- [x] Create admin-only Export page with filter UI
+- [x] Add Export page to sidebar navigation (admin only)
+- [x] Include patient info + all test results in export

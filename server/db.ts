@@ -554,3 +554,100 @@ export async function getProcessingStats() {
     completedLast5Min: recentCompletedResult[0]?.count || 0,
   };
 }
+
+
+// ============ EXPORT FUNCTIONS ============
+
+export interface ExportFilters {
+  dateFrom?: Date;
+  dateTo?: Date;
+  testType?: string;
+  nationality?: string;
+  civilId?: string;
+  patientName?: string;
+}
+
+export async function getExportData(filters: ExportFilters) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const conditions = [];
+
+  if (filters.dateFrom) {
+    conditions.push(gte(virologyTests.accessionDate, filters.dateFrom));
+  }
+  if (filters.dateTo) {
+    conditions.push(lte(virologyTests.accessionDate, filters.dateTo));
+  }
+  if (filters.testType) {
+    conditions.push(like(virologyTests.testType, `%${filters.testType}%`));
+  }
+  if (filters.nationality) {
+    conditions.push(like(patients.nationality, `%${filters.nationality}%`));
+  }
+  if (filters.civilId) {
+    conditions.push(like(patients.civilId, `%${filters.civilId}%`));
+  }
+  if (filters.patientName) {
+    conditions.push(like(patients.name, `%${filters.patientName}%`));
+  }
+
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+  // Join patients with their virology tests
+  const results = await db
+    .select({
+      // Patient fields
+      patientId: patients.id,
+      civilId: patients.civilId,
+      patientName: patients.name,
+      dateOfBirth: patients.dateOfBirth,
+      nationality: patients.nationality,
+      gender: patients.gender,
+      passportNo: patients.passportNo,
+      // Test fields
+      testId: virologyTests.id,
+      testType: virologyTests.testType,
+      result: virologyTests.result,
+      viralLoad: virologyTests.viralLoad,
+      unit: virologyTests.unit,
+      sampleNo: virologyTests.sampleNo,
+      accessionNo: virologyTests.accessionNo,
+      departmentNo: virologyTests.departmentNo,
+      accessionDate: virologyTests.accessionDate,
+      signedBy: virologyTests.signedBy,
+      signedAt: virologyTests.signedAt,
+      location: virologyTests.location,
+    })
+    .from(virologyTests)
+    .innerJoin(patients, eq(virologyTests.patientId, patients.id))
+    .where(whereClause)
+    .orderBy(desc(virologyTests.accessionDate));
+
+  return results;
+}
+
+export async function getDistinctTestTypes(): Promise<string[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  const results = await db
+    .selectDistinct({ testType: virologyTests.testType })
+    .from(virologyTests)
+    .orderBy(virologyTests.testType);
+
+  return results.map((r) => r.testType);
+}
+
+export async function getDistinctNationalities(): Promise<string[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  const results = await db
+    .selectDistinct({ nationality: patients.nationality })
+    .from(patients)
+    .where(sql`${patients.nationality} IS NOT NULL AND ${patients.nationality} != ''`)
+    .orderBy(patients.nationality);
+
+  return results.map((r) => r.nationality).filter(Boolean) as string[];
+}

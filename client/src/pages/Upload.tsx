@@ -13,6 +13,7 @@ import {
   Image,
   FileType,
   FileArchive,
+  FolderOpen,
   RefreshCw,
   Timer,
   Clock,
@@ -28,6 +29,8 @@ interface StagedFile {
   file: File;
   preview?: string;
   isZip: boolean;
+  /** If the file came from a dropped folder, store the folder name */
+  folderName?: string;
 }
 
 /** Tracks one upload that is currently in-flight (uploading bytes to server). */
@@ -49,6 +52,36 @@ interface TrackedDocument {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Recursively read all files from a dropped folder via webkitGetAsEntry */
+async function readEntriesRecursively(entry: FileSystemEntry): Promise<File[]> {
+  if (entry.isFile) {
+    return new Promise<File[]>((resolve) => {
+      (entry as FileSystemFileEntry).file((f) => resolve([f]), () => resolve([]));
+    });
+  }
+  if (entry.isDirectory) {
+    const dirReader = (entry as FileSystemDirectoryEntry).createReader();
+    const files: File[] = [];
+    // readEntries returns batches; keep reading until empty
+    const readBatch = (): Promise<void> =>
+      new Promise((resolve) => {
+        dirReader.readEntries(async (entries) => {
+          if (entries.length === 0) return resolve();
+          for (const child of entries) {
+            const childFiles = await readEntriesRecursively(child);
+            files.push(...childFiles);
+          }
+          // Continue reading in case there are more batches
+          await readBatch();
+          resolve();
+        }, () => resolve());
+      });
+    await readBatch();
+    return files;
+  }
+  return [];
+}
 
 function formatETA(ms: number): string {
   if (ms <= 0) return "Almost done…";
@@ -183,19 +216,22 @@ export default function Upload() {
 
   // ── Staging helpers ──
 
-  const addFiles = useCallback((fileList: FileList | File[]) => {
-    const allowed = ["image/jpeg", "image/png", "application/pdf", "application/zip", "application/x-zip-compressed"];
+  const addFiles = useCallback((fileList: FileList | File[], folderName?: string) => {
+    const allowedExts = [".jpg", ".jpeg", ".png", ".pdf", ".zip"];
     const next: StagedFile[] = [];
+    let skipped = 0;
 
     for (const file of Array.from(fileList)) {
+      const ext = file.name.toLowerCase().slice(file.name.lastIndexOf("."));
       const isZip =
         file.type === "application/zip" ||
         file.type === "application/x-zip-compressed" ||
-        file.name.toLowerCase().endsWith(".zip");
+        ext === ".zip";
       const maxMB = isZip ? 200 : 20;
 
-      if (!allowed.includes(file.type) && !isZip) {
-        toast.error(`${file.name}: unsupported type`);
+      // Check by extension (more reliable for folder drops where type may be empty)
+      if (!allowedExts.includes(ext)) {
+        skipped++;
         continue;
       }
       if (file.size > maxMB * 1024 * 1024) {
@@ -203,14 +239,35 @@ export default function Upload() {
         continue;
       }
 
+      // Infer MIME if missing (common with folder drops)
+      let mime = file.type;
+      if (!mime) {
+        if (ext === ".jpg" || ext === ".jpeg") mime = "image/jpeg";
+        else if (ext === ".png") mime = "image/png";
+        else if (ext === ".pdf") mime = "application/pdf";
+        else if (ext === ".zip") mime = "application/zip";
+      }
+
+      // Create a new File with correct MIME if it was missing
+      const finalFile = mime !== file.type ? new File([file], file.name, { type: mime }) : file;
+
       next.push({
-        file,
-        preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined,
+        file: finalFile,
+        preview: mime.startsWith("image/") ? URL.createObjectURL(finalFile) : undefined,
         isZip,
+        folderName,
       });
     }
 
-    setStaged((prev) => [...prev, ...next]);
+    if (next.length > 0) {
+      setStaged((prev) => [...prev, ...next]);
+      if (folderName) {
+        toast.success(`Added ${next.length} file${next.length > 1 ? "s" : ""} from folder "${folderName}"`);
+      }
+    }
+    if (skipped > 0 && folderName) {
+      toast.info(`Skipped ${skipped} unsupported file${skipped > 1 ? "s" : ""} in "${folderName}"`);
+    }
   }, []);
 
   const removeStaged = (idx: number) => {
@@ -412,12 +469,47 @@ export default function Upload() {
     setTracked((prev) => prev.filter((t) => !terminalIds.has(t.documentId)));
   };
 
-  // ── Drag & drop ──
+  // ── Drag & drop (supports folders via webkitGetAsEntry) ──
   const onDrop = useCallback(
-    (e: React.DragEvent) => {
+    async (e: React.DragEvent) => {
       e.preventDefault();
       setIsDragging(false);
-      addFiles(e.dataTransfer.files);
+
+      const items = e.dataTransfer.items;
+      const regularFiles: File[] = [];
+
+      if (items && items.length > 0) {
+        // Check if any item is a directory
+        const entries: { entry: FileSystemEntry; item: DataTransferItem }[] = [];
+        for (let i = 0; i < items.length; i++) {
+          const entry = items[i].webkitGetAsEntry?.();
+          if (entry) entries.push({ entry, item: items[i] });
+        }
+
+        for (const { entry } of entries) {
+          if (entry.isDirectory) {
+            // Recursively read folder contents
+            const folderFiles = await readEntriesRecursively(entry);
+            if (folderFiles.length > 0) {
+              addFiles(folderFiles, entry.name);
+            } else {
+              toast.info(`Folder "${entry.name}" contained no supported files`);
+            }
+          } else if (entry.isFile) {
+            const file = await new Promise<File | null>((resolve) => {
+              (entry as FileSystemFileEntry).file((f) => resolve(f), () => resolve(null));
+            });
+            if (file) regularFiles.push(file);
+          }
+        }
+
+        if (regularFiles.length > 0) {
+          addFiles(regularFiles);
+        }
+      } else {
+        // Fallback for browsers without DataTransferItem support
+        addFiles(e.dataTransfer.files);
+      }
     },
     [addFiles]
   );
@@ -429,6 +521,17 @@ export default function Upload() {
     if (f.file.type === "application/pdf") return <FileType className="h-8 w-8 text-red-400" />;
     return <Image className="h-8 w-8 text-blue-400" />;
   };
+
+  // Group staged files by folder for display
+  const stagedFolders = useMemo(() => {
+    const folders = new Map<string, StagedFile[]>();
+    for (const s of staged) {
+      const key = s.folderName || "__individual__";
+      if (!folders.has(key)) folders.set(key, []);
+      folders.get(key)!.push(s);
+    }
+    return folders;
+  }, [staged]);
 
   const statusBadge = (status: string) => {
     switch (status) {
@@ -524,11 +627,11 @@ export default function Upload() {
               }`}
             />
             <p className="text-lg font-medium mb-1">
-              {isDragging ? "Drop files here" : "Drag & drop files here"}
+              {isDragging ? "Drop files or folders here" : "Drag & drop files or folders here"}
             </p>
             <p className="text-sm text-muted-foreground">or click to browse your computer</p>
             <p className="text-xs text-muted-foreground mt-2">
-              JPEG, PNG, PDF (max 20 MB) · ZIP archives (max 200 MB)
+              JPEG, PNG, PDF (max 20 MB) · ZIP archives (max 200 MB) · Folders with images/PDFs
             </p>
           </div>
         </CardContent>
@@ -572,6 +675,12 @@ export default function Upload() {
                     <p className="text-sm text-muted-foreground">
                       {(s.file.size / 1024 / 1024).toFixed(2)} MB
                       {s.isZip && " · ZIP archive"}
+                      {s.folderName && (
+                        <span className="inline-flex items-center gap-1 ml-2 text-xs text-muted-foreground">
+                          <FolderOpen className="h-3 w-3" />
+                          {s.folderName}
+                        </span>
+                      )}
                     </p>
                   </div>
                   <Button variant="ghost" size="icon" onClick={() => removeStaged(i)} disabled={isUploading}>
@@ -766,6 +875,7 @@ export default function Upload() {
                 <li>• PNG images (.png)</li>
                 <li>• PDF documents (.pdf)</li>
                 <li>• ZIP archives (.zip) containing images/PDFs</li>
+                <li>• Folders (drag & drop entire folders)</li>
               </ul>
             </div>
             <div className="p-4 rounded-lg bg-muted/50">
