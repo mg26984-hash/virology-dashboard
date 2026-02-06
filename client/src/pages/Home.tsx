@@ -82,6 +82,23 @@ function normalizeResultCategory(result: string): 'Positive' | 'Negative' | 'Not
   return 'Not Available';
 }
 
+// Normalize test type names for the bar chart display
+function normalizeTestType(testType: string): string {
+  const t = testType.trim();
+  if (!t || t.length <= 3) return 'Unknown Test';
+  // Truncated/garbage values
+  if (['IgG', 'IgM', 'Ab', 'V Ab'].includes(t)) return 'Unknown Test';
+  // Colon variant
+  if (t === 'Human Immunodeficiency Virus (HIV) RNA: Quantitation (Viral Load)') {
+    return 'Human Immunodeficiency Virus (HIV) RNA Quantitation (Viral Load)';
+  }
+  // Unspecified specimen
+  if (t === 'Polyomaviruses (BKV & JCV) DNA') {
+    return 'Polyomaviruses (BKV & JCV) DNA (Unspecified)';
+  }
+  return t;
+}
+
 // Preset date ranges
 const DATE_PRESETS = [
   { label: "Last 30 days", getValue: () => ({ from: subDays(new Date(), 30), to: new Date() }) },
@@ -197,10 +214,20 @@ export default function Home() {
 
   const formattedTopTests = useMemo(() => {
     if (!topTests) return [];
-    return topTests.map((d: any) => ({
-      ...d,
-      shortName: d.testType.length > 35 ? d.testType.substring(0, 32) + '...' : d.testType,
-    }));
+    // Group by normalized test type name
+    const grouped: Record<string, number> = {};
+    for (const d of topTests) {
+      const normalized = normalizeTestType(d.testType);
+      grouped[normalized] = (grouped[normalized] || 0) + d.count;
+    }
+    return Object.entries(grouped)
+      .map(([testType, count]) => ({
+        testType,
+        count,
+        shortName: testType.length > 35 ? testType.substring(0, 32) + '...' : testType,
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
   }, [topTests]);
 
   const handlePreset = useCallback((preset: typeof DATE_PRESETS[0]) => {

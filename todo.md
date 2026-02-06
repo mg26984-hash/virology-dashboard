@@ -246,10 +246,10 @@
 - [x] Update tests - all 95 tests pass
 
 ## Admin Role Assignment
-- [ ] Backend: add setRole procedure (owner-only) to promote/demote users to admin
-- [ ] Frontend: add role toggle/button on User Management page
-- [ ] Audit log role changes
-- [ ] Write tests for role assignment
+- [x] Backend: setRole procedure (owner-only) already exists from previous work
+- [x] Frontend: Make Admin / Remove Admin button on All Users tab (visible to owner only)
+- [x] Audit log role changes (logged to audit_logs table)
+- [x] auth.me returns isOwner field for frontend gating
 
 ## Pie Chart Result Normalization (Display Only)
 - [x] Group results into Positive/Negative/Not Available in the pie chart frontend code
@@ -262,3 +262,12 @@
 - [ ] Normalize DB: Not Available, R NR IND, empty/null → Not Available
 - [ ] Update normalizeResult() in document processing pipeline
 - [ ] Run tests to verify
+
+## Test Type Bar Chart Normalization (Display Only)
+- [x] Query all distinct test type names and identify variants (59 distinct types found)
+- [x] Add normalizeTestType() function to group variants in bar chart frontend
+- [x] Keep raw database values unchanged
+
+## Bug Fix: Bulk Upload "string didn't match" Error
+- [x] Diagnosed: sending 500 images as base64 in one JSON payload exceeds limits
+- [x] Fixed: rewritten to upload in sequential batches of 3 files with progress toasts

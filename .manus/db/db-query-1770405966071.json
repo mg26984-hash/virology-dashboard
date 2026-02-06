@@ -1,0 +1,246 @@
+{
+  "query": "SELECT testType, COUNT(*) as cnt FROM virologyTests GROUP BY testType ORDER BY cnt DESC",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute SELECT testType, COUNT(*) as cnt FROM virologyTests GROUP BY testType ORDER BY cnt DESC",
+  "rows": [
+    {
+      "testType": "Cytomegalovirus (CMV) DNA in Blood",
+      "cnt": "198"
+    },
+    {
+      "testType": "Polyomaviruses (BKV & JCV) DNA in Blood",
+      "cnt": "135"
+    },
+    {
+      "testType": "Polyomaviruses (BKV & JCV) DNA in Urine",
+      "cnt": "56"
+    },
+    {
+      "testType": "Epstein-Barr Virus (EBV) DNA in Blood",
+      "cnt": "42"
+    },
+    {
+      "testType": "Hepatitis B Virus (HBV) Surface Antigen - HBsAg",
+      "cnt": "40"
+    },
+    {
+      "testType": "Hepatitis C Virus (HCV) Antibody - Anti-HCV",
+      "cnt": "35"
+    },
+    {
+      "testType": "Cytomegalovirus (CMV) IgG Ab",
+      "cnt": "34"
+    },
+    {
+      "testType": "Epstein-Barr Virus (EBV) IgM Ab",
+      "cnt": "33"
+    },
+    {
+      "testType": "Epstein-Barr Virus (EBV) IgG Ab",
+      "cnt": "33"
+    },
+    {
+      "testType": "Human Immunodeficiency Virus (HIV) Ag/Ab",
+      "cnt": "33"
+    },
+    {
+      "testType": "Cytomegalovirus (CMV) IgM Ab",
+      "cnt": "33"
+    },
+    {
+      "testType": "Hepatitis B Virus (HBV) Core Total Antibody - HBcAb Total Ab",
+      "cnt": "32"
+    },
+    {
+      "testType": "Herpes Simplex Virus (HSV) IgM Ab",
+      "cnt": "29"
+    },
+    {
+      "testType": "Varicella Zoster Virus (VZV) IgG Ab",
+      "cnt": "28"
+    },
+    {
+      "testType": "Varicella Zoster Virus (VZV) IgM Ab",
+      "cnt": "25"
+    },
+    {
+      "testType": "Herpes Simplex Virus (HSV) 1 IgG Ab",
+      "cnt": "20"
+    },
+    {
+      "testType": "Herpes Simplex Virus (HSV) 2 IgG Ab",
+      "cnt": "19"
+    },
+    {
+      "testType": "Herpes Simplex Virus (HSV) IgG Ab",
+      "cnt": "12"
+    },
+    {
+      "testType": "Parvovirus B19 DNA in Blood",
+      "cnt": "9"
+    },
+    {
+      "testType": "Hepatitis B Virus (HBV) DNA Quantitation",
+      "cnt": "5"
+    },
+    {
+      "testType": "Hepatitis B Virus (HBV) Surface Antibodies - Anti-HBs",
+      "cnt": "4"
+    },
+    {
+      "testType": "Hepatitis C Virus (HCV) RNA Quantitation in Blood",
+      "cnt": "4"
+    },
+    {
+      "testType": "Influenza B Virus RNA in Nasopharyngeal/Throat Swab",
+      "cnt": "3"
+    },
+    {
+      "testType": "Norovirus",
+      "cnt": "3"
+    },
+    {
+      "testType": "Respiratory Syncytial Virus (RSV) RNA in Nasopharyngeal/Throat Swab",
+      "cnt": "3"
+    },
+    {
+      "testType": "Influenza A Virus RNA in Nasopharyngeal/Throat Swab",
+      "cnt": "3"
+    },
+    {
+      "testType": "Hepatitis B Virus (HBV) e-Antibody - HBeAb",
+      "cnt": "2"
+    },
+    {
+      "testType": "Human Immunodeficiency Virus (HIV) RNA Quantitation (Viral Load)",
+      "cnt": "2"
+    },
+    {
+      "testType": "Parainfluenza Viruses RNA in Nasopharyngeal/Throat Swab",
+      "cnt": "2"
+    },
+    {
+      "testType": "Adenovirus DNA in Nasopharyngeal Swab/Throat Swab",
+      "cnt": "2"
+    },
+    {
+      "testType": "Rotavirus",
+      "cnt": "2"
+    },
+    {
+      "testType": "Hepatitis B Virus (HBV) e-Antigen - HBeAg",
+      "cnt": "2"
+    },
+    {
+      "testType": "Human Metapneumovirus (hMPV) RNA in Nasopharyngeal/Throat Swab",
+      "cnt": "2"
+    },
+    {
+      "testType": "Hepatitis A Virus (HAV) IgM Ab",
+      "cnt": "2"
+    },
+    {
+      "testType": "Hepatitis B Virus (HBV) Core IgM Antibody - HBcAb IgM",
+      "cnt": "2"
+    },
+    {
+      "testType": "Rhinovirus RNA in Nasopharyngeal/Throat Swab",
+      "cnt": "2"
+    },
+    {
+      "testType": "Hepatitis A Virus (HAV) IgG Ab",
+      "cnt": "2"
+    },
+    {
+      "testType": "Respiratory Syncytial Virus (RSV) RNA in sputum",
+      "cnt": "1"
+    },
+    {
+      "testType": "Influenza B Virus RNA in Sputum",
+      "cnt": "1"
+    },
+    {
+      "testType": "Mycop. Pnemoniae in sputum",
+      "cnt": "1"
+    },
+    {
+      "testType": "Boca Virus RNA in sputum",
+      "cnt": "1"
+    },
+    {
+      "testType": "Parainfluenza Viruses RNA in Sputum",
+      "cnt": "1"
+    },
+    {
+      "testType": "Cytomegalovirus (CMV) DNA in Biopsy",
+      "cnt": "1"
+    },
+    {
+      "testType": "",
+      "cnt": "1"
+    },
+    {
+      "testType": "Ab",
+      "cnt": "1"
+    },
+    {
+      "testType": "Human Metapneumovirus (hMPV) RNA in sputum",
+      "cnt": "1"
+    },
+    {
+      "testType": "Rhinovirus RNA in sputum",
+      "cnt": "1"
+    },
+    {
+      "testType": "Coronavirus RNA in sputum",
+      "cnt": "1"
+    },
+    {
+      "testType": "Human Immunodeficiency Virus (HIV) RNA: Quantitation (Viral Load)",
+      "cnt": "1"
+    },
+    {
+      "testType": "Influenza A Virus RNA in Sputum",
+      "cnt": "1"
+    },
+    {
+      "testType": "Boca Virus RNA in Nasopharyngeal swab/Throat swab",
+      "cnt": "1"
+    },
+    {
+      "testType": "V Ab",
+      "cnt": "1"
+    },
+    {
+      "testType": "Human Parechovirus (HPeV) in Nasopharyngeal Swab/Throat Swab",
+      "cnt": "1"
+    },
+    {
+      "testType": "IgM",
+      "cnt": "1"
+    },
+    {
+      "testType": "Mycop. Pnemoniae in Nasopharyngeal swab/Throat swab",
+      "cnt": "1"
+    },
+    {
+      "testType": "Coronavirus RNA in Nasopharyngeal/Throat Swab",
+      "cnt": "1"
+    },
+    {
+      "testType": "Adenovirus DNA in sputum",
+      "cnt": "1"
+    },
+    {
+      "testType": "Polyomaviruses (BKV & JCV) DNA",
+      "cnt": "1"
+    },
+    {
+      "testType": "IgG",
+      "cnt": "1"
+    }
+  ],
+  "messages": [],
+  "stdout": "testType\tcnt\nCytomegalovirus (CMV) DNA in Blood\t198\nPolyomaviruses (BKV & JCV) DNA in Blood\t135\nPolyomaviruses (BKV & JCV) DNA in Urine\t56\nEpstein-Barr Virus (EBV) DNA in Blood\t42\nHepatitis B Virus (HBV) Surface Antigen - HBsAg\t40\nHepatitis C Virus (HCV) Antibody - Anti-HCV\t35\nCytomegalovirus (CMV) IgG Ab\t34\nEpstein-Barr Virus (EBV) IgM Ab\t33\nEpstein-Barr Virus (EBV) IgG Ab\t33\nHuman Immunodeficiency Virus (HIV) Ag/Ab\t33\nCytomegalovirus (CMV) IgM Ab\t33\nHepatitis B Virus (HBV) Core Total Antibody - HBcAb Total Ab\t32\nHerpes Simplex Virus (HSV) IgM Ab\t29\nVaricella Zoster Virus (VZV) IgG Ab\t28\nVaricella Zoster Virus (VZV) IgM Ab\t25\nHerpes Simplex Virus (HSV) 1 IgG Ab\t20\nHerpes Simplex Virus (HSV) 2 IgG Ab\t19\nHerpes Simplex Virus (HSV) IgG Ab\t12\nParvovirus B19 DNA in Blood\t9\nHepatitis B Virus (HBV) DNA Quantitation\t5\nHepatitis B Virus (HBV) Surface Antibodies - Anti-HBs\t4\nHepatitis C Virus (HCV) RNA Quantitation in Blood\t4\nInfluenza B Virus RNA in Nasopharyngeal/Throat Swab\t3\nNorovirus\t3\nRespiratory Syncytial Virus (RSV) RNA in Nasopharyngeal/Throat Swab\t3\nInfluenza A Virus RNA in Nasopharyngeal/Throat Swab\t3\nHepatitis B Virus (HBV) e-Antibody - HBeAb\t2\nHuman Immunodeficiency Virus (HIV) RNA Quantitation (Viral Load)\t2\nParainfluenza Viruses RNA in Nasopharyngeal/Throat Swab\t2\nAdenovirus DNA in Nasopharyngeal Swab/Throat Swab\t2\nRotavirus\t2\nHepatitis B Virus (HBV) e-Antigen - HBeAg\t2\nHuman Metapneumovirus (hMPV) RNA in Nasopharyngeal/Throat Swab\t2\nHepatitis A Virus (HAV) IgM Ab\t2\nHepatitis B Virus (HBV) Core IgM Antibody - HBcAb IgM\t2\nRhinovirus RNA in Nasopharyngeal/Throat Swab\t2\nHepatitis A Virus (HAV) IgG Ab\t2\nRespiratory Syncytial Virus (RSV) RNA in sputum\t1\nInfluenza B Virus RNA in Sputum\t1\nMycop. Pnemoniae in sputum\t1\nBoca Virus RNA in sputum\t1\nParainfluenza Viruses RNA in Sputum\t1\nCytomegalovirus (CMV) DNA in Biopsy\t1\n\t1\nAb\t1\nHuman Metapneumovirus (hMPV) RNA in sputum\t1\nRhinovirus RNA in sputum\t1\nCoronavirus RNA in sputum\t1\nHuman Immunodeficiency Virus (HIV) RNA: Quantitation (Viral Load)\t1\nInfluenza A Virus RNA in Sputum\t1\nBoca Virus RNA in Nasopharyngeal swab/Throat swab\t1\nV Ab\t1\nHuman Parechovirus (HPeV) in Nasopharyngeal Swab/Throat Swab\t1\nIgM\t1\nMycop. Pnemoniae in Nasopharyngeal swab/Throat swab\t1\nCoronavirus RNA in Nasopharyngeal/Throat Swab\t1\nAdenovirus DNA in sputum\t1\nPolyomaviruses (BKV & JCV) DNA\t1\nIgG\t1\n",
+  "stderr": "",
+  "execution_time_ms": 1792
+}

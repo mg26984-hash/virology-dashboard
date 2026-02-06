@@ -393,54 +393,78 @@ export default function Upload() {
           ...regular.map((f) => ({ fileName: f.file.name, phase: "uploading" as const })),
         ]);
 
-        if (regular.length === 1) {
-          const f = regular[0];
-          try {
-            const b64 = await fileToBase64(f.file);
-            const result = await uploadMutation.mutateAsync({
-              fileName: f.file.name,
-              fileData: b64,
-              mimeType: f.file.type,
-              fileSize: f.file.size,
-            });
+        // Upload in sequential batches of 3 to avoid payload size issues
+        const BATCH_SIZE = 3;
+        let totalSuccess = 0;
+        let totalFailed = 0;
 
-            setTracked((prev) => [
-              ...prev,
-              { documentId: result.documentId, fileName: f.file.name, trackedAt: Date.now() },
-            ]);
-            toast.success("File uploaded — processing started");
-          } catch (err) {
-            toast.error(`Upload failed: ${err instanceof Error ? err.message : "unknown"}`);
-          }
-          setActiveUploads((prev) => prev.filter((u) => u.fileName !== f.file.name));
-        } else {
-          // Bulk upload
+        for (let i = 0; i < regular.length; i += BATCH_SIZE) {
+          const batch = regular.slice(i, i + BATCH_SIZE);
+          const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+          const totalBatches = Math.ceil(regular.length / BATCH_SIZE);
+
           try {
-            const filesData = await Promise.all(
-              regular.map(async (f) => ({
+            if (batch.length === 1) {
+              // Single file upload
+              const f = batch[0];
+              const b64 = await fileToBase64(f.file);
+              const result = await uploadMutation.mutateAsync({
                 fileName: f.file.name,
-                fileData: await fileToBase64(f.file),
-                mimeType: f.file.type,
+                fileData: b64,
+                mimeType: f.file.type || mimeFromName(f.file.name),
                 fileSize: f.file.size,
-              }))
-            );
+              });
+              setTracked((prev) => [
+                ...prev,
+                { documentId: result.documentId, fileName: f.file.name, trackedAt: Date.now() },
+              ]);
+              totalSuccess++;
+            } else {
+              // Small batch upload
+              const filesData = await Promise.all(
+                batch.map(async (f) => ({
+                  fileName: f.file.name,
+                  fileData: await fileToBase64(f.file),
+                  mimeType: f.file.type || mimeFromName(f.file.name),
+                  fileSize: f.file.size,
+                }))
+              );
 
-            const result = await bulkUploadMutation.mutateAsync({ files: filesData });
+              const result = await bulkUploadMutation.mutateAsync({ files: filesData });
 
-            const newTracked: TrackedDocument[] = result.results
-              .filter((r) => r.success && r.documentId)
-              .map((r) => ({ documentId: r.documentId!, fileName: r.fileName, trackedAt: Date.now() }));
+              const newTracked: TrackedDocument[] = result.results
+                .filter((r) => r.success && r.documentId)
+                .map((r) => ({ documentId: r.documentId!, fileName: r.fileName, trackedAt: Date.now() }));
 
-            setTracked((prev) => [...prev, ...newTracked]);
-            toast.success(`Uploaded ${result.successful}/${result.total} files`);
-            if (result.failed > 0) toast.error(`${result.failed} files failed to upload`);
+              setTracked((prev) => [...prev, ...newTracked]);
+              totalSuccess += result.successful;
+              totalFailed += result.failed;
+            }
+
+            // Mark this batch's files as done in active uploads
+            const batchNames = new Set(batch.map((f) => f.file.name));
+            setActiveUploads((prev) => prev.filter((u) => !batchNames.has(u.fileName)));
+
+            // Progress toast every 10 batches or on the last batch
+            if (batchNum % 10 === 0 || batchNum === totalBatches) {
+              toast.info(`Upload progress: ${Math.min(i + BATCH_SIZE, regular.length)}/${regular.length} files`);
+            }
           } catch (err) {
-            toast.error(`Bulk upload failed: ${err instanceof Error ? err.message : "unknown"}`);
+            // Mark failed batch files
+            const batchNames = new Set(batch.map((f) => f.file.name));
+            setActiveUploads((prev) => prev.filter((u) => !batchNames.has(u.fileName)));
+            totalFailed += batch.length;
+            console.error(`Batch ${batchNum} failed:`, err);
           }
-          setActiveUploads((prev) =>
-            prev.filter((u) => !regular.some((f) => f.file.name === u.fileName))
-          );
         }
+
+        // Final summary
+        if (totalSuccess > 0) toast.success(`Uploaded ${totalSuccess}/${regular.length} files`);
+        if (totalFailed > 0) toast.error(`${totalFailed} files failed to upload`);
+
+        // Clean up any remaining active uploads
+        const allNames = new Set(regular.map((f) => f.file.name));
+        setActiveUploads((prev) => prev.filter((u) => !allNames.has(u.fileName)));
       }
 
       // Invalidate recent docs
