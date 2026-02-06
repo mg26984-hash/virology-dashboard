@@ -902,28 +902,32 @@ export const appRouter = router({
       return getProcessingStats();
     }),
 
-    // Analytics: test volume by month (last 12 months)
-    testVolumeByMonth: approvedProcedure.query(async () => {
-      return getTestVolumeByMonth();
-    }),
+    // Analytics: test volume by month
+    testVolumeByMonth: approvedProcedure
+      .input(z.object({ from: z.string().optional(), to: z.string().optional() }).optional())
+      .query(async ({ input }) => {
+        return getTestVolumeByMonth(input?.from, input?.to);
+      }),
 
     // Analytics: result distribution (top 10)
-    resultDistribution: approvedProcedure.query(async () => {
-      return getResultDistribution();
-    }),
+    resultDistribution: approvedProcedure
+      .input(z.object({ from: z.string().optional(), to: z.string().optional() }).optional())
+      .query(async ({ input }) => {
+        return getResultDistribution(input?.from, input?.to);
+      }),
 
     // Analytics: top test types by count
     topTestTypes: approvedProcedure
-      .input(z.object({ limit: z.number().min(1).max(20).optional() }).optional())
+      .input(z.object({ limit: z.number().min(1).max(20).optional(), from: z.string().optional(), to: z.string().optional() }).optional())
       .query(async ({ input }) => {
-        return getTopTestTypes(input?.limit ?? 10);
+        return getTopTestTypes(input?.limit ?? 10, input?.from, input?.to);
       }),
 
     // Analytics: tests by nationality
     testsByNationality: approvedProcedure
-      .input(z.object({ limit: z.number().min(1).max(20).optional() }).optional())
+      .input(z.object({ limit: z.number().min(1).max(20).optional(), from: z.string().optional(), to: z.string().optional() }).optional())
       .query(async ({ input }) => {
-        return getTestsByNationality(input?.limit ?? 10);
+        return getTestsByNationality(input?.limit ?? 10, input?.from, input?.to);
       }),
   }),
 

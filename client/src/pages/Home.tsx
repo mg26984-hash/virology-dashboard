@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { 
   Search, 
   Upload, 
@@ -17,9 +19,13 @@ import {
   BarChart3,
   PieChart as PieChartIcon,
   Globe,
+  CalendarIcon,
+  X,
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useLocation } from "wouter";
+import { format, subMonths, subDays } from "date-fns";
+import type { DateRange } from "react-day-picker";
 import {
   AreaChart,
   Area,
@@ -33,24 +39,32 @@ import {
   Cell,
   BarChart,
   Bar,
-  Legend,
 } from "recharts";
 
 // Chart color palette matching the theme
 const CHART_COLORS = [
-  "oklch(0.65 0.18 175)",  // chart-1 teal
-  "oklch(0.6 0.15 200)",   // chart-2 blue
-  "oklch(0.55 0.12 230)",  // chart-3 indigo
-  "oklch(0.7 0.14 150)",   // chart-4 green
-  "oklch(0.75 0.16 100)",  // chart-5 yellow
-  "oklch(0.6 0.18 30)",    // orange
-  "oklch(0.55 0.2 330)",   // pink
-  "oklch(0.65 0.15 280)",  // purple
-  "oklch(0.7 0.1 60)",     // warm
-  "oklch(0.5 0.15 250)",   // deep blue
+  "oklch(0.65 0.18 175)",
+  "oklch(0.6 0.15 200)",
+  "oklch(0.55 0.12 230)",
+  "oklch(0.7 0.14 150)",
+  "oklch(0.75 0.16 100)",
+  "oklch(0.6 0.18 30)",
+  "oklch(0.55 0.2 330)",
+  "oklch(0.65 0.15 280)",
+  "oklch(0.7 0.1 60)",
+  "oklch(0.5 0.15 250)",
 ];
 
-// Custom tooltip for dark theme
+// Preset date ranges
+const DATE_PRESETS = [
+  { label: "Last 30 days", getValue: () => ({ from: subDays(new Date(), 30), to: new Date() }) },
+  { label: "Last 3 months", getValue: () => ({ from: subMonths(new Date(), 3), to: new Date() }) },
+  { label: "Last 6 months", getValue: () => ({ from: subMonths(new Date(), 6), to: new Date() }) },
+  { label: "Last 12 months", getValue: () => ({ from: subMonths(new Date(), 12), to: new Date() }) },
+  { label: "This year", getValue: () => ({ from: new Date(new Date().getFullYear(), 0, 1), to: new Date() }) },
+  { label: "All time", getValue: () => ({ from: undefined as Date | undefined, to: undefined as Date | undefined }) },
+];
+
 function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
@@ -80,18 +94,24 @@ function PieTooltip({ active, payload }: any) {
   );
 }
 
-// Custom label for pie chart
-function renderPieLabel({ name, percent }: any) {
-  if (percent < 0.05) return null;
-  return `${name} (${(percent * 100).toFixed(0)}%)`;
-}
-
 export default function Home() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [activePreset, setActivePreset] = useState("All time");
 
   const isApproved = user?.status === 'approved';
+
+  // Convert date range to string params for API
+  const dateParams = useMemo(() => {
+    if (!dateRange?.from && !dateRange?.to) return undefined;
+    return {
+      from: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined,
+      to: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined,
+    };
+  }, [dateRange]);
 
   const { data: stats } = trpc.dashboard.stats.useQuery(undefined, {
     enabled: isApproved,
@@ -99,10 +119,7 @@ export default function Home() {
 
   const { data: recentDocs } = trpc.documents.recent.useQuery(
     { limit: 5 },
-    { 
-      enabled: isApproved,
-      refetchInterval: 10000,
-    }
+    { enabled: isApproved, refetchInterval: 10000 }
   );
 
   const { data: searchResults } = trpc.patients.search.useQuery(
@@ -110,40 +127,56 @@ export default function Home() {
     { enabled: isApproved && searchQuery.length >= 2 }
   );
 
-  // Analytics queries
-  const { data: volumeData } = trpc.dashboard.testVolumeByMonth.useQuery(undefined, {
+  // Analytics queries with date range
+  const { data: volumeData } = trpc.dashboard.testVolumeByMonth.useQuery(dateParams, {
     enabled: isApproved,
   });
 
-  const { data: resultData } = trpc.dashboard.resultDistribution.useQuery(undefined, {
+  const { data: resultData } = trpc.dashboard.resultDistribution.useQuery(dateParams, {
     enabled: isApproved,
   });
 
-  const { data: topTests } = trpc.dashboard.topTestTypes.useQuery(undefined, {
-    enabled: isApproved,
-  });
+  const { data: topTests } = trpc.dashboard.topTestTypes.useQuery(
+    dateParams ? { ...dateParams } : undefined,
+    { enabled: isApproved }
+  );
 
-  const { data: nationalityData } = trpc.dashboard.testsByNationality.useQuery(undefined, {
-    enabled: isApproved,
-  });
+  const { data: nationalityData } = trpc.dashboard.testsByNationality.useQuery(
+    dateParams ? { ...dateParams } : undefined,
+    { enabled: isApproved }
+  );
 
-  // Format month labels for area chart
   const formattedVolumeData = useMemo(() => {
     if (!volumeData) return [];
-    return volumeData.map(d => ({
+    return volumeData.map((d: any) => ({
       ...d,
       label: new Date(d.month + '-01').toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
     }));
   }, [volumeData]);
 
-  // Truncate long test type names for bar chart
   const formattedTopTests = useMemo(() => {
     if (!topTests) return [];
-    return topTests.map(d => ({
+    return topTests.map((d: any) => ({
       ...d,
       shortName: d.testType.length > 35 ? d.testType.substring(0, 32) + '...' : d.testType,
     }));
   }, [topTests]);
+
+  const handlePreset = useCallback((preset: typeof DATE_PRESETS[0]) => {
+    const value = preset.getValue();
+    setActivePreset(preset.label);
+    if (!value.from && !value.to) {
+      setDateRange(undefined);
+    } else {
+      setDateRange({ from: value.from, to: value.to });
+    }
+    setCalendarOpen(false);
+  }, []);
+
+  const clearDateRange = useCallback(() => {
+    setDateRange(undefined);
+    setActivePreset("All time");
+  }, []);
 
   // Show pending approval message
   if (user?.status === 'pending') {
@@ -169,7 +202,6 @@ export default function Home() {
     );
   }
 
-  // Show banned message
   if (user?.status === 'banned') {
     return (
       <div className="flex items-center justify-center min-h-[80vh]">
@@ -195,18 +227,19 @@ export default function Home() {
     }
   };
 
+  const dateRangeLabel = dateRange?.from
+    ? dateRange.to
+      ? `${format(dateRange.from, 'MMM d, yyyy')} – ${format(dateRange.to, 'MMM d, yyyy')}`
+      : `From ${format(dateRange.from, 'MMM d, yyyy')}`
+    : "All time";
+
   return (
     <div className="space-y-8">
       {/* Hero Search Section */}
       <div className="relative py-12 px-6 rounded-2xl bg-gradient-to-br from-primary/20 via-primary/10 to-transparent border border-primary/20">
         <div className="max-w-2xl mx-auto text-center space-y-6">
-          <h1 className="text-3xl font-bold tracking-tight">
-            Virology Report Search
-          </h1>
-          <p className="text-muted-foreground">
-            Search patients by Civil ID, name, or browse the complete database
-          </p>
-          
+          <h1 className="text-3xl font-bold tracking-tight">Virology Report Search</h1>
+          <p className="text-muted-foreground">Search patients by Civil ID, name, or browse the complete database</p>
           <form onSubmit={handleSearch} className="space-y-3">
             <div className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -218,17 +251,11 @@ export default function Home() {
                 className="pl-12 pr-4 h-14 text-lg bg-background/80 backdrop-blur border-primary/30 focus:border-primary"
               />
             </div>
-            <Button 
-              type="submit" 
-              className="w-full h-12"
-              disabled={!searchQuery.trim()}
-            >
+            <Button type="submit" className="w-full h-12" disabled={!searchQuery.trim()}>
               <Search className="mr-2 h-4 w-4" />
               Search
             </Button>
           </form>
-
-          {/* Quick Search Results */}
           {searchQuery.length >= 2 && searchResults && searchResults.patients.length > 0 && (
             <Card className="absolute left-0 right-0 top-full mt-2 z-50 max-h-80 overflow-auto">
               <CardContent className="p-2">
@@ -240,9 +267,7 @@ export default function Home() {
                   >
                     <div>
                       <p className="font-medium">{patient.name || 'Unknown'}</p>
-                      <p className="text-sm text-muted-foreground">
-                        Civil ID: {patient.civilId}
-                      </p>
+                      <p className="text-sm text-muted-foreground">Civil ID: {patient.civilId}</p>
                     </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </button>
@@ -265,7 +290,6 @@ export default function Home() {
             <p className="text-xs text-muted-foreground">In database</p>
           </CardContent>
         </Card>
-
         <Card className="card-hover cursor-pointer" onClick={() => setLocation('/patients')}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Total Tests</CardTitle>
@@ -276,7 +300,6 @@ export default function Home() {
             <p className="text-xs text-muted-foreground">Virology results</p>
           </CardContent>
         </Card>
-
         <Card className="card-hover cursor-pointer" onClick={() => setLocation('/upload')}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Documents</CardTitle>
@@ -287,7 +310,6 @@ export default function Home() {
             <p className="text-xs text-muted-foreground">Uploaded reports</p>
           </CardContent>
         </Card>
-
         <Card className="card-hover cursor-pointer" onClick={() => setLocation('/upload')}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Pending</CardTitle>
@@ -300,16 +322,74 @@ export default function Home() {
         </Card>
       </div>
 
-      {/* Analytics Charts Row 1: Volume Trend + Result Distribution */}
+      {/* Date Range Picker for Analytics */}
+      <Card>
+        <CardHeader className="pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <CardTitle className="text-lg">Analytics</CardTitle>
+              <CardDescription>{dateRange?.from ? dateRangeLabel : "Showing all-time data"}</CardDescription>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1 flex-wrap">
+                {DATE_PRESETS.map((preset) => (
+                  <Button
+                    key={preset.label}
+                    variant={activePreset === preset.label ? "default" : "outline"}
+                    size="sm"
+                    className="text-xs h-8"
+                    onClick={() => handlePreset(preset)}
+                  >
+                    {preset.label}
+                  </Button>
+                ))}
+              </div>
+              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={activePreset === "Custom" ? "default" : "outline"}
+                    size="sm"
+                    className="text-xs h-8 gap-1.5"
+                  >
+                    <CalendarIcon className="h-3.5 w-3.5" />
+                    Custom
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar
+                    mode="range"
+                    selected={dateRange}
+                    onSelect={(range) => {
+                      setDateRange(range);
+                      setActivePreset("Custom");
+                      if (range?.from && range?.to) {
+                        setCalendarOpen(false);
+                      }
+                    }}
+                    numberOfMonths={2}
+                    disabled={{ after: new Date() }}
+                  />
+                </PopoverContent>
+              </Popover>
+              {dateRange?.from && (
+                <Button variant="ghost" size="sm" className="h-8 px-2" onClick={clearDateRange}>
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* Charts Row 1: Volume Trend + Result Distribution */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Test Volume Trend - Area Chart */}
         <Card className="lg:col-span-2">
           <CardHeader>
             <div className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-primary" />
               <div>
                 <CardTitle>Test Volume Trend</CardTitle>
-                <CardDescription>Monthly test count over the last 12 months</CardDescription>
+                <CardDescription>Monthly test count</CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -324,43 +404,23 @@ export default function Home() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.3 0.02 260)" />
-                  <XAxis
-                    dataKey="label"
-                    tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 12 }}
-                    axisLine={{ stroke: 'oklch(0.3 0.02 260)' }}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 12 }}
-                    axisLine={{ stroke: 'oklch(0.3 0.02 260)' }}
-                    tickLine={false}
-                    allowDecimals={false}
-                  />
+                  <XAxis dataKey="label" tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 12 }} axisLine={{ stroke: 'oklch(0.3 0.02 260)' }} tickLine={false} />
+                  <YAxis tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 12 }} axisLine={{ stroke: 'oklch(0.3 0.02 260)' }} tickLine={false} allowDecimals={false} />
                   <Tooltip content={<ChartTooltip />} />
-                  <Area
-                    type="monotone"
-                    dataKey="count"
-                    name="Tests"
-                    stroke="oklch(0.65 0.18 175)"
-                    strokeWidth={2}
-                    fill="url(#volumeGradient)"
-                    dot={{ fill: 'oklch(0.65 0.18 175)', r: 3 }}
-                    activeDot={{ r: 5, stroke: 'oklch(0.65 0.18 175)', strokeWidth: 2 }}
-                  />
+                  <Area type="monotone" dataKey="count" name="Tests" stroke="oklch(0.65 0.18 175)" strokeWidth={2} fill="url(#volumeGradient)" dot={{ fill: 'oklch(0.65 0.18 175)', r: 3 }} activeDot={{ r: 5, stroke: 'oklch(0.65 0.18 175)', strokeWidth: 2 }} />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
               <div className="flex items-center justify-center h-[280px] text-muted-foreground">
                 <div className="text-center">
                   <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No test data available yet</p>
+                  <p>No test data available for this period</p>
                 </div>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Result Distribution - Donut Chart */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -376,16 +436,7 @@ export default function Home() {
               <div className="space-y-4">
                 <ResponsiveContainer width="100%" height={200}>
                   <PieChart>
-                    <Pie
-                      data={resultData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={85}
-                      paddingAngle={2}
-                      dataKey="count"
-                      nameKey="result"
-                    >
+                    <Pie data={resultData} cx="50%" cy="50%" innerRadius={50} outerRadius={85} paddingAngle={2} dataKey="count" nameKey="result">
                       {resultData.map((_: any, index: number) => (
                         <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                       ))}
@@ -393,18 +444,12 @@ export default function Home() {
                     <Tooltip content={<PieTooltip />} />
                   </PieChart>
                 </ResponsiveContainer>
-                {/* Legend */}
                 <div className="space-y-1.5 max-h-[120px] overflow-y-auto">
                   {resultData.map((item: any, index: number) => (
                     <div key={item.result} className="flex items-center justify-between text-sm">
                       <div className="flex items-center gap-2">
-                        <div
-                          className="w-2.5 h-2.5 rounded-full shrink-0"
-                          style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
-                        />
-                        <span className="text-muted-foreground truncate max-w-[140px]" title={item.result}>
-                          {item.result}
-                        </span>
+                        <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }} />
+                        <span className="text-muted-foreground truncate max-w-[140px]" title={item.result}>{item.result}</span>
                       </div>
                       <span className="font-medium tabular-nums">{item.count.toLocaleString()}</span>
                     </div>
@@ -415,7 +460,7 @@ export default function Home() {
               <div className="flex items-center justify-center h-[280px] text-muted-foreground">
                 <div className="text-center">
                   <PieChartIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No result data available yet</p>
+                  <p>No result data for this period</p>
                 </div>
               </div>
             )}
@@ -423,9 +468,8 @@ export default function Home() {
         </Card>
       </div>
 
-      {/* Analytics Charts Row 2: Top Test Types + Nationality */}
+      {/* Charts Row 2: Top Test Types + Nationality */}
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Top Test Types - Horizontal Bar Chart */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -439,41 +483,20 @@ export default function Home() {
           <CardContent>
             {formattedTopTests.length > 0 ? (
               <ResponsiveContainer width="100%" height={Math.max(280, formattedTopTests.length * 32)}>
-                <BarChart
-                  data={formattedTopTests}
-                  layout="vertical"
-                  margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
-                >
+                <BarChart data={formattedTopTests} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.3 0.02 260)" horizontal={false} />
-                  <XAxis
-                    type="number"
-                    tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 12 }}
-                    axisLine={{ stroke: 'oklch(0.3 0.02 260)' }}
-                    tickLine={false}
-                    allowDecimals={false}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="shortName"
-                    width={200}
-                    tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 11 }}
-                    axisLine={{ stroke: 'oklch(0.3 0.02 260)' }}
-                    tickLine={false}
-                  />
-                  <Tooltip
-                    content={({ active, payload }) => {
-                      if (!active || !payload?.length) return null;
-                      const d = payload[0].payload;
-                      return (
-                        <div className="rounded-lg border bg-card px-3 py-2 shadow-lg max-w-xs">
-                          <p className="text-sm font-medium text-card-foreground break-words">{d.testType}</p>
-                          <p className="text-sm text-muted-foreground">
-                            Count: <span className="font-semibold text-card-foreground">{d.count.toLocaleString()}</span>
-                          </p>
-                        </div>
-                      );
-                    }}
-                  />
+                  <XAxis type="number" tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 12 }} axisLine={{ stroke: 'oklch(0.3 0.02 260)' }} tickLine={false} allowDecimals={false} />
+                  <YAxis type="category" dataKey="shortName" width={200} tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 11 }} axisLine={{ stroke: 'oklch(0.3 0.02 260)' }} tickLine={false} />
+                  <Tooltip content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null;
+                    const d = payload[0].payload;
+                    return (
+                      <div className="rounded-lg border bg-card px-3 py-2 shadow-lg max-w-xs">
+                        <p className="text-sm font-medium text-card-foreground break-words">{d.testType}</p>
+                        <p className="text-sm text-muted-foreground">Count: <span className="font-semibold text-card-foreground">{d.count.toLocaleString()}</span></p>
+                      </div>
+                    );
+                  }} />
                   <Bar dataKey="count" name="Tests" radius={[0, 4, 4, 0]}>
                     {formattedTopTests.map((_: any, index: number) => (
                       <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
@@ -485,14 +508,13 @@ export default function Home() {
               <div className="flex items-center justify-center h-[280px] text-muted-foreground">
                 <div className="text-center">
                   <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No test type data available yet</p>
+                  <p>No test type data for this period</p>
                 </div>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Tests by Nationality - Bar Chart */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -506,27 +528,10 @@ export default function Home() {
           <CardContent>
             {nationalityData && nationalityData.length > 0 ? (
               <ResponsiveContainer width="100%" height={280}>
-                <BarChart
-                  data={nationalityData}
-                  margin={{ top: 5, right: 10, left: 0, bottom: 60 }}
-                >
+                <BarChart data={nationalityData} margin={{ top: 5, right: 10, left: 0, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.3 0.02 260)" />
-                  <XAxis
-                    dataKey="nationality"
-                    tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 11 }}
-                    axisLine={{ stroke: 'oklch(0.3 0.02 260)' }}
-                    tickLine={false}
-                    angle={-45}
-                    textAnchor="end"
-                    interval={0}
-                    height={80}
-                  />
-                  <YAxis
-                    tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 12 }}
-                    axisLine={{ stroke: 'oklch(0.3 0.02 260)' }}
-                    tickLine={false}
-                    allowDecimals={false}
-                  />
+                  <XAxis dataKey="nationality" tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 11 }} axisLine={{ stroke: 'oklch(0.3 0.02 260)' }} tickLine={false} angle={-45} textAnchor="end" interval={0} height={80} />
+                  <YAxis tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 12 }} axisLine={{ stroke: 'oklch(0.3 0.02 260)' }} tickLine={false} allowDecimals={false} />
                   <Tooltip content={<ChartTooltip />} />
                   <Bar dataKey="count" name="Tests" radius={[4, 4, 0, 0]}>
                     {nationalityData.map((_: any, index: number) => (
@@ -539,7 +544,7 @@ export default function Home() {
               <div className="flex items-center justify-center h-[280px] text-muted-foreground">
                 <div className="text-center">
                   <Globe className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No nationality data available yet</p>
+                  <p>No nationality data for this period</p>
                 </div>
               </div>
             )}
@@ -549,60 +554,38 @@ export default function Home() {
 
       {/* Quick Actions & Recent Activity */}
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Quick Actions */}
         <Card>
           <CardHeader>
             <CardTitle>Quick Actions</CardTitle>
             <CardDescription>Common tasks and shortcuts</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3">
-            <Button 
-              variant="outline" 
-              className="justify-start h-auto py-4"
-              onClick={() => setLocation('/upload')}
-            >
+            <Button variant="outline" className="justify-start h-auto py-4" onClick={() => setLocation('/upload')}>
               <Upload className="mr-3 h-5 w-5 text-primary" />
               <div className="text-left">
                 <p className="font-medium">Upload Reports</p>
-                <p className="text-sm text-muted-foreground">
-                  Upload single or bulk virology reports
-                </p>
+                <p className="text-sm text-muted-foreground">Upload single or bulk virology reports</p>
               </div>
             </Button>
-            
-            <Button 
-              variant="outline" 
-              className="justify-start h-auto py-4"
-              onClick={() => setLocation('/patients')}
-            >
+            <Button variant="outline" className="justify-start h-auto py-4" onClick={() => setLocation('/patients')}>
               <Search className="mr-3 h-5 w-5 text-chart-2" />
               <div className="text-left">
                 <p className="font-medium">Browse Patients</p>
-                <p className="text-sm text-muted-foreground">
-                  View all patients and their test history
-                </p>
+                <p className="text-sm text-muted-foreground">View all patients and their test history</p>
               </div>
             </Button>
-
             {user?.role === 'admin' && (
-              <Button 
-                variant="outline" 
-                className="justify-start h-auto py-4"
-                onClick={() => setLocation('/admin/users')}
-              >
+              <Button variant="outline" className="justify-start h-auto py-4" onClick={() => setLocation('/admin/users')}>
                 <Users className="mr-3 h-5 w-5 text-chart-4" />
                 <div className="text-left">
                   <p className="font-medium">User Management</p>
-                  <p className="text-sm text-muted-foreground">
-                    Approve users and manage access
-                  </p>
+                  <p className="text-sm text-muted-foreground">Approve users and manage access</p>
                 </div>
               </Button>
             )}
           </CardContent>
         </Card>
 
-        {/* Recent Documents */}
         <Card>
           <CardHeader>
             <CardTitle>Recent Uploads</CardTitle>
@@ -612,29 +595,19 @@ export default function Home() {
             {recentDocs && recentDocs.length > 0 ? (
               <div className="space-y-3">
                 {recentDocs.map((doc) => (
-                  <div 
-                    key={doc.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
-                  >
+                  <div key={doc.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                     <div className="flex items-center gap-3">
                       <FileText className="h-4 w-4 text-muted-foreground" />
                       <div>
-                        <p className="text-sm font-medium truncate max-w-[200px]">
-                          {doc.fileName}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(doc.createdAt).toLocaleDateString()}
-                        </p>
+                        <p className="text-sm font-medium truncate max-w-[200px]">{doc.fileName}</p>
+                        <p className="text-xs text-muted-foreground">{new Date(doc.createdAt).toLocaleDateString()}</p>
                       </div>
                     </div>
-                    <Badge 
-                      variant={
-                        doc.processingStatus === 'completed' ? 'default' :
-                        doc.processingStatus === 'failed' ? 'destructive' :
-                        doc.processingStatus === 'discarded' ? 'secondary' :
-                        'outline'
-                      }
-                    >
+                    <Badge variant={
+                      doc.processingStatus === 'completed' ? 'default' :
+                      doc.processingStatus === 'failed' ? 'destructive' :
+                      doc.processingStatus === 'discarded' ? 'secondary' : 'outline'
+                    }>
                       {doc.processingStatus}
                     </Badge>
                   </div>

@@ -191,3 +191,12 @@
 - [x] Add "Select All" toggle for current search results
 - [x] Monochrome, printer-friendly design matching single patient PDF
 - [x] Write tests for bulk PDF export endpoint
+
+## Dashboard Date Range Picker
+- [x] Update all four analytics backend endpoints to accept optional from/to date parameters
+- [x] Add preset date range buttons (Last 30 days, 3/6/12 months, This year, All time)
+- [x] Add custom date range picker with calendar popover
+- [x] Wire date range to all chart queries
+- [x] Clear date range button
+- [x] Fix column name bug (accession_date vs accessionDate) in getTestsByNationality
+- [x] Write tests for date range analytics endpoints

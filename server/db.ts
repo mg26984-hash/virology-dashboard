@@ -690,19 +690,32 @@ export async function getDistinctTestValues(): Promise<{ testTypes: string[]; te
 // ============ ANALYTICS / CHART DATA ============
 
 /**
- * Test volume by month – returns the last 12 months of test counts.
+ * Test volume by month – returns test counts grouped by month.
+ * When no date range is provided, returns all-time data.
  */
-export async function getTestVolumeByMonth(): Promise<{ month: string; count: number }[]> {
+export async function getTestVolumeByMonth(from?: string, to?: string): Promise<{ month: string; count: number }[]> {
   const db = await getDb();
   if (!db) return [];
+
+  const conditions = [sql`${virologyTests.accessionDate} IS NOT NULL`];
+  if (from) {
+    conditions.push(sql`${virologyTests.accessionDate} >= ${from}`);
+  }
+  if (to) {
+    conditions.push(sql`${virologyTests.accessionDate} <= ${to}`);
+  }
+  if (!from && !to) {
+    conditions.push(sql`${virologyTests.accessionDate} >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)`);
+  }
+
+  const whereClause = sql.join(conditions, sql` AND `);
 
   const results = await db.execute(sql`
     SELECT 
       DATE_FORMAT(${virologyTests.accessionDate}, '%Y-%m') AS month,
       COUNT(*) AS count
     FROM ${virologyTests}
-    WHERE ${virologyTests.accessionDate} IS NOT NULL
-      AND ${virologyTests.accessionDate} >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+    WHERE ${whereClause}
     GROUP BY month
     ORDER BY month ASC
   `);
@@ -716,16 +729,29 @@ export async function getTestVolumeByMonth(): Promise<{ month: string; count: nu
 /**
  * Result distribution – counts per distinct result value.
  */
-export async function getResultDistribution(): Promise<{ result: string; count: number }[]> {
+export async function getResultDistribution(from?: string, to?: string): Promise<{ result: string; count: number }[]> {
   const db = await getDb();
   if (!db) return [];
+
+  const conditions = [
+    sql`${virologyTests.result} IS NOT NULL`,
+    sql`${virologyTests.result} != ''`,
+  ];
+  if (from) {
+    conditions.push(sql`${virologyTests.accessionDate} >= ${from}`);
+  }
+  if (to) {
+    conditions.push(sql`${virologyTests.accessionDate} <= ${to}`);
+  }
+
+  const whereClause = sql.join(conditions, sql` AND `);
 
   const results = await db.execute(sql`
     SELECT 
       ${virologyTests.result} AS result,
       COUNT(*) AS count
     FROM ${virologyTests}
-    WHERE ${virologyTests.result} IS NOT NULL AND ${virologyTests.result} != ''
+    WHERE ${whereClause}
     GROUP BY result
     ORDER BY count DESC
     LIMIT 10
@@ -740,16 +766,29 @@ export async function getResultDistribution(): Promise<{ result: string; count: 
 /**
  * Top test types by volume.
  */
-export async function getTopTestTypes(limit = 10): Promise<{ testType: string; count: number }[]> {
+export async function getTopTestTypes(limit = 10, from?: string, to?: string): Promise<{ testType: string; count: number }[]> {
   const db = await getDb();
   if (!db) return [];
+
+  const conditions = [
+    sql`${virologyTests.testType} IS NOT NULL`,
+    sql`${virologyTests.testType} != ''`,
+  ];
+  if (from) {
+    conditions.push(sql`${virologyTests.accessionDate} >= ${from}`);
+  }
+  if (to) {
+    conditions.push(sql`${virologyTests.accessionDate} <= ${to}`);
+  }
+
+  const whereClause = sql.join(conditions, sql` AND `);
 
   const results = await db.execute(sql`
     SELECT 
       ${virologyTests.testType} AS testType,
       COUNT(*) AS count
     FROM ${virologyTests}
-    WHERE ${virologyTests.testType} IS NOT NULL AND ${virologyTests.testType} != ''
+    WHERE ${whereClause}
     GROUP BY testType
     ORDER BY count DESC
     LIMIT ${limit}
@@ -764,9 +803,22 @@ export async function getTopTestTypes(limit = 10): Promise<{ testType: string; c
 /**
  * Tests by nationality – top nationalities by test count.
  */
-export async function getTestsByNationality(limit = 10): Promise<{ nationality: string; count: number }[]> {
+export async function getTestsByNationality(limit = 10, from?: string, to?: string): Promise<{ nationality: string; count: number }[]> {
   const db = await getDb();
   if (!db) return [];
+
+  const conditions = [
+    sql`p.nationality IS NOT NULL`,
+    sql`p.nationality != ''`,
+  ];
+  if (from) {
+    conditions.push(sql`vt.accessionDate >= ${from}`);
+  }
+  if (to) {
+    conditions.push(sql`vt.accessionDate <= ${to}`);
+  }
+
+  const whereClause = sql.join(conditions, sql` AND `);
 
   const results = await db.execute(sql`
     SELECT 
@@ -774,7 +826,7 @@ export async function getTestsByNationality(limit = 10): Promise<{ nationality: 
       COUNT(vt.id) AS count
     FROM ${virologyTests} vt
     INNER JOIN ${patients} p ON vt.patientId = p.id
-    WHERE p.nationality IS NOT NULL AND p.nationality != ''
+    WHERE ${whereClause}
     GROUP BY p.nationality
     ORDER BY count DESC
     LIMIT ${limit}
