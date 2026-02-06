@@ -117,3 +117,11 @@
 - [x] Calculate ETA based on pending documents and average time
 - [x] Display estimated time remaining during processing
 - [x] Update ETA dynamically as documents complete
+
+## Upload Page Rewrite (Bug Fix)
+- [x] Rewrite Upload.tsx from scratch - status doesn't correlate with actual processing
+- [x] Use document IDs from backend as single source of truth for status
+- [x] Simplify state management - remove complex local status tracking
+- [x] Properly poll backend for real processing status
+- [x] Show ETA based on actual backend processing stats
+- [x] Fix status display to reflect actual upload/processing lifecycle
