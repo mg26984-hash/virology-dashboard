@@ -7,6 +7,7 @@ import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+import uploadRoutes from "../uploadRoutes";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -36,6 +37,8 @@ async function startServer() {
   app.use(express.raw({ limit: "200mb", type: "*/*" }));
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
+  // Multipart file upload routes (bypasses tRPC for large binary uploads)
+  app.use("/api/upload", uploadRoutes);
   // tRPC API
   app.use(
     "/api/trpc",

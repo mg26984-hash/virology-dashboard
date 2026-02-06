@@ -177,6 +177,35 @@ export async function getPatientById(id: number) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+export async function updatePatientDemographics(
+  patientId: number,
+  updates: {
+    name?: string | null;
+    dateOfBirth?: string | null;
+    nationality?: string | null;
+    gender?: string | null;
+    passportNo?: string | null;
+  }
+): Promise<Patient | undefined> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Build update set with only provided fields
+  const updateSet: Record<string, unknown> = {};
+  if (updates.name !== undefined) updateSet.name = updates.name;
+  if (updates.dateOfBirth !== undefined) updateSet.dateOfBirth = updates.dateOfBirth;
+  if (updates.nationality !== undefined) updateSet.nationality = updates.nationality;
+  if (updates.gender !== undefined) updateSet.gender = updates.gender;
+  if (updates.passportNo !== undefined) updateSet.passportNo = updates.passportNo;
+
+  if (Object.keys(updateSet).length === 0) {
+    return await getPatientById(patientId);
+  }
+
+  await db.update(patients).set(updateSet).where(eq(patients.id, patientId));
+  return await getPatientById(patientId);
+}
+
 export interface SearchPatientsParams {
   query?: string;
   civilId?: string;

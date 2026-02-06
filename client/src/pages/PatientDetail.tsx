@@ -4,6 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   ArrowLeft,
   User,
@@ -15,10 +19,11 @@ import {
   AlertTriangle,
   TrendingUp,
   FileDown,
-  Printer
+  Printer,
+  Pencil
 } from "lucide-react";
 import { useLocation, useParams } from "wouter";
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useState } from "react";
 import { toast } from "sonner";
 import {
   LineChart,
@@ -60,6 +65,53 @@ export default function PatientDetail() {
   );
 
   const isLoading = patientLoading || testsLoading;
+  const isAdmin = user?.role === 'admin';
+
+  // Edit demographics state
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    dateOfBirth: '',
+    nationality: '',
+    gender: '',
+    passportNo: '',
+  });
+
+  const utils = trpc.useUtils();
+  const updateDemographics = trpc.patients.updateDemographics.useMutation({
+    onSuccess: () => {
+      toast.success('Patient demographics updated');
+      utils.patients.getById.invalidate({ id: patientId });
+      setEditOpen(false);
+    },
+    onError: (err) => {
+      toast.error(err.message || 'Failed to update demographics');
+    },
+  });
+
+  const openEditDialog = useCallback(() => {
+    if (patient) {
+      setEditForm({
+        name: patient.name || '',
+        dateOfBirth: patient.dateOfBirth || '',
+        nationality: patient.nationality || '',
+        gender: patient.gender || '',
+        passportNo: patient.passportNo || '',
+      });
+      setEditOpen(true);
+    }
+  }, [patient]);
+
+  const handleSaveEdit = useCallback(() => {
+    updateDemographics.mutate({
+      patientId,
+      name: editForm.name || null,
+      dateOfBirth: editForm.dateOfBirth || null,
+      nationality: editForm.nationality || null,
+      gender: editForm.gender || null,
+      passportNo: editForm.passportNo || null,
+    });
+  }, [patientId, editForm, updateDemographics]);
 
   // PDF generation mutation
   const pdfMutation = trpc.patients.generatePDF.useMutation({
@@ -259,22 +311,32 @@ export default function PatientDetail() {
       {/* Patient Profile Card */}
       <Card>
         <CardHeader>
-          <div className="flex items-start gap-4">
+          <div className="flex flex-col sm:flex-row items-start gap-4">
             <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
               <User className="h-8 w-8 text-primary" />
             </div>
-            <div className="flex-1">
-              <CardTitle className="text-2xl">
+            <div className="flex-1 min-w-0">
+              <CardTitle className="text-xl sm:text-2xl break-words">
                 {patient.name || 'Unknown Patient'}
               </CardTitle>
               <CardDescription className="mt-1">
                 Civil ID: <code className="bg-muted px-2 py-0.5 rounded">{patient.civilId}</code>
               </CardDescription>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
               <Badge variant="outline" className="text-sm">
                 {tests?.length || 0} Test{tests?.length !== 1 ? 's' : ''} on Record
               </Badge>
+              {isAdmin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={openEditDialog}
+                >
+                  <Pencil className="mr-2 h-3.5 w-3.5" />
+                  Edit
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -297,7 +359,7 @@ export default function PatientDetail() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
                 <Calendar className="h-5 w-5 text-muted-foreground" />
@@ -354,7 +416,7 @@ export default function PatientDetail() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-[350px] w-full">
+            <div className="h-[300px] sm:h-[350px] w-full overflow-hidden">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
                   data={chartData.data}
@@ -432,16 +494,16 @@ export default function PatientDetail() {
                   key={test.id}
                   className="p-4 rounded-lg border bg-card"
                 >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-3">
+                    <div className="flex items-start gap-3 min-w-0">
                       <div 
-                        className="w-3 h-3 rounded-full shrink-0"
+                        className="w-3 h-3 rounded-full shrink-0 mt-1.5"
                         style={{ 
                           backgroundColor: TEST_TYPE_COLORS[test.testType] || TEST_TYPE_COLORS.default 
                         }}
                       />
-                      <div>
-                        <h4 className="font-semibold text-lg">{test.testType}</h4>
+                      <div className="min-w-0">
+                        <h4 className="font-semibold text-base sm:text-lg break-words">{test.testType}</h4>
                         <p className="text-sm text-muted-foreground">
                           {test.accessionDate 
                             ? new Date(test.accessionDate).toLocaleDateString('en-US', {
@@ -461,7 +523,7 @@ export default function PatientDetail() {
 
                   <Separator className="my-3" />
 
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
                     <div>
                       <p className="text-sm text-muted-foreground mb-1">Result</p>
                       <p className="font-medium">{test.result}</p>
@@ -477,7 +539,7 @@ export default function PatientDetail() {
                     )}
                   </div>
 
-                  <div className="grid gap-4 md:grid-cols-3 mt-4 pt-3 border-t border-border/50">
+                  <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 mt-4 pt-3 border-t border-border/50">
                     {test.sampleNo && (
                       <div>
                         <p className="text-xs text-muted-foreground">Sample No.</p>
@@ -531,6 +593,89 @@ export default function PatientDetail() {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Demographics Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Patient Demographics</DialogTitle>
+            <DialogDescription>
+              Update patient information. Civil ID cannot be changed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Full Name</Label>
+              <Input
+                id="edit-name"
+                value={editForm.name}
+                onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Patient full name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-dob">Date of Birth</Label>
+              <Input
+                id="edit-dob"
+                value={editForm.dateOfBirth}
+                onChange={(e) => setEditForm(prev => ({ ...prev, dateOfBirth: e.target.value }))}
+                placeholder="e.g. 24/05/1977"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-nationality">Nationality</Label>
+              <Select
+                value={editForm.nationality || 'none'}
+                onValueChange={(val) => setEditForm(prev => ({ ...prev, nationality: val === 'none' ? '' : val }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select nationality" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Not recorded</SelectItem>
+                  <SelectItem value="Kuwaiti">Kuwaiti</SelectItem>
+                  <SelectItem value="Non-Kuwaiti">Non-Kuwaiti</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-gender">Gender</Label>
+              <Select
+                value={editForm.gender || 'none'}
+                onValueChange={(val) => setEditForm(prev => ({ ...prev, gender: val === 'none' ? '' : val }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select gender" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Not recorded</SelectItem>
+                  <SelectItem value="Male">Male</SelectItem>
+                  <SelectItem value="Female">Female</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-passport">Passport No.</Label>
+              <Input
+                id="edit-passport"
+                value={editForm.passportNo}
+                onChange={(e) => setEditForm(prev => ({ ...prev, passportNo: e.target.value }))}
+                placeholder="Passport number"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveEdit} disabled={updateDemographics.isPending}>
+              {updateDemographics.isPending ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</>
+              ) : (
+                'Save Changes'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

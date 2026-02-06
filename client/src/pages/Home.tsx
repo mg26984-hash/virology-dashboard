@@ -23,11 +23,12 @@ import {
   X,
   Download,
   Loader2,
+  ArrowLeftRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useState, useMemo, useCallback } from "react";
 import { useLocation } from "wouter";
-import { format, subMonths, subDays } from "date-fns";
+import { format, subMonths, subDays, subWeeks } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import {
   AreaChart,
@@ -145,6 +146,10 @@ export default function Home() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [activePreset, setActivePreset] = useState("All time");
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareDateRange, setCompareDateRange] = useState<DateRange | undefined>(undefined);
+  const [compareCalendarOpen, setCompareCalendarOpen] = useState(false);
+  const [comparePreset, setComparePreset] = useState("");
 
   const isApproved = user?.status === 'approved';
 
@@ -156,6 +161,14 @@ export default function Home() {
       to: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined,
     };
   }, [dateRange]);
+
+  const compareDateParams = useMemo(() => {
+    if (!compareMode || !compareDateRange?.from) return undefined;
+    return {
+      from: compareDateRange?.from ? format(compareDateRange.from, 'yyyy-MM-dd') : undefined,
+      to: compareDateRange?.to ? format(compareDateRange.to, 'yyyy-MM-dd') : undefined,
+    };
+  }, [compareMode, compareDateRange]);
 
   const { data: stats } = trpc.dashboard.stats.useQuery(undefined, {
     enabled: isApproved,
@@ -203,6 +216,49 @@ export default function Home() {
     dateParams ? { ...dateParams } : undefined,
     { enabled: isApproved }
   );
+
+  // Comparison period queries
+  const { data: compareVolumeData } = trpc.dashboard.testVolumeByMonth.useQuery(compareDateParams, {
+    enabled: isApproved && !!compareDateParams,
+  });
+  const { data: compareRawResultData } = trpc.dashboard.resultDistribution.useQuery(compareDateParams, {
+    enabled: isApproved && !!compareDateParams,
+  });
+  const { data: compareTopTests } = trpc.dashboard.topTestTypes.useQuery(
+    compareDateParams ? { ...compareDateParams } : undefined,
+    { enabled: isApproved && !!compareDateParams }
+  );
+  const { data: compareNationalityData } = trpc.dashboard.testsByNationality.useQuery(
+    compareDateParams ? { ...compareDateParams } : undefined,
+    { enabled: isApproved && !!compareDateParams }
+  );
+
+  // Compute comparison result data
+  const compareResultData = useMemo(() => {
+    if (!compareRawResultData) return undefined;
+    const grouped: Record<string, number> = { Positive: 0, Negative: 0, 'Not Available': 0 };
+    for (const item of compareRawResultData) {
+      const category = normalizeResultCategory(item.result);
+      grouped[category] += item.count;
+    }
+    return Object.entries(grouped)
+      .filter(([, count]) => count > 0)
+      .map(([result, count]) => ({ result, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [compareRawResultData]);
+
+  const compareFormattedTopTests = useMemo(() => {
+    if (!compareTopTests) return [];
+    const grouped: Record<string, number> = {};
+    for (const d of compareTopTests) {
+      const normalized = normalizeTestType(d.testType);
+      grouped[normalized] = (grouped[normalized] || 0) + d.count;
+    }
+    return Object.entries(grouped)
+      .map(([testType, count]) => ({ testType, count, shortName: testType.length > 35 ? testType.substring(0, 32) + '...' : testType }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+  }, [compareTopTests]);
 
   const formattedVolumeData = useMemo(() => {
     if (!volumeData) return [];
@@ -473,181 +529,451 @@ export default function Home() {
                 )}
                 {generateReport.isPending ? 'Generating...' : 'Download Report'}
               </Button>
+              <Button
+                variant={compareMode ? "default" : "outline"}
+                size="sm"
+                className="text-xs h-8 gap-1.5"
+                onClick={() => {
+                  setCompareMode(!compareMode);
+                  if (compareMode) {
+                    setCompareDateRange(undefined);
+                    setComparePreset("");
+                  }
+                }}
+              >
+                <ArrowLeftRight className="h-3.5 w-3.5" />
+                {compareMode ? 'Exit Compare' : 'Compare'}
+              </Button>
             </div>
           </div>
         </CardHeader>
       </Card>
 
+      {/* Compare Period Picker */}
+      {compareMode && (
+        <Card className="border-orange-500/30 bg-orange-500/5">
+          <CardHeader className="pb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <ArrowLeftRight className="h-5 w-5 text-orange-400" />
+                  Comparison Period
+                </CardTitle>
+                <CardDescription>
+                  {compareDateRange?.from
+                    ? compareDateRange.to
+                      ? `${format(compareDateRange.from, 'MMM d, yyyy')} \u2013 ${format(compareDateRange.to, 'MMM d, yyyy')}`
+                      : `From ${format(compareDateRange.from, 'MMM d, yyyy')}`
+                    : "Select a period to compare against"}
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-1 flex-wrap">
+                {[
+                  { label: "Previous 30 days", getValue: () => ({ from: subDays(dateRange?.from ?? new Date(), 30), to: dateRange?.from ?? new Date() }) },
+                  { label: "Previous 3 months", getValue: () => ({ from: subMonths(dateRange?.from ?? new Date(), 3), to: dateRange?.from ?? new Date() }) },
+                  { label: "Previous 6 months", getValue: () => ({ from: subMonths(dateRange?.from ?? new Date(), 6), to: dateRange?.from ?? new Date() }) },
+                  { label: "Previous year", getValue: () => ({ from: subMonths(dateRange?.from ?? new Date(), 12), to: dateRange?.from ?? new Date() }) },
+                ].map((preset) => (
+                  <Button
+                    key={preset.label}
+                    variant={comparePreset === preset.label ? "default" : "outline"}
+                    size="sm"
+                    className="text-xs h-8"
+                    onClick={() => {
+                      const value = preset.getValue();
+                      setCompareDateRange({ from: value.from, to: value.to });
+                      setComparePreset(preset.label);
+                    }}
+                  >
+                    {preset.label}
+                  </Button>
+                ))}
+                <Popover open={compareCalendarOpen} onOpenChange={setCompareCalendarOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant={comparePreset === "Custom" ? "default" : "outline"} size="sm" className="text-xs h-8 gap-1.5">
+                      <CalendarIcon className="h-3.5 w-3.5" />
+                      Custom
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar
+                      mode="range"
+                      selected={compareDateRange}
+                      onSelect={(range) => {
+                        setCompareDateRange(range);
+                        setComparePreset("Custom");
+                        if (range?.from && range?.to) setCompareCalendarOpen(false);
+                      }}
+                      numberOfMonths={2}
+                      disabled={{ after: new Date() }}
+                    />
+                  </PopoverContent>
+                </Popover>
+                {compareDateRange?.from && (
+                  <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => { setCompareDateRange(undefined); setComparePreset(""); }}>
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          </CardHeader>
+        </Card>
+      )}
+
       {/* Charts Row 1: Volume Trend + Result Distribution */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-primary" />
-              <div>
-                <CardTitle>Test Volume Trend</CardTitle>
-                <CardDescription>Monthly test count</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {formattedVolumeData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={280}>
-                <AreaChart data={formattedVolumeData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="volumeGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="oklch(0.65 0.18 175)" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="oklch(0.65 0.18 175)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.3 0.02 260)" />
-                  <XAxis dataKey="label" tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 12 }} axisLine={{ stroke: 'oklch(0.3 0.02 260)' }} tickLine={false} />
-                  <YAxis tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 12 }} axisLine={{ stroke: 'oklch(0.3 0.02 260)' }} tickLine={false} allowDecimals={false} />
-                  <Tooltip content={<ChartTooltip />} />
-                  <Area type="monotone" dataKey="count" name="Tests" stroke="oklch(0.65 0.18 175)" strokeWidth={2} fill="url(#volumeGradient)" dot={{ fill: 'oklch(0.65 0.18 175)', r: 3 }} activeDot={{ r: 5, stroke: 'oklch(0.65 0.18 175)', strokeWidth: 2 }} />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-[280px] text-muted-foreground">
-                <div className="text-center">
-                  <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No test data available for this period</p>
+      {compareMode && compareDateParams ? (
+        <div className="space-y-6">
+          {/* Comparison: Result Distribution side by side */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card className="border-primary/30">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <PieChartIcon className="h-5 w-5 text-primary" />
+                  <div>
+                    <CardTitle className="text-base">Current Period</CardTitle>
+                    <CardDescription>{dateRangeLabel}</CardDescription>
+                  </div>
                 </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <PieChartIcon className="h-5 w-5 text-chart-2" />
-              <div>
-                <CardTitle>Result Distribution</CardTitle>
-                <CardDescription>Positive / Negative / Not Available</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {resultData && resultData.length > 0 ? (
-              <div className="space-y-4">
-                <ResponsiveContainer width="100%" height={200}>
-                  <PieChart>
-                    <Pie data={resultData} cx="50%" cy="50%" innerRadius={50} outerRadius={85} paddingAngle={2} dataKey="count" nameKey="result">
-                      {resultData.map((_: any, index: number) => (
-                        <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip content={<PieTooltip />} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="space-y-1.5 max-h-[120px] overflow-y-auto">
-                  {resultData.map((item: any, index: number) => (
-                    <div key={item.result} className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }} />
-                        <span className="text-muted-foreground truncate max-w-[140px]" title={item.result}>{item.result}</span>
+              </CardHeader>
+              <CardContent>
+                {resultData && resultData.length > 0 ? (
+                  <div className="space-y-3">
+                    {resultData.map((item: any, index: number) => {
+                      const compareItem = compareResultData?.find((c: any) => c.result === item.result);
+                      const diff = compareItem ? item.count - compareItem.count : 0;
+                      const pct = compareItem && compareItem.count > 0 ? ((diff / compareItem.count) * 100).toFixed(1) : null;
+                      return (
+                        <div key={item.result} className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }} />
+                            <span className="text-sm font-medium">{item.result}</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="font-bold tabular-nums text-lg">{item.count.toLocaleString()}</span>
+                            {pct && (
+                              <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${diff > 0 ? 'bg-red-500/20 text-red-400' : diff < 0 ? 'bg-green-500/20 text-green-400' : 'bg-muted text-muted-foreground'}`}>
+                                {diff > 0 ? '+' : ''}{pct}%
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div className="pt-2 border-t border-border">
+                      <div className="flex items-center justify-between text-sm text-muted-foreground">
+                        <span>Total</span>
+                        <span className="font-bold text-foreground">{resultData.reduce((s: number, i: any) => s + i.count, 0).toLocaleString()}</span>
                       </div>
-                      <span className="font-medium tabular-nums">{item.count.toLocaleString()}</span>
                     </div>
-                  ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-8">No data for this period</p>
+                )}
+              </CardContent>
+            </Card>
+            <Card className="border-orange-500/30">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <PieChartIcon className="h-5 w-5 text-orange-400" />
+                  <div>
+                    <CardTitle className="text-base">Comparison Period</CardTitle>
+                    <CardDescription>
+                      {compareDateRange?.from && compareDateRange?.to
+                        ? `${format(compareDateRange.from, 'MMM d, yyyy')} \u2013 ${format(compareDateRange.to, 'MMM d, yyyy')}`
+                        : "Select comparison dates"}
+                    </CardDescription>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center h-[280px] text-muted-foreground">
-                <div className="text-center">
-                  <PieChartIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No result data for this period</p>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Charts Row 2: Top Test Types + Nationality */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-chart-3" />
-              <div>
-                <CardTitle>Top Test Types</CardTitle>
-                <CardDescription>Most frequently ordered tests</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {formattedTopTests.length > 0 ? (
-              <ResponsiveContainer width="100%" height={Math.max(280, formattedTopTests.length * 32)}>
-                <BarChart data={formattedTopTests} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.3 0.02 260)" horizontal={false} />
-                  <XAxis type="number" tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 12 }} axisLine={{ stroke: 'oklch(0.3 0.02 260)' }} tickLine={false} allowDecimals={false} />
-                  <YAxis type="category" dataKey="shortName" width={200} tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 11 }} axisLine={{ stroke: 'oklch(0.3 0.02 260)' }} tickLine={false} />
-                  <Tooltip content={({ active, payload }) => {
-                    if (!active || !payload?.length) return null;
-                    const d = payload[0].payload;
-                    return (
-                      <div className="rounded-lg border bg-card px-3 py-2 shadow-lg max-w-xs">
-                        <p className="text-sm font-medium text-card-foreground break-words">{d.testType}</p>
-                        <p className="text-sm text-muted-foreground">Count: <span className="font-semibold text-card-foreground">{d.count.toLocaleString()}</span></p>
+              </CardHeader>
+              <CardContent>
+                {compareResultData && compareResultData.length > 0 ? (
+                  <div className="space-y-3">
+                    {compareResultData.map((item: any, index: number) => {
+                      const currentItem = resultData?.find((c: any) => c.result === item.result);
+                      const diff = currentItem ? currentItem.count - item.count : 0;
+                      return (
+                        <div key={item.result} className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }} />
+                            <span className="text-sm font-medium">{item.result}</span>
+                          </div>
+                          <span className="font-bold tabular-nums text-lg">{item.count.toLocaleString()}</span>
+                        </div>
+                      );
+                    })}
+                    <div className="pt-2 border-t border-border">
+                      <div className="flex items-center justify-between text-sm text-muted-foreground">
+                        <span>Total</span>
+                        <span className="font-bold text-foreground">{compareResultData.reduce((s: number, i: any) => s + i.count, 0).toLocaleString()}</span>
                       </div>
-                    );
-                  }} />
-                  <Bar dataKey="count" name="Tests" radius={[0, 4, 4, 0]}>
-                    {formattedTopTests.map((_: any, index: number) => (
-                      <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-[280px] text-muted-foreground">
-                <div className="text-center">
-                  <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No test type data for this period</p>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-8">No data for comparison period</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
 
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Globe className="h-5 w-5 text-chart-4" />
-              <div>
-                <CardTitle>Tests by Nationality</CardTitle>
-                <CardDescription>Patient nationality distribution</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {nationalityData && nationalityData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={nationalityData} margin={{ top: 5, right: 10, left: 0, bottom: 60 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.3 0.02 260)" />
-                  <XAxis dataKey="nationality" tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 11 }} axisLine={{ stroke: 'oklch(0.3 0.02 260)' }} tickLine={false} angle={-45} textAnchor="end" interval={0} height={80} />
-                  <YAxis tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 12 }} axisLine={{ stroke: 'oklch(0.3 0.02 260)' }} tickLine={false} allowDecimals={false} />
-                  <Tooltip content={<ChartTooltip />} />
-                  <Bar dataKey="count" name="Tests" radius={[4, 4, 0, 0]}>
-                    {nationalityData.map((_: any, index: number) => (
-                      <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-[280px] text-muted-foreground">
-                <div className="text-center">
-                  <Globe className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No nationality data for this period</p>
+          {/* Comparison: Top Test Types side by side */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card className="border-primary/30">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-primary" />
+                  <div>
+                    <CardTitle className="text-base">Top Tests - Current</CardTitle>
+                    <CardDescription>{dateRangeLabel}</CardDescription>
+                  </div>
                 </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+              </CardHeader>
+              <CardContent>
+                {formattedTopTests.length > 0 ? (
+                  <div className="space-y-2">
+                    {formattedTopTests.slice(0, 8).map((item: any, index: number) => {
+                      const maxCount = formattedTopTests[0]?.count || 1;
+                      const compareItem = compareFormattedTopTests.find((c: any) => c.testType === item.testType);
+                      const diff = compareItem ? item.count - compareItem.count : 0;
+                      const pct = compareItem && compareItem.count > 0 ? ((diff / compareItem.count) * 100).toFixed(0) : null;
+                      return (
+                        <div key={item.testType} className="space-y-1">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground truncate max-w-[200px]" title={item.testType}>{item.shortName}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium tabular-nums">{item.count}</span>
+                              {pct && (
+                                <span className={`text-xs px-1 py-0.5 rounded ${diff > 0 ? 'bg-red-500/20 text-red-400' : diff < 0 ? 'bg-green-500/20 text-green-400' : 'bg-muted text-muted-foreground'}`}>
+                                  {diff > 0 ? '+' : ''}{pct}%
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="h-2 bg-muted rounded-full overflow-hidden">
+                            <div className="h-full rounded-full transition-all" style={{ width: `${(item.count / maxCount) * 100}%`, backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-8">No data</p>
+                )}
+              </CardContent>
+            </Card>
+            <Card className="border-orange-500/30">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-orange-400" />
+                  <div>
+                    <CardTitle className="text-base">Top Tests - Comparison</CardTitle>
+                    <CardDescription>
+                      {compareDateRange?.from && compareDateRange?.to
+                        ? `${format(compareDateRange.from, 'MMM d, yyyy')} \u2013 ${format(compareDateRange.to, 'MMM d, yyyy')}`
+                        : "Comparison period"}
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {compareFormattedTopTests.length > 0 ? (
+                  <div className="space-y-2">
+                    {compareFormattedTopTests.slice(0, 8).map((item: any, index: number) => {
+                      const maxCount = compareFormattedTopTests[0]?.count || 1;
+                      return (
+                        <div key={item.testType} className="space-y-1">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground truncate max-w-[200px]" title={item.testType}>{item.shortName}</span>
+                            <span className="font-medium tabular-nums">{item.count}</span>
+                          </div>
+                          <div className="h-2 bg-muted rounded-full overflow-hidden">
+                            <div className="h-full rounded-full transition-all" style={{ width: `${(item.count / maxCount) * 100}%`, backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-8">No data</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Normal mode: Volume Trend + Result Distribution */}
+          <div className="grid gap-6 lg:grid-cols-3">
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                  <div>
+                    <CardTitle>Test Volume Trend</CardTitle>
+                    <CardDescription>Monthly test count</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {formattedVolumeData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={280}>
+                    <AreaChart data={formattedVolumeData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="volumeGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="oklch(0.65 0.18 175)" stopOpacity={0.4} />
+                          <stop offset="95%" stopColor="oklch(0.65 0.18 175)" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.3 0.02 260)" />
+                      <XAxis dataKey="label" tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 12 }} axisLine={{ stroke: 'oklch(0.3 0.02 260)' }} tickLine={false} />
+                      <YAxis tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 12 }} axisLine={{ stroke: 'oklch(0.3 0.02 260)' }} tickLine={false} allowDecimals={false} />
+                      <Tooltip content={<ChartTooltip />} />
+                      <Area type="monotone" dataKey="count" name="Tests" stroke="oklch(0.65 0.18 175)" strokeWidth={2} fill="url(#volumeGradient)" dot={{ fill: 'oklch(0.65 0.18 175)', r: 3 }} activeDot={{ r: 5, stroke: 'oklch(0.65 0.18 175)', strokeWidth: 2 }} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-[280px] text-muted-foreground">
+                    <div className="text-center">
+                      <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>No test data available for this period</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <PieChartIcon className="h-5 w-5 text-chart-2" />
+                  <div>
+                    <CardTitle>Result Distribution</CardTitle>
+                    <CardDescription>Positive / Negative / Not Available</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {resultData && resultData.length > 0 ? (
+                  <div className="space-y-4">
+                    <ResponsiveContainer width="100%" height={200}>
+                      <PieChart>
+                        <Pie data={resultData} cx="50%" cy="50%" innerRadius={50} outerRadius={85} paddingAngle={2} dataKey="count" nameKey="result">
+                          {resultData.map((_: any, index: number) => (
+                            <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip content={<PieTooltip />} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="space-y-1.5 max-h-[120px] overflow-y-auto">
+                      {resultData.map((item: any, index: number) => (
+                        <div key={item.result} className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }} />
+                            <span className="text-muted-foreground truncate max-w-[140px]" title={item.result}>{item.result}</span>
+                          </div>
+                          <span className="font-medium tabular-nums">{item.count.toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-[280px] text-muted-foreground">
+                    <div className="text-center">
+                      <PieChartIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>No result data for this period</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Normal mode: Top Test Types + Nationality */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-chart-3" />
+                  <div>
+                    <CardTitle>Top Test Types</CardTitle>
+                    <CardDescription>Most frequently ordered tests</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {formattedTopTests.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={Math.max(280, formattedTopTests.length * 32)}>
+                    <BarChart data={formattedTopTests} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.3 0.02 260)" horizontal={false} />
+                      <XAxis type="number" tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 12 }} axisLine={{ stroke: 'oklch(0.3 0.02 260)' }} tickLine={false} allowDecimals={false} />
+                      <YAxis type="category" dataKey="shortName" width={200} tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 11 }} axisLine={{ stroke: 'oklch(0.3 0.02 260)' }} tickLine={false} />
+                      <Tooltip content={({ active, payload }) => {
+                        if (!active || !payload?.length) return null;
+                        const d = payload[0].payload;
+                        return (
+                          <div className="rounded-lg border bg-card px-3 py-2 shadow-lg max-w-xs">
+                            <p className="text-sm font-medium text-card-foreground break-words">{d.testType}</p>
+                            <p className="text-sm text-muted-foreground">Count: <span className="font-semibold text-card-foreground">{d.count.toLocaleString()}</span></p>
+                          </div>
+                        );
+                      }} />
+                      <Bar dataKey="count" name="Tests" radius={[0, 4, 4, 0]}>
+                        {formattedTopTests.map((_: any, index: number) => (
+                          <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-[280px] text-muted-foreground">
+                    <div className="text-center">
+                      <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>No test type data for this period</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Globe className="h-5 w-5 text-chart-4" />
+                  <div>
+                    <CardTitle>Tests by Nationality</CardTitle>
+                    <CardDescription>Patient nationality distribution</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {nationalityData && nationalityData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={280}>
+                    <BarChart data={nationalityData} margin={{ top: 5, right: 10, left: 0, bottom: 60 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.3 0.02 260)" />
+                      <XAxis dataKey="nationality" tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 11 }} axisLine={{ stroke: 'oklch(0.3 0.02 260)' }} tickLine={false} angle={-45} textAnchor="end" interval={0} height={80} />
+                      <YAxis tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 12 }} axisLine={{ stroke: 'oklch(0.3 0.02 260)' }} tickLine={false} allowDecimals={false} />
+                      <Tooltip content={<ChartTooltip />} />
+                      <Bar dataKey="count" name="Tests" radius={[4, 4, 0, 0]}>
+                        {nationalityData.map((_: any, index: number) => (
+                          <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-[280px] text-muted-foreground">
+                    <div className="text-center">
+                      <Globe className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>No nationality data for this period</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
+
 
       {/* Quick Actions & Recent Activity */}
       <div className="grid gap-6 lg:grid-cols-2">

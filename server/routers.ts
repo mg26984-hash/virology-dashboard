@@ -43,6 +43,7 @@ import {
   mergePatients,
   searchPatientsForMerge,
   updateUserRole,
+  updatePatientDemographics,
 } from "./db";
 import { ENV } from './_core/env';
 import ExcelJS from "exceljs";
@@ -788,6 +789,38 @@ export const appRouter = router({
       .input(z.object({ patientId: z.number() }))
       .query(async ({ input }) => {
         return getTestsByPatientId(input.patientId);
+      }),
+
+    updateDemographics: adminProcedure
+      .input(z.object({
+        patientId: z.number(),
+        name: z.string().nullable().optional(),
+        dateOfBirth: z.string().nullable().optional(),
+        nationality: z.string().nullable().optional(),
+        gender: z.string().nullable().optional(),
+        passportNo: z.string().nullable().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const { patientId, ...updates } = input;
+        const existing = await getPatientById(patientId);
+        if (!existing) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Patient not found" });
+        }
+
+        const updated = await updatePatientDemographics(patientId, updates);
+
+        // Audit log
+        await createAuditLog({
+          userId: ctx.user.id,
+          action: 'patient_demographics_updated',
+          metadata: JSON.stringify({
+            patientId,
+            before: { name: existing.name, dateOfBirth: existing.dateOfBirth, nationality: existing.nationality, gender: existing.gender, passportNo: existing.passportNo },
+            after: updates,
+          }),
+        });
+
+        return updated;
       }),
 
     generatePDF: approvedProcedure

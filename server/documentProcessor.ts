@@ -1,6 +1,6 @@
 import { invokeLLM } from "./_core/llm";
-import { 
-  updateDocumentStatus, 
+import { storageDelete } from './storage';
+import { updateDocumentStatus, 
   upsertPatient, 
   createVirologyTest,
   checkDuplicateTest
@@ -282,6 +282,36 @@ export interface ProcessDocumentResult {
   duplicateInfo?: string;
 }
 
+/**
+ * Delete the uploaded file from S3 after processing is complete.
+ * Extracts the file key from the S3 URL and calls storageDelete.
+ * Silently fails if deletion is not possible (non-critical operation).
+ */
+async function deleteProcessedFile(fileUrl: string): Promise<void> {
+  try {
+    // Extract the relative key from the full S3 URL
+    // URLs look like: https://.../<app-id>/virology-reports/...
+    const urlObj = new URL(fileUrl);
+    const pathParts = urlObj.pathname.split('/');
+    // Find 'virology-reports' in the path and take everything from there
+    const reportsIdx = pathParts.findIndex(p => p === 'virology-reports');
+    if (reportsIdx >= 0) {
+      const relKey = pathParts.slice(reportsIdx).join('/');
+      const deleted = await storageDelete(relKey);
+      if (deleted) {
+        console.log(`[DocumentProcessor] Deleted processed file from S3: ${relKey}`);
+      } else {
+        console.log(`[DocumentProcessor] Could not delete file from S3 (non-critical): ${relKey}`);
+      }
+    } else {
+      console.log(`[DocumentProcessor] Could not extract file key from URL: ${fileUrl}`);
+    }
+  } catch (error) {
+    // Non-critical: log and continue
+    console.error(`[DocumentProcessor] Error deleting processed file:`, error);
+  }
+}
+
 export async function processUploadedDocument(
   documentId: number,
   fileUrl: string,
@@ -306,6 +336,8 @@ export async function processUploadedDocument(
         'Document does not contain valid virology test results',
         extracted.rawExtraction
       );
+      // Auto-delete the uploaded file from S3 since it's discarded
+      await deleteProcessedFile(fileUrl);
       return {
         success: false,
         documentId,
@@ -373,6 +405,8 @@ export async function processUploadedDocument(
         `All ${testsSkipped} test(s) already exist in database: ${duplicateTests.join(', ')}`,
         extracted.rawExtraction
       );
+      // Auto-delete the uploaded file from S3 since all tests are duplicates
+      await deleteProcessedFile(fileUrl);
       return {
         success: false,
         documentId,
@@ -385,6 +419,8 @@ export async function processUploadedDocument(
     }
 
     await updateDocumentStatus(documentId, 'completed', undefined, extracted.rawExtraction);
+    // Auto-delete the uploaded file from S3 after successful processing
+    await deleteProcessedFile(fileUrl);
 
     return {
       success: true,

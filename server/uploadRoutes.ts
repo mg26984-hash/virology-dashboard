@@ -1,0 +1,320 @@
+import { Router, Request, Response } from "express";
+import multer from "multer";
+import AdmZip from "adm-zip";
+import { nanoid } from "nanoid";
+import { sdk } from "./_core/sdk";
+import { storagePut } from "./storage";
+import { createDocument, getDocumentById } from "./db";
+import { processUploadedDocument } from "./documentProcessor";
+
+// In-memory storage for multer — files up to 250MB
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage,
+  limits: { fileSize: 250 * 1024 * 1024 }, // 250MB
+});
+
+// Track batch processing progress in memory
+interface BatchProgress {
+  total: number;
+  uploaded: number;
+  processing: number;
+  processed: number;
+  failed: number;
+  documentIds: number[];
+  errors: string[];
+  status: "uploading" | "processing" | "complete" | "error";
+  startedAt: number;
+}
+
+const batchProgress = new Map<string, BatchProgress>();
+
+// Clean up old batch progress entries after 1 hour
+setInterval(() => {
+  const now = Date.now();
+  const keys = Array.from(batchProgress.keys());
+  for (const key of keys) {
+    const val = batchProgress.get(key);
+    if (val && now - val.startedAt > 3600000) {
+      batchProgress.delete(key);
+    }
+  }
+}, 300000);
+
+const router = Router();
+
+/**
+ * POST /api/upload/files
+ * Multipart upload for images/PDFs (up to 500 files at once)
+ */
+router.post("/files", upload.array("files", 500), async (req: Request, res: Response) => {
+  try {
+    const user = await sdk.authenticateRequest(req);
+    if (!user || user.status !== "approved") {
+      res.status(403).json({ error: "Unauthorized or not approved" });
+      return;
+    }
+
+    const files = req.files as Express.Multer.File[];
+    if (!files || files.length === 0) {
+      res.status(400).json({ error: "No files provided" });
+      return;
+    }
+
+    const batchId = nanoid();
+    const allowedTypes = ["image/jpeg", "image/png", "application/pdf"];
+
+    // Filter valid files
+    const validFiles = files.filter((f) => allowedTypes.includes(f.mimetype));
+    if (validFiles.length === 0) {
+      res.status(400).json({ error: "No valid files. Only JPEG, PNG, and PDF are supported." });
+      return;
+    }
+
+    // Initialize progress
+    batchProgress.set(batchId, {
+      total: validFiles.length,
+      uploaded: 0,
+      processing: 0,
+      processed: 0,
+      failed: 0,
+      documentIds: [],
+      errors: [],
+      status: "uploading",
+      startedAt: Date.now(),
+    });
+
+    // Return immediately with batchId — processing happens in background
+    res.json({
+      batchId,
+      total: validFiles.length,
+      skipped: files.length - validFiles.length,
+      message: "Upload started. Poll /api/upload/progress/:batchId for status.",
+    });
+
+    // Process files in background
+    processFileBatch(batchId, validFiles, user.id).catch((err) => {
+      console.error(`[Upload] Batch ${batchId} failed:`, err);
+      const progress = batchProgress.get(batchId);
+      if (progress) {
+        progress.status = "error";
+        progress.errors.push(err.message || "Batch processing failed");
+      }
+    });
+  } catch (error) {
+    console.error("[Upload] Error:", error);
+    res.status(500).json({ error: error instanceof Error ? error.message : "Upload failed" });
+  }
+});
+
+/**
+ * POST /api/upload/zip
+ * Single ZIP file upload, extracted and processed server-side
+ */
+router.post("/zip", upload.single("file"), async (req: Request, res: Response) => {
+  try {
+    const user = await sdk.authenticateRequest(req);
+    if (!user || user.status !== "approved") {
+      res.status(403).json({ error: "Unauthorized or not approved" });
+      return;
+    }
+
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({ error: "No file provided" });
+      return;
+    }
+
+    const batchId = nanoid();
+    const allowedExtensions = [".jpg", ".jpeg", ".png", ".pdf"];
+
+    // Extract ZIP
+    let zip: AdmZip;
+    try {
+      zip = new AdmZip(file.buffer);
+    } catch (e) {
+      res.status(400).json({ error: "Invalid ZIP file" });
+      return;
+    }
+
+    const zipEntries = zip.getEntries();
+
+    // Filter valid entries
+    const validEntries = zipEntries.filter((entry) => {
+      if (entry.isDirectory) return false;
+      const fileName = entry.entryName.split("/").pop() || "";
+      if (fileName.startsWith(".") || entry.entryName.includes("__MACOSX")) return false;
+      const ext = fileName.toLowerCase().slice(fileName.lastIndexOf("."));
+      return allowedExtensions.includes(ext);
+    });
+
+    if (validEntries.length === 0) {
+      res.status(400).json({ error: "No valid files found in ZIP. Only JPEG, PNG, and PDF files are supported." });
+      return;
+    }
+
+    // Initialize progress
+    batchProgress.set(batchId, {
+      total: validEntries.length,
+      uploaded: 0,
+      processing: 0,
+      processed: 0,
+      failed: 0,
+      documentIds: [],
+      errors: [],
+      status: "uploading",
+      startedAt: Date.now(),
+    });
+
+    // Return immediately
+    res.json({
+      batchId,
+      total: validEntries.length,
+      zipFileName: file.originalname,
+      message: "ZIP uploaded. Extracting and processing files. Poll /api/upload/progress/:batchId for status.",
+    });
+
+    // Process ZIP entries in background
+    processZipBatch(batchId, validEntries, user.id).catch((err) => {
+      console.error(`[Upload] ZIP batch ${batchId} failed:`, err);
+      const progress = batchProgress.get(batchId);
+      if (progress) {
+        progress.status = "error";
+        progress.errors.push(err.message || "ZIP processing failed");
+      }
+    });
+  } catch (error) {
+    console.error("[Upload] ZIP error:", error);
+    res.status(500).json({ error: error instanceof Error ? error.message : "ZIP upload failed" });
+  }
+});
+
+/**
+ * GET /api/upload/progress/:batchId
+ * Poll processing progress
+ */
+router.get("/progress/:batchId", async (req: Request, res: Response) => {
+  try {
+    const user = await sdk.authenticateRequest(req);
+    if (!user) {
+      res.status(403).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const progress = batchProgress.get(req.params.batchId);
+    if (!progress) {
+      res.status(404).json({ error: "Batch not found" });
+      return;
+    }
+
+    res.json(progress);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to get progress" });
+  }
+});
+
+// ---- Background processing functions ----
+
+async function processFileBatch(batchId: string, files: Express.Multer.File[], userId: number) {
+  const progress = batchProgress.get(batchId)!;
+  progress.status = "processing";
+
+  // Process files sequentially in batches of 3 to avoid overwhelming the server
+  const BATCH_SIZE = 3;
+  for (let i = 0; i < files.length; i += BATCH_SIZE) {
+    const batch = files.slice(i, i + BATCH_SIZE);
+    await Promise.all(
+      batch.map(async (file) => {
+        try {
+          progress.processing++;
+          const fileKey = `virology-reports/${userId}/${nanoid()}-${file.originalname}`;
+          const { url } = await storagePut(fileKey, file.buffer, file.mimetype);
+          progress.uploaded++;
+
+          const document = await createDocument({
+            uploadedBy: userId,
+            fileName: file.originalname,
+            fileKey,
+            fileUrl: url,
+            mimeType: file.mimetype,
+            fileSize: file.size,
+            processingStatus: "pending",
+          });
+
+          progress.documentIds.push(document.id);
+
+          // Process OCR inline (not setImmediate) so we can track progress
+          try {
+            await processUploadedDocument(document.id, url, file.mimetype);
+            progress.processed++;
+          } catch (err) {
+            progress.failed++;
+            progress.errors.push(`${file.originalname}: OCR failed`);
+          }
+        } catch (err) {
+          progress.failed++;
+          progress.errors.push(`${file.originalname}: ${err instanceof Error ? err.message : "Failed"}`);
+        }
+      })
+    );
+  }
+
+  progress.status = "complete";
+}
+
+async function processZipBatch(batchId: string, entries: AdmZip.IZipEntry[], userId: number) {
+  const progress = batchProgress.get(batchId)!;
+  progress.status = "processing";
+
+  const BATCH_SIZE = 3;
+  for (let i = 0; i < entries.length; i += BATCH_SIZE) {
+    const batch = entries.slice(i, i + BATCH_SIZE);
+    await Promise.all(
+      batch.map(async (entry) => {
+        const fileName = entry.entryName.split("/").pop() || entry.entryName;
+        try {
+          progress.processing++;
+          const fileBuffer = entry.getData();
+          const ext = fileName.toLowerCase().slice(fileName.lastIndexOf("."));
+
+          let mimeType = "application/octet-stream";
+          if (ext === ".jpg" || ext === ".jpeg") mimeType = "image/jpeg";
+          else if (ext === ".png") mimeType = "image/png";
+          else if (ext === ".pdf") mimeType = "application/pdf";
+
+          const fileKey = `virology-reports/${userId}/${nanoid()}-${fileName}`;
+          const { url } = await storagePut(fileKey, fileBuffer, mimeType);
+          progress.uploaded++;
+
+          const document = await createDocument({
+            uploadedBy: userId,
+            fileName,
+            fileKey,
+            fileUrl: url,
+            mimeType,
+            fileSize: fileBuffer.length,
+            processingStatus: "pending",
+          });
+
+          progress.documentIds.push(document.id);
+
+          // Process OCR inline
+          try {
+            await processUploadedDocument(document.id, url, mimeType);
+            progress.processed++;
+          } catch (err) {
+            progress.failed++;
+            progress.errors.push(`${fileName}: OCR failed`);
+          }
+        } catch (err) {
+          progress.failed++;
+          progress.errors.push(`${fileName}: ${err instanceof Error ? err.message : "Failed"}`);
+        }
+      })
+    );
+  }
+
+  progress.status = "complete";
+}
+
+export default router;

@@ -92,6 +92,28 @@ export async function storagePut(
   return { key, url };
 }
 
+export async function storageDelete(relKey: string): Promise<boolean> {
+  try {
+    const { baseUrl, apiKey } = getStorageConfig();
+    const key = normalizeKey(relKey);
+    const url = new URL("v1/storage/delete", ensureTrailingSlash(baseUrl));
+    url.searchParams.set("path", key);
+    const response = await fetch(url, {
+      method: "DELETE",
+      headers: buildAuthHeaders(apiKey),
+    });
+    if (!response.ok) {
+      // Try alternative: upload empty content to overwrite
+      console.log(`[Storage] Delete API returned ${response.status}, file may not support direct delete`);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error(`[Storage] Failed to delete ${relKey}:`, error);
+    return false;
+  }
+}
+
 export async function storageGet(relKey: string): Promise<{ key: string; url: string; }> {
   const { baseUrl, apiKey } = getStorageConfig();
   const key = normalizeKey(relKey);

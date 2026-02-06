@@ -271,3 +271,46 @@
 ## Bug Fix: Bulk Upload "string didn't match" Error
 - [x] Diagnosed: sending 500 images as base64 in one JSON payload exceeds limits
 - [x] Fixed: rewritten to upload in sequential batches of 3 files with progress toasts
+
+## Upload Progress Bar
+- [x] Add visual progress bar component showing "X/Y files uploaded" during bulk upload
+- [x] Replace periodic toast notifications with persistent progress UI
+- [x] Show estimated time remaining based on upload rate
+
+## Patient Data Edit Form (Admin)
+- [x] Backend: add updateDemographics procedure (admin-only) with audit logging
+- [x] Frontend: edit button + dialog on patient detail page for name, DOB, nationality, gender, passport
+- [x] Audit log demographic changes (before/after stored in metadata)lds (only Civil ID required)
+- [ ] Log edits to audit trail
+
+## Date Range Comparison View
+- [x] Add comparison mode toggle on dashboard analytics section
+- [x] Allow selecting two date ranges side-by-side with preset options
+- [x] Show comparative stats (result distribution, top test types) for both periods
+- [x] Show percentage change indicators between periods
+
+## Bug Fix: Mobile Layout - Test Types Overlapping Patient Demographics
+- [x] Fix patient detail page mobile layout - header stacks vertically on mobile
+- [x] Ensure proper stacking/separation of sections on mobile (break-words, min-w-0, overflow-hidden) (break-words, min-w-0, overflow-hidden)
+
+## Complete Upload System Rebuild
+- [x] Server: add multipart upload endpoint (multer) for raw binary file uploads
+- [x] Server: add server-side ZIP extraction with adm-zip
+- [x] Server: process extracted files sequentially with progress tracking
+- [x] Server: support up to 200MB ZIP files and 500+ images
+- [x] Frontend: replace base64 tRPC upload with multipart HTTP fetch
+- [x] Frontend: add real-time progress bar (upload + processing phases)
+- [x] Frontend: automatic retry on network failure
+- [x] Frontend: support drag-and-drop for ZIP and bulk images
+
+## Auto-Delete Processed Images from Storage
+- [x] Added storageDelete function to storage.ts
+- [x] Delete uploaded images from S3 after document processing completes (completed or discarded)
+- [x] Ensure deletion happens in the document processing pipeline after OCR extraction
+- [x] Keep database records intact, only remove the S3 file bytes
+
+## Light Medical Theme Option
+- [x] Add a light theme with clinical white/teal color palette (oklch values)
+- [x] Add theme toggle button in sidebar (Sun/Moon icon)
+- [x] Persist theme preference in localStorage via ThemeProvider switchable mode
+- [x] Ensure all components are readable in both dark and light themes

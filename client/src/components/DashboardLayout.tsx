@@ -21,11 +21,12 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Users, Upload, Search, Shield, FileSpreadsheet, ClipboardList, GitMerge } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, Users, Upload, Search, Shield, FileSpreadsheet, ClipboardList, GitMerge, Sun, Moon } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
+import { useTheme } from "@/contexts/ThemeContext";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
@@ -37,6 +38,27 @@ const SIDEBAR_WIDTH_KEY = "sidebar-width";
 const DEFAULT_WIDTH = 280;
 const MIN_WIDTH = 200;
 const MAX_WIDTH = 480;
+
+function ThemeToggleButton() {
+  const { theme, toggleTheme } = useTheme();
+  if (!toggleTheme) return null;
+  return (
+    <button
+      onClick={toggleTheme}
+      className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors w-full group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
+      aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+    >
+      {theme === 'dark' ? (
+        <Sun className="h-4 w-4 shrink-0" />
+      ) : (
+        <Moon className="h-4 w-4 shrink-0" />
+      )}
+      <span className="group-data-[collapsible=icon]:hidden">
+        {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+      </span>
+    </button>
+  );
+}
 
 export default function DashboardLayout({
   children,
@@ -260,6 +282,9 @@ function DashboardLayoutContent({
           </SidebarContent>
 
           <SidebarFooter className="p-3">
+            <div className="flex items-center justify-center mb-2 group-data-[collapsible=icon]:mb-1">
+              <ThemeToggleButton />
+            </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-3 rounded-lg px-1 py-1 hover:bg-accent/50 transition-colors w-full text-left group-data-[collapsible=icon]:justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
