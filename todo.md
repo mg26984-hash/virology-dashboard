@@ -238,3 +238,9 @@
 - [x] Frontend: manual search to find and merge any two patients
 - [x] Add Patient Merge page to sidebar navigation (admin only)
 - [x] Write tests for duplicate detection and merge endpoints (9 tests, all passing)
+
+## Duplicate Detection: Civil ID Only
+- [x] Remove name-based and DOB+name matching from findDuplicatePatients()
+- [x] Keep only Civil ID similarity detection (normalized comparison)
+- [x] Update frontend badges to reflect Civil ID-only matching
+- [x] Update tests - all 95 tests pass

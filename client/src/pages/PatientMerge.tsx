@@ -51,7 +51,7 @@ type Patient = {
 type DuplicateCandidate = {
   patient1: Patient;
   patient2: Patient;
-  matchType: "civil_id" | "name" | "dob_name";
+  matchType: "civil_id";
   similarity: number;
   reason: string;
 };
@@ -243,16 +243,7 @@ export default function PatientMerge() {
   };
 
   const matchTypeBadge = (type: string) => {
-    switch (type) {
-      case "civil_id":
-        return <Badge variant="destructive" className="text-xs">Civil ID Match</Badge>;
-      case "name":
-        return <Badge variant="default" className="bg-amber-600 text-xs">Name Match</Badge>;
-      case "dob_name":
-        return <Badge variant="default" className="bg-blue-600 text-xs">DOB + Name</Badge>;
-      default:
-        return null;
-    }
+    return <Badge variant="destructive" className="text-xs">Civil ID Match</Badge>;
   };
 
   return (

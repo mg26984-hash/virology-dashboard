@@ -844,16 +844,15 @@ export async function getTestsByNationality(limit = 10, from?: string, to?: stri
 export interface DuplicateCandidate {
   patient1: Patient;
   patient2: Patient;
-  matchType: 'civil_id' | 'name' | 'dob_name';
+  matchType: 'civil_id';
   similarity: number; // 0-100
   reason: string;
 }
 
 /**
- * Find potential duplicate patients using multiple matching strategies:
- * 1. Similar Civil IDs (ignoring spaces, dashes, leading zeros)
- * 2. Similar names (exact match after normalization, or partial match)
- * 3. Same DOB + similar name
+ * Find potential duplicate patients based on Civil ID similarities.
+ * Compares normalized Civil IDs (ignoring spaces, dashes, leading zeros)
+ * to detect records that may refer to the same patient.
  */
 export async function findDuplicatePatients(): Promise<DuplicateCandidate[]> {
   const db = await getDb();
@@ -864,90 +863,41 @@ export async function findDuplicatePatients(): Promise<DuplicateCandidate[]> {
   const duplicates: DuplicateCandidate[] = [];
   const seen = new Set<string>();
 
-  for (let i = 0; i < allPatients.length; i++) {
-    for (let j = i + 1; j < allPatients.length; j++) {
-      const p1 = allPatients[i];
-      const p2 = allPatients[j];
-      const pairKey = `${Math.min(p1.id, p2.id)}-${Math.max(p1.id, p2.id)}`;
-      if (seen.has(pairKey)) continue;
+  // Group patients by normalized Civil ID for efficient comparison
+  const cidGroups = new Map<string, typeof allPatients>();
+  for (const p of allPatients) {
+    const normCid = normalizeCivilId(p.civilId);
+    if (!normCid) continue;
+    const group = cidGroups.get(normCid) || [];
+    group.push(p);
+    cidGroups.set(normCid, group);
+  }
 
-      // Strategy 1: Similar Civil IDs (strip spaces, dashes, leading zeros)
-      const normCid1 = normalizeCivilId(p1.civilId);
-      const normCid2 = normalizeCivilId(p2.civilId);
-      if (normCid1 && normCid2 && normCid1 === normCid2 && p1.civilId !== p2.civilId) {
+  // Find groups with more than one patient (exact normalized CID match)
+  for (const [normCid, group] of Array.from(cidGroups.entries())) {
+    if (group.length < 2) continue;
+    for (let i = 0; i < group.length; i++) {
+      for (let j = i + 1; j < group.length; j++) {
+        const p1 = group[i];
+        const p2 = group[j];
+        const pairKey = `${Math.min(p1.id, p2.id)}-${Math.max(p1.id, p2.id)}`;
+        if (seen.has(pairKey)) continue;
         seen.add(pairKey);
+
+        // Only flag if the raw Civil IDs differ (otherwise they're exact duplicates
+        // which should have been caught during upload)
+        const similarity = p1.civilId === p2.civilId ? 100 : 95;
+        const reason = p1.civilId === p2.civilId
+          ? `Exact same Civil ID: "${p1.civilId}"`
+          : `Civil IDs match after normalization: "${p1.civilId}" ≈ "${p2.civilId}"`;
+
         duplicates.push({
           patient1: p1,
           patient2: p2,
           matchType: 'civil_id',
-          similarity: 95,
-          reason: `Civil IDs match after normalization: "${p1.civilId}" ≈ "${p2.civilId}"`,
+          similarity,
+          reason,
         });
-        continue;
-      }
-
-      // Strategy 2: Very similar names (case-insensitive, trimmed)
-      const normName1 = normalizeName(p1.name);
-      const normName2 = normalizeName(p2.name);
-      if (normName1 && normName2 && normName1.length > 3 && normName2.length > 3) {
-        if (normName1 === normName2) {
-          seen.add(pairKey);
-          duplicates.push({
-            patient1: p1,
-            patient2: p2,
-            matchType: 'name',
-            similarity: 90,
-            reason: `Names match exactly: "${p1.name}" = "${p2.name}"`,
-          });
-          continue;
-        }
-
-        // Check if one name contains the other (partial match for truncated names)
-        if (normName1.length >= 8 && normName2.length >= 8) {
-          if (normName1.includes(normName2) || normName2.includes(normName1)) {
-            seen.add(pairKey);
-            duplicates.push({
-              patient1: p1,
-              patient2: p2,
-              matchType: 'name',
-              similarity: 75,
-              reason: `Name partial match: "${p1.name}" ≈ "${p2.name}"`,
-            });
-            continue;
-          }
-        }
-
-        // Levenshtein distance for close matches
-        const distance = levenshteinDistance(normName1, normName2);
-        const maxLen = Math.max(normName1.length, normName2.length);
-        const similarityPct = Math.round((1 - distance / maxLen) * 100);
-        if (similarityPct >= 85 && maxLen >= 8) {
-          seen.add(pairKey);
-          duplicates.push({
-            patient1: p1,
-            patient2: p2,
-            matchType: 'name',
-            similarity: similarityPct,
-            reason: `Names are ${similarityPct}% similar: "${p1.name}" ≈ "${p2.name}"`,
-          });
-          continue;
-        }
-      }
-
-      // Strategy 3: Same DOB + similar first name
-      if (p1.dateOfBirth && p2.dateOfBirth && p1.dateOfBirth === p2.dateOfBirth) {
-        const firstName1 = normName1?.split(' ')[0] || '';
-        const firstName2 = normName2?.split(' ')[0] || '';
-        if (firstName1 && firstName2 && firstName1.length >= 3 && firstName1 === firstName2) {
-          seen.add(pairKey);
-          duplicates.push({
-            patient1: p1,
-            patient2: p2,
-            matchType: 'dob_name',
-            similarity: 80,
-            reason: `Same DOB (${p1.dateOfBirth}) + same first name: "${firstName1}"`,
-          });
-        }
       }
     }
   }
