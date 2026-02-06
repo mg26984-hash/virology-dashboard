@@ -182,3 +182,12 @@
 - [x] Tests by nationality chart (bar chart)
 - [x] Responsive layout for charts on dashboard
 - [x] Write tests for analytics endpoints
+
+## Bulk PDF Export for Multiple Patients
+- [x] Backend endpoint to generate combined PDF for multiple patient IDs
+- [x] Each patient gets their own section with page break
+- [x] Add checkbox selection to Patients page for multi-select
+- [x] Add "Export Selected as PDF" button with count badge
+- [x] Add "Select All" toggle for current search results
+- [x] Monochrome, printer-friendly design matching single patient PDF
+- [x] Write tests for bulk PDF export endpoint

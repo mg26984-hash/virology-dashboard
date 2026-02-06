@@ -42,7 +42,7 @@ import {
 } from "./db";
 import ExcelJS from "exceljs";
 import { processUploadedDocument } from "./documentProcessor";
-import { generatePatientPDF } from "./pdfReport";
+import { generatePatientPDF, generateBulkPatientPDF } from "./pdfReport";
 
 // Middleware to check if user is approved
 const approvedProcedure = protectedProcedure.use(async ({ ctx, next }) => {
@@ -785,6 +785,88 @@ export const appRouter = router({
           base64,
           fileName,
           testCount: tests.length,
+        };
+      }),
+
+    bulkPDF: approvedProcedure
+      .input(z.object({ patientIds: z.array(z.number()).min(1).max(100) }))
+      .mutation(async ({ input, ctx }) => {
+        const PDFDocument = (await import("pdfkit")).default;
+
+        // Fetch all patients and their tests
+        const patientsData: { patient: Awaited<ReturnType<typeof getPatientById>>; tests: Awaited<ReturnType<typeof getTestsByPatientId>> }[] = [];
+        for (const pid of input.patientIds) {
+          const patient = await getPatientById(pid);
+          if (patient) {
+            const tests = await getTestsByPatientId(pid);
+            patientsData.push({ patient, tests });
+          }
+        }
+
+        if (patientsData.length === 0) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "No valid patients found" });
+        }
+
+        // For a single patient, use the existing single-patient generator
+        if (patientsData.length === 1) {
+          const { patient, tests } = patientsData[0];
+          const pdfBuffer = await generatePatientPDF(patient!, tests);
+          const base64 = pdfBuffer.toString("base64");
+          const safeName = (patient!.name || patient!.civilId)
+            .replace(/[^a-zA-Z0-9-_ ]/g, "")
+            .replace(/\s+/g, "_");
+          const dateStr = new Date().toISOString().slice(0, 10);
+
+          if (ctx.user) {
+            await createAuditLog({
+              action: 'bulk_pdf_export',
+              userId: ctx.user.id,
+              metadata: JSON.stringify({ patientCount: 1, patientIds: input.patientIds }),
+            });
+          }
+
+          return {
+            base64,
+            fileName: `virology-report-${safeName}-${dateStr}.pdf`,
+            patientCount: 1,
+            totalTests: tests.length,
+          };
+        }
+
+        // For multiple patients, generate individual PDFs and merge via sequential pages
+        const buffers: Buffer[] = [];
+        let totalTests = 0;
+        for (const { patient, tests } of patientsData) {
+          const buf = await generatePatientPDF(patient!, tests);
+          buffers.push(buf);
+          totalTests += tests.length;
+        }
+
+        // Combine PDFs by generating a new document with all patient sections
+        const combinedBuffer = await generateBulkPatientPDF(
+          patientsData.map(d => ({ patient: d.patient!, tests: d.tests }))
+        );
+
+        const base64 = combinedBuffer.toString("base64");
+        const dateStr = new Date().toISOString().slice(0, 10);
+
+        if (ctx.user) {
+          await createAuditLog({
+            action: 'bulk_pdf_export',
+            userId: ctx.user.id,
+            metadata: JSON.stringify({
+              patientCount: patientsData.length,
+              patientIds: input.patientIds,
+              totalTests,
+            }),
+          });
+        }
+
+        return {
+          base64,
+          fileName: `virology-bulk-report-${patientsData.length}-patients-${dateStr}.pdf`,
+          patientCount: patientsData.length,
+          totalTests,
         };
       }),
   }),

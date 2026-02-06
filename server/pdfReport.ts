@@ -14,6 +14,7 @@ export async function generatePatientPDF(
       const doc = new PDFDocument({
         size: "A4",
         margins: { top: 50, bottom: 50, left: 50, right: 50 },
+        bufferPages: true,
         info: {
           Title: `Virology Report - ${patient.name || patient.civilId}`,
           Author: "Virology Communication Dashboard",
@@ -28,22 +29,75 @@ export async function generatePatientPDF(
 
       const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
 
-      // ── Header ──
-      doc
-        .fontSize(18)
-        .font("Helvetica-Bold")
-        .text("VIROLOGY TEST REPORT", { align: "center" });
+      renderPatientContent(doc, patient, tests, pageWidth);
+      renderFooters(doc, pageWidth);
 
-      doc.moveDown(0.3);
+      doc.end();
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+/**
+ * Generate a combined PDF report for multiple patients.
+ * Includes a cover page with patient index, then each patient on a new page.
+ */
+export async function generateBulkPatientPDF(
+  patientsWithTests: { patient: Patient; tests: VirologyTest[] }[]
+): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({
+        size: "A4",
+        margins: { top: 50, bottom: 50, left: 50, right: 50 },
+        bufferPages: true,
+        info: {
+          Title: `Virology Bulk Report - ${patientsWithTests.length} Patients`,
+          Author: "Virology Communication Dashboard",
+          Subject: "Bulk Patient Virology Test Report",
+        },
+      });
+
+      const chunks: Buffer[] = [];
+      doc.on("data", (chunk: Buffer) => chunks.push(chunk));
+      doc.on("end", () => resolve(Buffer.concat(chunks)));
+      doc.on("error", reject);
+
+      const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+      const totalTests = patientsWithTests.reduce((sum, p) => sum + p.tests.length, 0);
+
+      // ── Cover Page ──
+      doc.moveDown(6);
       doc
-        .fontSize(9)
+        .fontSize(24)
+        .font("Helvetica-Bold")
+        .fillColor("#000000")
+        .text("VIROLOGY TEST REPORTS", { align: "center" });
+
+      doc.moveDown(0.5);
+      doc
+        .fontSize(14)
         .font("Helvetica")
         .fillColor("#555555")
-        .text("Virology Communication Dashboard", { align: "center" });
+        .text("Bulk Patient Export", { align: "center" });
 
-      doc.moveDown(0.3);
+      doc.moveDown(1);
+      drawHR(doc, pageWidth);
+      doc.moveDown(1);
+
       doc
-        .fontSize(8)
+        .fontSize(11)
+        .font("Helvetica")
+        .fillColor("#333333")
+        .text(`Patients included: ${patientsWithTests.length}`, { align: "center" });
+
+      doc.fontSize(11).text(`Total tests: ${totalTests}`, { align: "center" });
+
+      doc.moveDown(0.5);
+      doc
+        .fontSize(10)
+        .fillColor("#555555")
         .text(
           `Generated: ${new Date().toLocaleDateString("en-GB", {
             day: "numeric",
@@ -55,225 +109,293 @@ export async function generatePatientPDF(
           { align: "center" }
         );
 
-      // Horizontal rule
-      doc.moveDown(0.5);
-      drawHR(doc, pageWidth);
-      doc.moveDown(0.5);
+      doc.moveDown(2);
 
-      // ── Patient Demographics ──
+      // Table of contents
       doc
         .fontSize(12)
         .font("Helvetica-Bold")
         .fillColor("#000000")
-        .text("PATIENT INFORMATION");
-
-      doc.moveDown(0.4);
-
-      const demoData: [string, string][] = [
-        ["Civil ID", patient.civilId],
-        ["Full Name", patient.name || "Not recorded"],
-        ["Date of Birth", patient.dateOfBirth || "Not recorded"],
-        ["Nationality", patient.nationality || "Not recorded"],
-        ["Gender", patient.gender || "Not recorded"],
-        ["Passport Number", patient.passportNo || "Not recorded"],
-      ];
-
-      drawKeyValueTable(doc, demoData, pageWidth);
-
-      doc.moveDown(0.5);
-      drawHR(doc, pageWidth);
+        .text("PATIENTS INDEX", { align: "center" });
       doc.moveDown(0.5);
 
-      // ── Test Summary ──
-      doc
-        .fontSize(12)
-        .font("Helvetica-Bold")
-        .fillColor("#000000")
-        .text("TEST SUMMARY");
-
-      doc.moveDown(0.4);
-
-      // Count by test type
-      const testTypeCounts = new Map<string, number>();
-      for (const t of tests) {
-        testTypeCounts.set(t.testType, (testTypeCounts.get(t.testType) || 0) + 1);
-      }
-
-      const summaryData: [string, string][] = [
-        ["Total Tests on Record", String(tests.length)],
-      ];
-
-      for (const [type, count] of Array.from(testTypeCounts.entries()).sort()) {
-        summaryData.push([type, String(count)]);
-      }
-
-      // Date range
-      const datesWithValues = tests
-        .filter((t) => t.accessionDate)
-        .map((t) => new Date(t.accessionDate!).getTime());
-
-      if (datesWithValues.length > 0) {
-        const earliest = new Date(Math.min(...datesWithValues));
-        const latest = new Date(Math.max(...datesWithValues));
-        summaryData.push([
-          "Date Range",
-          `${earliest.toLocaleDateString("en-GB")} to ${latest.toLocaleDateString("en-GB")}`,
-        ]);
-      }
-
-      drawKeyValueTable(doc, summaryData, pageWidth);
-
-      doc.moveDown(0.5);
-      drawHR(doc, pageWidth);
-      doc.moveDown(0.5);
-
-      // ── Detailed Test Results ──
-      doc
-        .fontSize(12)
-        .font("Helvetica-Bold")
-        .fillColor("#000000")
-        .text("DETAILED TEST RESULTS");
-
-      doc.moveDown(0.4);
-
-      if (tests.length === 0) {
+      patientsWithTests.forEach((p, idx) => {
         doc
-          .fontSize(10)
-          .font("Helvetica-Oblique")
-          .fillColor("#666666")
-          .text("No virology tests have been recorded for this patient.");
-      } else {
-        // Sort tests by accession date descending (most recent first)
-        const sortedTests = [...tests].sort((a, b) => {
-          const dateA = a.accessionDate ? new Date(a.accessionDate).getTime() : 0;
-          const dateB = b.accessionDate ? new Date(b.accessionDate).getTime() : 0;
-          return dateB - dateA;
-        });
+          .fontSize(9)
+          .font("Helvetica")
+          .fillColor("#333333")
+          .text(
+            `${idx + 1}. ${p.patient.name || "Unknown"} \u2014 Civil ID: ${p.patient.civilId} \u2014 ${p.tests.length} test(s)`,
+            { align: "left" }
+          );
+      });
 
-        for (let i = 0; i < sortedTests.length; i++) {
-          const test = sortedTests[i];
+      // ── Individual Patient Sections ──
+      for (let pIdx = 0; pIdx < patientsWithTests.length; pIdx++) {
+        const { patient, tests } = patientsWithTests[pIdx];
 
-          // Check if we need a new page (leave room for at least the test header + some rows)
-          if (doc.y > doc.page.height - 180) {
-            doc.addPage();
-          }
+        doc.addPage();
 
-          // Test number and type
-          doc
-            .fontSize(10)
-            .font("Helvetica-Bold")
-            .fillColor("#000000")
-            .text(`Test ${i + 1}: ${test.testType}`);
-
-          doc.moveDown(0.2);
-
-          // Build test detail rows
-          const testRows: [string, string][] = [];
-
-          if (test.accessionDate) {
-            testRows.push([
-              "Accession Date",
-              new Date(test.accessionDate).toLocaleDateString("en-GB", {
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-              }),
-            ]);
-          }
-
-          testRows.push(["Result", test.result]);
-
-          if (test.viralLoad) {
-            testRows.push([
-              "Viral Load",
-              `${test.viralLoad} ${test.unit || "Copies/mL"}`,
-            ]);
-          }
-
-          if (test.sampleNo) {
-            testRows.push(["Sample Number", test.sampleNo]);
-          }
-          if (test.accessionNo) {
-            testRows.push(["Accession Number", test.accessionNo]);
-          }
-          if (test.departmentNo) {
-            testRows.push(["Department Number", test.departmentNo]);
-          }
-          if (test.location) {
-            testRows.push(["Location", test.location]);
-          }
-          if (test.signedBy) {
-            testRows.push(["Signed By", test.signedBy]);
-          }
-          if (test.signedAt) {
-            testRows.push([
-              "Signed At",
-              new Date(test.signedAt).toLocaleDateString("en-GB", {
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-              }),
-            ]);
-          }
-
-          drawKeyValueTable(doc, testRows, pageWidth);
-
-          // Add separator between tests (not after the last one)
-          if (i < sortedTests.length - 1) {
-            doc.moveDown(0.3);
-            drawDottedHR(doc, pageWidth);
-            doc.moveDown(0.3);
-          }
-        }
-      }
-
-      // ── Footer on each page ──
-      const pages = doc.bufferedPageRange();
-      for (let i = 0; i < pages.count; i++) {
-        doc.switchToPage(i);
-
-        // Save current position
-        const savedY = doc.y;
-
-        // Footer line
+        // Patient counter
         doc
-          .save()
-          .moveTo(doc.page.margins.left, doc.page.height - 35)
-          .lineTo(doc.page.margins.left + pageWidth, doc.page.height - 35)
-          .strokeColor("#cccccc")
-          .lineWidth(0.5)
-          .stroke()
-          .restore();
-
-        doc
-          .fontSize(7)
+          .fontSize(9)
           .font("Helvetica")
           .fillColor("#999999")
-          .text(
-            "CONFIDENTIAL - This document contains protected health information.",
-            doc.page.margins.left,
-            doc.page.height - 30,
-            { width: pageWidth * 0.7, align: "left" }
-          );
+          .text(`Patient ${pIdx + 1} of ${patientsWithTests.length}`, { align: "right" });
 
-        doc
-          .fontSize(7)
-          .text(
-            `Page ${i + 1} of ${pages.count}`,
-            doc.page.margins.left,
-            doc.page.height - 30,
-            { width: pageWidth, align: "right" }
-          );
+        doc.moveDown(0.3);
 
-        // Restore position
-        doc.y = savedY;
+        renderPatientContent(doc, patient, tests, pageWidth);
       }
+
+      renderFooters(doc, pageWidth);
 
       doc.end();
     } catch (err) {
       reject(err);
     }
   });
+}
+
+// ── Shared content renderer ──
+
+function renderPatientContent(
+  doc: PDFKit.PDFDocument,
+  patient: Patient,
+  tests: VirologyTest[],
+  pageWidth: number
+) {
+  // ── Header ──
+  doc
+    .fontSize(18)
+    .font("Helvetica-Bold")
+    .fillColor("#000000")
+    .text("VIROLOGY TEST REPORT", { align: "center" });
+
+  doc.moveDown(0.3);
+  doc
+    .fontSize(9)
+    .font("Helvetica")
+    .fillColor("#555555")
+    .text("Virology Communication Dashboard", { align: "center" });
+
+  doc.moveDown(0.3);
+  doc
+    .fontSize(8)
+    .text(
+      `Generated: ${new Date().toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })}`,
+      { align: "center" }
+    );
+
+  // Horizontal rule
+  doc.moveDown(0.5);
+  drawHR(doc, pageWidth);
+  doc.moveDown(0.5);
+
+  // ── Patient Demographics ──
+  doc
+    .fontSize(12)
+    .font("Helvetica-Bold")
+    .fillColor("#000000")
+    .text("PATIENT INFORMATION");
+
+  doc.moveDown(0.4);
+
+  const demoData: [string, string][] = [
+    ["Civil ID", patient.civilId],
+    ["Full Name", patient.name || "Not recorded"],
+    ["Date of Birth", patient.dateOfBirth || "Not recorded"],
+    ["Nationality", patient.nationality || "Not recorded"],
+    ["Gender", patient.gender || "Not recorded"],
+    ["Passport Number", patient.passportNo || "Not recorded"],
+  ];
+
+  drawKeyValueTable(doc, demoData, pageWidth);
+
+  doc.moveDown(0.5);
+  drawHR(doc, pageWidth);
+  doc.moveDown(0.5);
+
+  // ── Test Summary ──
+  doc
+    .fontSize(12)
+    .font("Helvetica-Bold")
+    .fillColor("#000000")
+    .text("TEST SUMMARY");
+
+  doc.moveDown(0.4);
+
+  // Count by test type
+  const testTypeCounts = new Map<string, number>();
+  for (const t of tests) {
+    testTypeCounts.set(t.testType, (testTypeCounts.get(t.testType) || 0) + 1);
+  }
+
+  const summaryData: [string, string][] = [
+    ["Total Tests on Record", String(tests.length)],
+  ];
+
+  for (const [type, count] of Array.from(testTypeCounts.entries()).sort()) {
+    summaryData.push([type, String(count)]);
+  }
+
+  // Date range
+  const datesWithValues = tests
+    .filter((t) => t.accessionDate)
+    .map((t) => new Date(t.accessionDate!).getTime());
+
+  if (datesWithValues.length > 0) {
+    const earliest = new Date(Math.min(...datesWithValues));
+    const latest = new Date(Math.max(...datesWithValues));
+    summaryData.push([
+      "Date Range",
+      `${earliest.toLocaleDateString("en-GB")} to ${latest.toLocaleDateString("en-GB")}`,
+    ]);
+  }
+
+  drawKeyValueTable(doc, summaryData, pageWidth);
+
+  doc.moveDown(0.5);
+  drawHR(doc, pageWidth);
+  doc.moveDown(0.5);
+
+  // ── Detailed Test Results ──
+  doc
+    .fontSize(12)
+    .font("Helvetica-Bold")
+    .fillColor("#000000")
+    .text("DETAILED TEST RESULTS");
+
+  doc.moveDown(0.4);
+
+  if (tests.length === 0) {
+    doc
+      .fontSize(10)
+      .font("Helvetica-Oblique")
+      .fillColor("#666666")
+      .text("No virology tests have been recorded for this patient.");
+  } else {
+    // Sort tests by accession date descending (most recent first)
+    const sortedTests = [...tests].sort((a, b) => {
+      const dateA = a.accessionDate ? new Date(a.accessionDate).getTime() : 0;
+      const dateB = b.accessionDate ? new Date(b.accessionDate).getTime() : 0;
+      return dateB - dateA;
+    });
+
+    for (let i = 0; i < sortedTests.length; i++) {
+      const test = sortedTests[i];
+
+      // Check if we need a new page
+      if (doc.y > doc.page.height - 180) {
+        doc.addPage();
+      }
+
+      // Test number and type
+      doc
+        .fontSize(10)
+        .font("Helvetica-Bold")
+        .fillColor("#000000")
+        .text(`Test ${i + 1}: ${test.testType}`);
+
+      doc.moveDown(0.2);
+
+      // Build test detail rows
+      const testRows: [string, string][] = [];
+
+      if (test.accessionDate) {
+        testRows.push([
+          "Accession Date",
+          new Date(test.accessionDate).toLocaleDateString("en-GB", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          }),
+        ]);
+      }
+
+      testRows.push(["Result", test.result]);
+
+      if (test.viralLoad) {
+        testRows.push([
+          "Viral Load",
+          `${test.viralLoad} ${test.unit || "Copies/mL"}`,
+        ]);
+      }
+
+      if (test.sampleNo) testRows.push(["Sample Number", test.sampleNo]);
+      if (test.accessionNo) testRows.push(["Accession Number", test.accessionNo]);
+      if (test.departmentNo) testRows.push(["Department Number", test.departmentNo]);
+      if (test.location) testRows.push(["Location", test.location]);
+      if (test.signedBy) testRows.push(["Signed By", test.signedBy]);
+      if (test.signedAt) {
+        testRows.push([
+          "Signed At",
+          new Date(test.signedAt).toLocaleDateString("en-GB", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          }),
+        ]);
+      }
+
+      drawKeyValueTable(doc, testRows, pageWidth);
+
+      // Add separator between tests (not after the last one)
+      if (i < sortedTests.length - 1) {
+        doc.moveDown(0.3);
+        drawDottedHR(doc, pageWidth);
+        doc.moveDown(0.3);
+      }
+    }
+  }
+}
+
+// ── Footer renderer (applied to all pages) ──
+
+function renderFooters(doc: PDFKit.PDFDocument, pageWidth: number) {
+  const pages = doc.bufferedPageRange();
+  for (let i = 0; i < pages.count; i++) {
+    doc.switchToPage(i);
+
+    const savedY = doc.y;
+
+    doc
+      .save()
+      .moveTo(doc.page.margins.left, doc.page.height - 35)
+      .lineTo(doc.page.margins.left + pageWidth, doc.page.height - 35)
+      .strokeColor("#cccccc")
+      .lineWidth(0.5)
+      .stroke()
+      .restore();
+
+    doc
+      .fontSize(7)
+      .font("Helvetica")
+      .fillColor("#999999")
+      .text(
+        "CONFIDENTIAL - This document contains protected health information.",
+        doc.page.margins.left,
+        doc.page.height - 30,
+        { width: pageWidth * 0.7, align: "left" }
+      );
+
+    doc
+      .fontSize(7)
+      .text(
+        `Page ${i + 1} of ${pages.count}`,
+        doc.page.margins.left,
+        doc.page.height - 30,
+        { width: pageWidth, align: "right" }
+      );
+
+    doc.y = savedY;
+  }
 }
 
 // ── Drawing helpers ──

@@ -956,3 +956,53 @@ describe("Dashboard Analytics Endpoints", () => {
     await expect(caller.dashboard.testsByNationality()).rejects.toThrow();
   });
 });
+
+describe("Bulk PDF Export", () => {
+  it("approved user can generate bulk PDF for multiple patients", async () => {
+    const approvedUser = createMockUser({ status: "approved" });
+    const ctx = createMockContext(approvedUser);
+    const caller = appRouter.createCaller(ctx);
+
+    // Get some patients
+    const searchResult = await caller.patients.search({ limit: 3 });
+    if (searchResult.patients.length >= 2) {
+      const ids = searchResult.patients.slice(0, 2).map(p => p.id);
+      const result = await caller.patients.bulkPDF({ patientIds: ids });
+      expect(result.base64).toBeDefined();
+      expect(result.base64.length).toBeGreaterThan(0);
+      expect(result.fileName).toContain("bulk-report");
+      expect(result.patientCount).toBe(2);
+      expect(result.totalTests).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("approved user can generate bulk PDF for a single patient", async () => {
+    const approvedUser = createMockUser({ status: "approved" });
+    const ctx = createMockContext(approvedUser);
+    const caller = appRouter.createCaller(ctx);
+
+    const searchResult = await caller.patients.search({ limit: 1 });
+    if (searchResult.patients.length >= 1) {
+      const result = await caller.patients.bulkPDF({ patientIds: [searchResult.patients[0].id] });
+      expect(result.base64).toBeDefined();
+      expect(result.patientCount).toBe(1);
+      expect(result.fileName).toContain("virology-report");
+    }
+  });
+
+  it("throws error for empty patient IDs array", async () => {
+    const approvedUser = createMockUser({ status: "approved" });
+    const ctx = createMockContext(approvedUser);
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(caller.patients.bulkPDF({ patientIds: [] })).rejects.toThrow();
+  });
+
+  it("throws error for invalid patient IDs", async () => {
+    const approvedUser = createMockUser({ status: "approved" });
+    const ctx = createMockContext(approvedUser);
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(caller.patients.bulkPDF({ patientIds: [999999, 999998] })).rejects.toThrow();
+  });
+});
