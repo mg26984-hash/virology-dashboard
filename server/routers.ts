@@ -36,6 +36,7 @@ import {
 } from "./db";
 import ExcelJS from "exceljs";
 import { processUploadedDocument } from "./documentProcessor";
+import { generatePatientPDF } from "./pdfReport";
 
 // Middleware to check if user is approved
 const approvedProcedure = protectedProcedure.use(async ({ ctx, next }) => {
@@ -539,6 +540,56 @@ export const appRouter = router({
         return getUploadStatus(input.uploadId);
       }),
 
+    // Cancel processing of a document (set to discarded)
+    cancelProcessing: approvedProcedure
+      .input(z.object({ documentId: z.number() }))
+      .mutation(async ({ input }) => {
+        const doc = await getDocumentById(input.documentId);
+        if (!doc) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Document not found",
+          });
+        }
+
+        // Only allow cancelling pending or processing documents
+        if (doc.processingStatus !== 'pending' && doc.processingStatus !== 'processing') {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Cannot cancel a document that is already ${doc.processingStatus}`,
+          });
+        }
+
+        await updateDocumentStatus(input.documentId, 'discarded', 'Cancelled by user');
+        return { success: true, message: 'Document processing cancelled' };
+      }),
+
+    // Cancel multiple documents at once
+    cancelBatch: approvedProcedure
+      .input(z.object({ documentIds: z.array(z.number()) }))
+      .mutation(async ({ input }) => {
+        let cancelled = 0;
+        let skipped = 0;
+
+        for (const docId of input.documentIds) {
+          const doc = await getDocumentById(docId);
+          if (!doc) { skipped++; continue; }
+          if (doc.processingStatus !== 'pending' && doc.processingStatus !== 'processing') {
+            skipped++;
+            continue;
+          }
+          await updateDocumentStatus(docId, 'discarded', 'Cancelled by user');
+          cancelled++;
+        }
+
+        return {
+          success: true,
+          cancelled,
+          skipped,
+          message: `Cancelled ${cancelled} document(s), skipped ${skipped}`,
+        };
+      }),
+
     // Reprocess a document
     reprocess: approvedProcedure
       .input(z.object({ documentId: z.number() }))
@@ -661,6 +712,34 @@ export const appRouter = router({
       .input(z.object({ patientId: z.number() }))
       .query(async ({ input }) => {
         return getTestsByPatientId(input.patientId);
+      }),
+
+    generatePDF: approvedProcedure
+      .input(z.object({ patientId: z.number() }))
+      .mutation(async ({ input }) => {
+        const patient = await getPatientById(input.patientId);
+        if (!patient) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Patient not found",
+          });
+        }
+
+        const tests = await getTestsByPatientId(input.patientId);
+        const pdfBuffer = await generatePatientPDF(patient, tests);
+        const base64 = pdfBuffer.toString("base64");
+
+        const safeName = (patient.name || patient.civilId)
+          .replace(/[^a-zA-Z0-9-_ ]/g, "")
+          .replace(/\s+/g, "_");
+        const dateStr = new Date().toISOString().slice(0, 10);
+        const fileName = `virology-report-${safeName}-${dateStr}.pdf`;
+
+        return {
+          base64,
+          fileName,
+          testCount: tests.length,
+        };
       }),
   }),
 

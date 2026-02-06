@@ -13,10 +13,13 @@ import {
   Activity,
   Loader2,
   AlertTriangle,
-  TrendingUp
+  TrendingUp,
+  FileDown,
+  Printer
 } from "lucide-react";
 import { useLocation, useParams } from "wouter";
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
+import { toast } from "sonner";
 import {
   LineChart,
   Line,
@@ -57,6 +60,39 @@ export default function PatientDetail() {
   );
 
   const isLoading = patientLoading || testsLoading;
+
+  // PDF generation mutation
+  const pdfMutation = trpc.patients.generatePDF.useMutation({
+    onSuccess: (result) => {
+      const byteCharacters = atob(result.base64);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: "application/pdf" });
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = result.fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success(`PDF report downloaded (${result.testCount} tests)`);
+    },
+    onError: (err) => {
+      toast.error(err.message || "Failed to generate PDF");
+    },
+  });
+
+  const handleDownloadPDF = useCallback(() => {
+    if (patientId > 0) {
+      pdfMutation.mutate({ patientId });
+    }
+  }, [patientId, pdfMutation]);
 
   // Process tests for chart data
   const chartData = useMemo(() => {
@@ -235,9 +271,29 @@ export default function PatientDetail() {
                 Civil ID: <code className="bg-muted px-2 py-0.5 rounded">{patient.civilId}</code>
               </CardDescription>
             </div>
-            <Badge variant="outline" className="text-sm">
-              {tests?.length || 0} Test{tests?.length !== 1 ? 's' : ''} on Record
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-sm">
+                {tests?.length || 0} Test{tests?.length !== 1 ? 's' : ''} on Record
+              </Badge>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadPDF}
+                disabled={pdfMutation.isPending}
+              >
+                {pdfMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <FileDown className="mr-2 h-3.5 w-3.5" />
+                    Download PDF
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>

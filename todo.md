@@ -139,3 +139,17 @@
 - [x] Create admin-only Export page with filter UI
 - [x] Add Export page to sidebar navigation (admin only)
 - [x] Include patient info + all test results in export
+
+## PDF Patient Report Generation
+- [x] Create server-side PDF generation using pdfkit or similar
+- [x] Include patient demographics (Civil ID, name, DOB, nationality, gender, passport)
+- [x] Include complete test history with all results
+- [x] Monochrome, printer-friendly design
+- [x] Add download PDF button to patient detail page
+- [x] Write tests for PDF generation endpoint
+
+## Show Processing Files and Cancel Processing
+- [x] Show files currently being processed on Upload page with status
+- [x] Add cancel/abort button for pending and processing documents
+- [x] Backend endpoint to cancel document processing (set status to discarded)
+- [x] Write tests for cancel processing endpoint

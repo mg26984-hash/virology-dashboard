@@ -18,6 +18,8 @@ import {
   Timer,
   Clock,
   Trash2,
+  Ban,
+  XCircle,
 } from "lucide-react";
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { toast } from "sonner";
@@ -145,6 +147,8 @@ export default function Upload() {
   const uploadChunkMutation = trpc.documents.uploadChunk.useMutation();
   const finalizeMutation = trpc.documents.finalizeChunkedUpload.useMutation();
   const reprocessMutation = trpc.documents.reprocess.useMutation();
+  const cancelMutation = trpc.documents.cancelProcessing.useMutation();
+  const cancelBatchMutation = trpc.documents.cancelBatch.useMutation();
   const utils = trpc.useUtils();
 
   // ── Poll the *real* backend status for tracked document IDs ──
@@ -751,10 +755,38 @@ export default function Upload() {
             </div>
             <div className="flex gap-2">
               {processingDocs.length > 0 && (
-                <Badge variant="outline" className="text-blue-400 border-blue-600/30">
-                  <RefreshCw className="mr-1 h-3 w-3 animate-spin" />
-                  Auto-refreshing
-                </Badge>
+                <>
+                  <Badge variant="outline" className="text-blue-400 border-blue-600/30">
+                    <RefreshCw className="mr-1 h-3 w-3 animate-spin" />
+                    Auto-refreshing
+                  </Badge>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                    disabled={cancelBatchMutation.isPending}
+                    onClick={() => {
+                      const ids = processingDocs.map((d) => d.documentId);
+                      cancelBatchMutation.mutate(
+                        { documentIds: ids },
+                        {
+                          onSuccess: (result) => {
+                            toast.success(result.message);
+                            utils.documents.getStatuses.invalidate();
+                          },
+                          onError: (err) => toast.error(err.message),
+                        }
+                      );
+                    }}
+                  >
+                    {cancelBatchMutation.isPending ? (
+                      <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                    ) : (
+                      <Ban className="mr-2 h-3 w-3" />
+                    )}
+                    Cancel All ({processingDocs.length})
+                  </Button>
+                </>
               )}
               {terminalIds.size > 0 && (
                 <Button variant="outline" size="sm" onClick={clearFinished}>
@@ -791,6 +823,31 @@ export default function Upload() {
 
                     <div className="shrink-0 flex items-center gap-2">
                       {statusBadge(d.backendStatus)}
+
+                      {/* Cancel button for pending/processing documents */}
+                      {isActive && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                          disabled={cancelMutation.isPending}
+                          onClick={() => {
+                            cancelMutation.mutate(
+                              { documentId: d.documentId },
+                              {
+                                onSuccess: () => {
+                                  toast.success(`Cancelled: ${d.fileName}`);
+                                  utils.documents.getStatuses.invalidate();
+                                },
+                                onError: (err) => toast.error(err.message),
+                              }
+                            );
+                          }}
+                        >
+                          <XCircle className="h-3 w-3 mr-1" />
+                          Cancel
+                        </Button>
+                      )}
 
                       {(d.backendStatus === "failed" || d.backendStatus === "discarded") && (
                         <Button

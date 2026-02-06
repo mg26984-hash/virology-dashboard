@@ -613,3 +613,141 @@ describe("Export Feature (Admin Only)", () => {
     await expect(caller.export.generate({})).rejects.toThrow();
   });
 });
+
+describe("Patient PDF Report Generation", () => {
+  it("approved user can generate PDF for an existing patient", async () => {
+    const approvedUser = createMockUser({ status: "approved" });
+    const ctx = createMockContext(approvedUser);
+    const caller = appRouter.createCaller(ctx);
+
+    // Get a patient from the database first
+    const searchResult = await caller.patients.search({ limit: 1 });
+    
+    if (searchResult.patients.length > 0) {
+      const patient = searchResult.patients[0];
+      const result = await caller.patients.generatePDF({ patientId: patient.id });
+      
+      expect(result).toHaveProperty("base64");
+      expect(result).toHaveProperty("fileName");
+      expect(result).toHaveProperty("testCount");
+      expect(result.base64.length).toBeGreaterThan(0);
+      expect(result.fileName).toMatch(/virology-report-.*\.pdf$/);
+      expect(typeof result.testCount).toBe("number");
+      
+      // Verify it's valid base64 by decoding
+      const buffer = Buffer.from(result.base64, "base64");
+      expect(buffer.length).toBeGreaterThan(0);
+      // PDF files start with %PDF
+      const header = buffer.subarray(0, 4).toString("ascii");
+      expect(header).toBe("%PDF");
+    }
+  });
+
+  it("returns NOT_FOUND for non-existent patient", async () => {
+    const approvedUser = createMockUser({ status: "approved" });
+    const ctx = createMockContext(approvedUser);
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(
+      caller.patients.generatePDF({ patientId: 999999 })
+    ).rejects.toThrow();
+  });
+
+  it("pending users cannot generate PDF", async () => {
+    const pendingUser = createMockUser({ status: "pending" });
+    const ctx = createMockContext(pendingUser);
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(
+      caller.patients.generatePDF({ patientId: 1 })
+    ).rejects.toThrow();
+  });
+
+  it("banned users cannot generate PDF", async () => {
+    const bannedUser = createMockUser({ status: "banned" });
+    const ctx = createMockContext(bannedUser);
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(
+      caller.patients.generatePDF({ patientId: 1 })
+    ).rejects.toThrow();
+
+  });
+});
+
+describe("Cancel Document Processing", () => {
+  it("approved user can cancel a pending/processing document", async () => {
+    const approvedUser = createMockUser({ status: "approved" });
+    const ctx = createMockContext(approvedUser);
+    const caller = appRouter.createCaller(ctx);
+
+    // Upload a document first to get a document ID
+    const uploadResult = await caller.documents.upload({
+      fileName: "cancel-test.jpg",
+      fileData: "/9j/4AAQSkZJRg==",
+      mimeType: "image/jpeg",
+      fileSize: 1024,
+    });
+
+    expect(uploadResult.documentId).toBeDefined();
+
+    // Try to cancel it (it may already be processing or pending)
+    try {
+      const result = await caller.documents.cancelProcessing({
+        documentId: uploadResult.documentId!,
+      });
+      expect(result.success).toBe(true);
+      expect(result.message).toBe("Document processing cancelled");
+    } catch (err: any) {
+      // If it already completed/failed/discarded before we could cancel, that's OK
+      expect(err.message).toMatch(/Cannot cancel/);
+    }
+  });
+
+  it("returns NOT_FOUND for non-existent document", async () => {
+    const approvedUser = createMockUser({ status: "approved" });
+    const ctx = createMockContext(approvedUser);
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(
+      caller.documents.cancelProcessing({ documentId: 999999 })
+    ).rejects.toThrow();
+  });
+
+  it("pending users cannot cancel processing", async () => {
+    const pendingUser = createMockUser({ status: "pending" });
+    const ctx = createMockContext(pendingUser);
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(
+      caller.documents.cancelProcessing({ documentId: 1 })
+    ).rejects.toThrow();
+  });
+
+  it("approved user can batch cancel documents", async () => {
+    const approvedUser = createMockUser({ status: "approved" });
+    const ctx = createMockContext(approvedUser);
+    const caller = appRouter.createCaller(ctx);
+
+    // Batch cancel with non-existent IDs should return skipped
+    const result = await caller.documents.cancelBatch({
+      documentIds: [999998, 999999],
+    });
+
+    expect(result).toHaveProperty("success", true);
+    expect(result).toHaveProperty("cancelled");
+    expect(result).toHaveProperty("skipped");
+    expect(typeof result.cancelled).toBe("number");
+    expect(typeof result.skipped).toBe("number");
+  });
+
+  it("pending users cannot batch cancel", async () => {
+    const pendingUser = createMockUser({ status: "pending" });
+    const ctx = createMockContext(pendingUser);
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(
+      caller.documents.cancelBatch({ documentIds: [1] })
+    ).rejects.toThrow();
+  });
+});
