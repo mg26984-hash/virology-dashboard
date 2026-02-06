@@ -26,7 +26,7 @@ import {
   ArrowLeftRight,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { format, subMonths, subDays, subWeeks } from "date-fns";
 import type { DateRange } from "react-day-picker";
@@ -179,9 +179,22 @@ export default function Home() {
     { enabled: isApproved, refetchInterval: 10000 }
   );
 
-  const { data: searchResults } = trpc.patients.search.useQuery(
-    { query: searchQuery, limit: 10 },
-    { enabled: isApproved && searchQuery.length >= 2 }
+  // Debounced autocomplete
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (searchQuery.length >= 2) {
+      debounceRef.current = setTimeout(() => setDebouncedQuery(searchQuery), 200);
+    } else {
+      setDebouncedQuery("");
+    }
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [searchQuery]);
+
+  const { data: autocompleteResults } = trpc.patients.autocomplete.useQuery(
+    { query: debouncedQuery },
+    { enabled: isApproved && debouncedQuery.length >= 2 }
   );
 
   // Analytics queries with date range
@@ -395,22 +408,33 @@ export default function Home() {
               Search
             </Button>
           </form>
-          {searchQuery.length >= 2 && searchResults && searchResults.patients.length > 0 && (
-            <Card className="absolute left-0 right-0 top-full mt-2 z-50 max-h-80 overflow-auto">
+          {searchQuery.length >= 2 && autocompleteResults && autocompleteResults.length > 0 && (
+            <Card className="absolute left-0 right-0 top-full mt-2 z-50 max-h-80 overflow-auto shadow-lg border-primary/20">
               <CardContent className="p-2">
-                {searchResults.patients.map((patient) => (
+                {autocompleteResults.map((patient) => (
                   <button
                     key={patient.id}
                     onClick={() => setLocation(`/patients/${patient.id}`)}
                     className="w-full flex items-center justify-between p-3 hover:bg-accent rounded-lg transition-colors text-left"
                   >
-                    <div>
-                      <p className="font-medium">{patient.name || 'Unknown'}</p>
-                      <p className="text-sm text-muted-foreground">Civil ID: {patient.civilId}</p>
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{patient.name || 'Unknown'}</p>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <span>Civil ID: {patient.civilId || 'N/A'}</span>
+                        {patient.nationality && (
+                          <Badge variant="outline" className="text-xs">{patient.nationality}</Badge>
+                        )}
+                      </div>
                     </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                   </button>
                 ))}
+                <button
+                  onClick={handleSearch}
+                  className="w-full p-2 text-sm text-primary hover:bg-accent rounded-lg transition-colors text-center mt-1"
+                >
+                  View all results for "{searchQuery}"
+                </button>
               </CardContent>
             </Card>
           )}

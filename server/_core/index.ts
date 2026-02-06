@@ -31,14 +31,14 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
-  // Configure body parser with larger size limit for file uploads (200MB for large ZIP files)
+  // Multipart file upload routes MUST be registered BEFORE body parsers
+  // because express.raw/json would consume the request body before multer can parse it
+  app.use("/api/upload", uploadRoutes);
+  // Configure body parser with larger size limit
   app.use(express.json({ limit: "200mb" }));
   app.use(express.urlencoded({ limit: "200mb", extended: true }));
-  app.use(express.raw({ limit: "200mb", type: "*/*" }));
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
-  // Multipart file upload routes (bypasses tRPC for large binary uploads)
-  app.use("/api/upload", uploadRoutes);
   // tRPC API
   app.use(
     "/api/trpc",

@@ -1,0 +1,40 @@
+{
+  "query": "SELECT p.id, p.name, p.civilId, COUNT(*) as test_count FROM patients p JOIN virologyTests vt ON p.id = vt.patientId WHERE vt.viralLoad IS NOT NULL AND vt.viralLoad != '' GROUP BY p.id HAVING test_count >= 4 ORDER BY test_count DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute SELECT p.id, p.name, p.civilId, COUNT(*) as test_count FROM patients p JOIN virologyTests vt ON p.id = vt.patientId WHERE vt.viralLoad IS NOT NULL AND vt.viralLoad != '' GROUP BY p.id HAVING test_count >= 4 ORDER BY test_count DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "73",
+      "name": "JASEM A M ALMEHAINI",
+      "civilId": "271042200101",
+      "test_count": "11"
+    },
+    {
+      "id": "137",
+      "name": "YOUSEF SHAKER MAHMOUD",
+      "civilId": "290121900548",
+      "test_count": "8"
+    },
+    {
+      "id": "26",
+      "name": "AMINA E AL AZMI",
+      "civilId": "281070701244",
+      "test_count": "7"
+    },
+    {
+      "id": "2",
+      "name": "MOHAMMAD RAZA M HUSAIN",
+      "civilId": "290062101542",
+      "test_count": "7"
+    },
+    {
+      "id": "90010",
+      "name": "Hussain Ali Bushehry",
+      "civilId": "262090200742",
+      "test_count": "6"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tcivilId\ttest_count\n73\tJASEM A M ALMEHAINI\t271042200101\t11\n137\tYOUSEF SHAKER MAHMOUD\t290121900548\t8\n26\tAMINA E AL AZMI\t281070701244\t7\n2\tMOHAMMAD RAZA M HUSAIN\t290062101542\t7\n90010\tHussain Ali Bushehry\t262090200742\t6\n",
+  "stderr": "",
+  "execution_time_ms": 1607
+}

@@ -20,7 +20,9 @@ import {
   TrendingUp,
   FileDown,
   Printer,
-  Pencil
+  Pencil,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 import { useLocation, useParams } from "wouter";
 import { useMemo, useCallback, useState } from "react";
@@ -32,7 +34,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
   ReferenceLine
 } from "recharts";
@@ -47,6 +48,194 @@ const TEST_TYPE_COLORS: Record<string, string> = {
   'Parvovirus B19 DNA in Blood': '#ec4899',
   'default': '#6b7280'
 };
+
+// Abbreviate long test type names for compact legend display
+function abbreviateTestType(name: string): string {
+  return name
+    .replace('Hepatitis B Virus (HBV) ', 'HBV ')
+    .replace('Hepatitis C Virus (HCV) ', 'HCV ')
+    .replace('Hepatitis B Virus ', 'HBV ')
+    .replace('Hepatitis C Virus ', 'HCV ')
+    .replace('Herpes Simplex Virus (HSV) ', 'HSV ')
+    .replace('Human Immunodeficiency Virus (HIV) ', 'HIV ')
+    .replace('Varicella Zoster Virus (VZV) ', 'VZV ')
+    .replace('Cytomegalovirus (CMV) ', 'CMV ')
+    .replace('Epstein-Barr Virus (EBV) ', 'EBV ')
+    .replace('Human Herpesvirus 6 (HHV-6) ', 'HHV-6 ')
+    .replace('Polyomaviruses (BKV & JCV) ', 'BKV/JCV ')
+    .replace('Parvovirus B19 ', 'Parvo B19 ')
+    .replace('Adenovirus ', 'Adeno ')
+    .replace(' in Blood', '')
+    .replace(' in Urine', ' (Urine)')
+    .replace('Antibody - ', '')
+    .replace('Antigen - ', '')
+    .replace('Surface Antibodies - ', '')
+    .replace('Surface Antigen - ', '')
+    .replace('Core IgM Antibody - ', 'Core IgM - ')
+    .replace('Core Total Antibody - ', 'Core Total - ');
+}
+
+// Custom tooltip for chart
+function ChartTooltip({ active, payload, label }: any) {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-popover border rounded-lg p-3 shadow-lg max-w-[280px]">
+        <p className="font-medium mb-2 text-sm">{label}</p>
+        {payload.map((entry: any, index: number) => (
+          <div key={index} className="flex items-center gap-2 text-xs mb-1">
+            <div 
+              className="w-2.5 h-2.5 rounded-full shrink-0" 
+              style={{ backgroundColor: entry.color }}
+            />
+            <span className="text-muted-foreground truncate">{abbreviateTestType(entry.name)}:</span>
+            <span className="font-mono whitespace-nowrap">
+              {entry.value === 0 
+                ? 'ND' 
+                : entry.value >= 50000000 
+                  ? '>50M' 
+                  : entry.value?.toLocaleString() || 'N/A'
+              }
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return null;
+}
+
+// Extracted Viral Load Trend Card - mobile-friendly with collapsible legend
+function ViralLoadTrendCard({ chartData }: { chartData: { data: Record<string, any>[]; testTypes: string[] } }) {
+  const [legendExpanded, setLegendExpanded] = useState(false);
+  const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set());
+
+  const visibleTypes = chartData.testTypes.filter(t => !hiddenTypes.has(t));
+  const showToggle = chartData.testTypes.length > 3;
+  const displayedTypes = showToggle && !legendExpanded 
+    ? chartData.testTypes.slice(0, 3) 
+    : chartData.testTypes;
+
+  const toggleType = (testType: string) => {
+    setHiddenTypes(prev => {
+      const next = new Set(prev);
+      if (next.has(testType)) {
+        next.delete(testType);
+      } else {
+        // Don't allow hiding all types
+        if (visibleTypes.length > 1) {
+          next.add(testType);
+        }
+      }
+      return next;
+    });
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2">
+          <TrendingUp className="h-5 w-5" />
+          Viral Load Trends
+        </CardTitle>
+        <CardDescription>
+          Track viral load changes over time for each test type
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {/* Compact interactive legend */}
+        <div className="space-y-2">
+          <div className="flex flex-wrap gap-1.5">
+            {displayedTypes.map((testType) => {
+              const color = TEST_TYPE_COLORS[testType] || TEST_TYPE_COLORS.default;
+              const isHidden = hiddenTypes.has(testType);
+              return (
+                <button
+                  key={testType}
+                  onClick={() => toggleType(testType)}
+                  className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium transition-all border ${
+                    isHidden 
+                      ? 'opacity-40 bg-muted border-transparent line-through' 
+                      : 'bg-muted/50 border-border hover:bg-muted'
+                  }`}
+                >
+                  <span
+                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                    style={{ backgroundColor: color }}
+                  />
+                  <span className="truncate max-w-[180px]">{abbreviateTestType(testType)}</span>
+                </button>
+              );
+            })}
+          </div>
+          {showToggle && (
+            <button
+              onClick={() => setLegendExpanded(!legendExpanded)}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {legendExpanded ? (
+                <><ChevronUp className="h-3.5 w-3.5" /> Show fewer</>
+              ) : (
+                <><ChevronDown className="h-3.5 w-3.5" /> +{chartData.testTypes.length - 3} more test types</>
+              )}
+            </button>
+          )}
+        </div>
+
+        {/* Chart */}
+        <div className="h-[250px] sm:h-[320px] w-full -ml-2 sm:ml-0">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart
+              data={chartData.data}
+              margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+              <XAxis 
+                dataKey="date" 
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
+              />
+              <YAxis 
+                scale="log"
+                domain={[1, 100000000]}
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
+                width={45}
+                tickFormatter={(value) => {
+                  if (value >= 1000000) return `${value / 1000000}M`;
+                  if (value >= 1000) return `${value / 1000}K`;
+                  return value.toString();
+                }}
+              />
+              <Tooltip content={<ChartTooltip />} />
+              <ReferenceLine 
+                y={1000} 
+                stroke="#22c55e" 
+                strokeDasharray="5 5" 
+                label={{ value: 'Low', fill: '#22c55e', fontSize: 10 }}
+              />
+              {visibleTypes.map((testType) => (
+                <Line
+                  key={testType}
+                  type="monotone"
+                  dataKey={testType}
+                  name={testType}
+                  stroke={TEST_TYPE_COLORS[testType] || TEST_TYPE_COLORS.default}
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                  activeDot={{ r: 5 }}
+                  connectNulls
+                />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+        <p className="text-xs text-muted-foreground text-center">
+          "Not Detected" = 0. Values above 50M = above max detection. Tap legend to toggle.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function PatientDetail() {
   const { user } = useAuth();
@@ -243,34 +432,6 @@ export default function PatientDetail() {
     }
   };
 
-  // Custom tooltip for chart
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-popover border rounded-lg p-3 shadow-lg">
-          <p className="font-medium mb-2">{label}</p>
-          {payload.map((entry: any, index: number) => (
-            <div key={index} className="flex items-center gap-2 text-sm">
-              <div 
-                className="w-3 h-3 rounded-full" 
-                style={{ backgroundColor: entry.color }}
-              />
-              <span className="text-muted-foreground">{entry.name}:</span>
-              <span className="font-mono">
-                {entry.value === 0 
-                  ? 'Not Detected' 
-                  : entry.value >= 50000000 
-                    ? '>50M' 
-                    : entry.value?.toLocaleString() || 'N/A'
-                } {entry.value > 0 ? 'copies/mL' : ''}
-              </span>
-            </div>
-          ))}
-        </div>
-      );
-    }
-    return null;
-  };
 
   if (isLoading) {
     return (
@@ -404,76 +565,7 @@ export default function PatientDetail() {
       </Card>
 
       {/* Viral Load Trend Chart */}
-      {hasChartData && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Viral Load Trends
-            </CardTitle>
-            <CardDescription>
-              Track viral load changes over time for each test type
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px] sm:h-[350px] w-full overflow-hidden">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart
-                  data={chartData.data}
-                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis 
-                    dataKey="date" 
-                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                    tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
-                  />
-                  <YAxis 
-                    scale="log"
-                    domain={[1, 100000000]}
-                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                    tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
-                    tickFormatter={(value) => {
-                      if (value >= 1000000) return `${value / 1000000}M`;
-                      if (value >= 1000) return `${value / 1000}K`;
-                      return value.toString();
-                    }}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend 
-                    wrapperStyle={{ paddingTop: '20px' }}
-                    formatter={(value) => (
-                      <span className="text-sm text-foreground">{value}</span>
-                    )}
-                  />
-                  <ReferenceLine 
-                    y={1000} 
-                    stroke="#22c55e" 
-                    strokeDasharray="5 5" 
-                    label={{ value: 'Low threshold', fill: '#22c55e', fontSize: 10 }}
-                  />
-                  {chartData.testTypes.map((testType) => (
-                    <Line
-                      key={testType}
-                      type="monotone"
-                      dataKey={testType}
-                      name={testType}
-                      stroke={TEST_TYPE_COLORS[testType] || TEST_TYPE_COLORS.default}
-                      strokeWidth={2}
-                      dot={{ r: 4 }}
-                      activeDot={{ r: 6 }}
-                      connectNulls
-                    />
-                  ))}
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-            <p className="text-xs text-muted-foreground mt-4 text-center">
-              Note: "Not Detected" results are shown as 0 on the chart. Values above 50M indicate results above maximum detection limit.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+      {hasChartData && <ViralLoadTrendCard chartData={chartData} />}
 
       {/* Test History */}
       <Card>

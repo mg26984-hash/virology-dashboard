@@ -314,3 +314,19 @@
 - [x] Add theme toggle button in sidebar (Sun/Moon icon)
 - [x] Persist theme preference in localStorage via ThemeProvider switchable mode
 - [x] Ensure all components are readable in both dark and light themes
+
+## Patient Search Autocomplete
+- [x] Backend: add autocomplete tRPC endpoint returning top 10 matches by Civil ID or name
+- [x] Frontend: debounced input with dropdown suggestions showing Civil ID + name
+- [x] Frontend: click suggestion to navigate to patient detail or fill search
+- [ ] Write tests for autocomplete endpoint
+
+## Bug Fix: Bulk Upload + ZIP Upload Failed after Upload System Rebuild
+- [x] Diagnose "Bulk upload failed: Upload failed" error - express.raw({type:'*/*'}) consuming multipart body before multer
+- [x] Diagnose ZIP upload failure - same root cause
+- [x] Fix: moved upload routes before body parsers, removed wildcard express.raw middleware
+
+## Bug Fix: Viral Load Trends Legend Cluttering Mobile View
+- [x] Redesign Viral Load Trends section on patient detail page for mobile
+- [x] Make legend list compact/collapsible instead of long vertical list
+- [x] Ensure chart area is usable on small screens

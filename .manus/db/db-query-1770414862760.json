@@ -1,0 +1,15 @@
+{
+  "query": "SELECT id, name, civilId FROM patients WHERE name LIKE '%TAFLAH%' LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute SELECT id, name, civilId FROM patients WHERE name LIKE '%TAFLAH%' LIMIT 5;",
+  "rows": [
+    {
+      "id": "132",
+      "name": "TAFLAH RASHID OBAID",
+      "civilId": "277052401094"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tcivilId\n132\tTAFLAH RASHID OBAID\t277052401094\n",
+  "stderr": "",
+  "execution_time_ms": 1612
+}

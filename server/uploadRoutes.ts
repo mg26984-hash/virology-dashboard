@@ -49,7 +49,13 @@ const router = Router();
  */
 router.post("/files", upload.array("files", 500), async (req: Request, res: Response) => {
   try {
-    const user = await sdk.authenticateRequest(req);
+    let user;
+    try {
+      user = await sdk.authenticateRequest(req);
+    } catch (authErr) {
+      res.status(403).json({ error: "Unauthorized - please log in" });
+      return;
+    }
     if (!user || user.status !== "approved") {
       res.status(403).json({ error: "Unauthorized or not approved" });
       return;
@@ -113,7 +119,13 @@ router.post("/files", upload.array("files", 500), async (req: Request, res: Resp
  */
 router.post("/zip", upload.single("file"), async (req: Request, res: Response) => {
   try {
-    const user = await sdk.authenticateRequest(req);
+    let user;
+    try {
+      user = await sdk.authenticateRequest(req);
+    } catch (authErr) {
+      res.status(403).json({ error: "Unauthorized - please log in" });
+      return;
+    }
     if (!user || user.status !== "approved") {
       res.status(403).json({ error: "Unauthorized or not approved" });
       return;
@@ -195,7 +207,13 @@ router.post("/zip", upload.single("file"), async (req: Request, res: Response) =
  */
 router.get("/progress/:batchId", async (req: Request, res: Response) => {
   try {
-    const user = await sdk.authenticateRequest(req);
+    let user;
+    try {
+      user = await sdk.authenticateRequest(req);
+    } catch (authErr) {
+      res.status(403).json({ error: "Unauthorized - please log in" });
+      return;
+    }
     if (!user) {
       res.status(403).json({ error: "Unauthorized" });
       return;

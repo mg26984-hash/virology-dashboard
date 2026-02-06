@@ -44,6 +44,7 @@ import {
   searchPatientsForMerge,
   updateUserRole,
   updatePatientDemographics,
+  autocompletePatients,
 } from "./db";
 import { ENV } from './_core/env';
 import ExcelJS from "exceljs";
@@ -752,6 +753,12 @@ export const appRouter = router({
 
   // Patient search and management
   patients: router({
+    autocomplete: approvedProcedure
+      .input(z.object({ query: z.string() }))
+      .query(async ({ input }) => {
+        return autocompletePatients(input.query);
+      }),
+
     search: approvedProcedure
       .input(z.object({
         query: z.string().optional(),

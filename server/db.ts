@@ -220,6 +220,34 @@ export interface SearchPatientsParams {
   offset?: number;
 }
 
+/**
+ * Lightweight autocomplete search — returns top 10 matches by Civil ID or name.
+ * Only returns id, civilId, name, and nationality for fast dropdown rendering.
+ */
+export async function autocompletePatients(query: string): Promise<{ id: number; civilId: string | null; name: string | null; nationality: string | null }[]> {
+  const db = await getDb();
+  if (!db || !query || query.trim().length < 2) return [];
+
+  const trimmed = query.trim();
+  const results = await db.select({
+    id: patients.id,
+    civilId: patients.civilId,
+    name: patients.name,
+    nationality: patients.nationality,
+  })
+    .from(patients)
+    .where(
+      or(
+        like(patients.civilId, `%${trimmed}%`),
+        like(patients.name, `%${trimmed}%`)
+      )
+    )
+    .orderBy(desc(patients.updatedAt))
+    .limit(10);
+
+  return results;
+}
+
 export async function searchPatients(params: SearchPatientsParams) {
   const db = await getDb();
   if (!db) return { patients: [], total: 0 };
