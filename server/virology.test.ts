@@ -395,7 +395,7 @@ describe("Auth Flow", () => {
     const caller = appRouter.createCaller(ctx);
 
     const result = await caller.auth.me();
-    expect(result).toEqual(user);
+    expect(result).toEqual({ ...user, isOwner: false });
   });
 
   it("auth.me returns null for unauthenticated users", async () => {

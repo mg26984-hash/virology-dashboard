@@ -121,6 +121,20 @@ export async function updateUserStatus(userId: number, status: 'pending' | 'appr
   });
 }
 
+export async function updateUserRole(userId: number, role: 'user' | 'admin', adminId: number, reason?: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db.update(users).set({ role }).where(eq(users.id, userId));
+  
+  await db.insert(auditLogs).values({
+    action: `user_role_${role}`,
+    userId: adminId,
+    targetUserId: userId,
+    reason: reason || null,
+  });
+}
+
 // ============ PATIENT FUNCTIONS ============
 
 export async function upsertPatient(patient: InsertPatient): Promise<Patient> {

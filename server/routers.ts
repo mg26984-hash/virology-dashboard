@@ -42,7 +42,9 @@ import {
   findDuplicatePatients,
   mergePatients,
   searchPatientsForMerge,
+  updateUserRole,
 } from "./db";
+import { ENV } from './_core/env';
 import ExcelJS from "exceljs";
 import { processUploadedDocument } from "./documentProcessor";
 import { generatePatientPDF, generateBulkPatientPDF } from "./pdfReport";
@@ -70,11 +72,28 @@ const adminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   return next({ ctx });
 });
 
+// Middleware to check if user is the owner (for role assignment)
+const ownerProcedure = protectedProcedure.use(async ({ ctx, next }) => {
+  if (ctx.user?.openId !== ENV.ownerOpenId) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Only the project owner can assign admin roles",
+    });
+  }
+  return next({ ctx });
+});
+
 export const appRouter = router({
   system: systemRouter,
   
   auth: router({
-    me: publicProcedure.query(opts => opts.ctx.user),
+    me: publicProcedure.query(opts => {
+      if (!opts.ctx.user) return null;
+      return {
+        ...opts.ctx.user,
+        isOwner: opts.ctx.user.openId === ENV.ownerOpenId,
+      };
+    }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
@@ -96,6 +115,22 @@ export const appRouter = router({
       }))
       .mutation(async ({ ctx, input }) => {
         await updateUserStatus(input.userId, input.status, ctx.user!.id, input.reason);
+        return { success: true };
+      }),
+
+    setRole: ownerProcedure
+      .input(z.object({
+        userId: z.number(),
+        role: z.enum(['user', 'admin']),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (input.userId === ctx.user!.id) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "You cannot change your own role",
+          });
+        }
+        await updateUserRole(input.userId, input.role, ctx.user!.id);
         return { success: true };
       }),
     

@@ -27,6 +27,8 @@ import { Progress } from "@/components/ui/progress";
 import { 
   Users,
   Shield,
+  ShieldCheck,
+  ShieldOff,
   Clock,
   CheckCircle2,
   XCircle,
@@ -51,6 +53,9 @@ export default function UserManagement() {
   const [reason, setReason] = useState('');
   const [reprocessStatuses, setReprocessStatuses] = useState<string[]>(['failed', 'discarded']);
   const [isReprocessing, setIsReprocessing] = useState(false);
+
+  // Check if current user is the owner (only owners can assign admin roles)
+  const isOwner = (user as any)?.isOwner === true;
 
   const { data: users, isLoading: usersLoading, refetch: refetchUsers } = trpc.users.list.useQuery(
     undefined,
@@ -80,6 +85,16 @@ export default function UserManagement() {
     },
     onError: (error) => {
       toast.error(`Failed to update user: ${error.message}`);
+    }
+  });
+
+  const setRoleMutation = trpc.users.setRole.useMutation({
+    onSuccess: (_, variables) => {
+      toast.success(`User ${variables.role === 'admin' ? 'promoted to admin' : 'demoted to user'} successfully`);
+      refetchUsers();
+    },
+    onError: (error) => {
+      toast.error(`Failed to update role: ${error.message}`);
     }
   });
 
@@ -416,6 +431,24 @@ export default function UserManagement() {
                           <TableCell className="text-right">
                             {u.id !== user?.id && (
                               <div className="flex justify-end gap-2">
+                                {isOwner && u.status === 'approved' && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className={u.role === 'admin' ? 'text-amber-500 hover:text-amber-500' : 'text-purple-500 hover:text-purple-500'}
+                                    onClick={() => setRoleMutation.mutate({
+                                      userId: u.id,
+                                      role: u.role === 'admin' ? 'user' : 'admin',
+                                    })}
+                                    disabled={setRoleMutation.isPending}
+                                  >
+                                    {u.role === 'admin' ? (
+                                      <><ShieldOff className="mr-1 h-4 w-4" />Remove Admin</>
+                                    ) : (
+                                      <><ShieldCheck className="mr-1 h-4 w-4" />Make Admin</>
+                                    )}
+                                  </Button>
+                                )}
                                 {u.status !== 'approved' && (
                                   <Button
                                     size="sm"

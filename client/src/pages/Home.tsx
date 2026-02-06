@@ -58,6 +58,30 @@ const CHART_COLORS = [
   "oklch(0.5 0.15 250)",
 ];
 
+// Normalize result values into 3 categories for the pie chart
+function normalizeResultCategory(result: string): 'Positive' | 'Negative' | 'Not Available' {
+  const r = result.toLowerCase().trim();
+  // Positive: reactive, detected, positive, BK virus detected, etc.
+  if (
+    r === 'positive' ||
+    r === 'reactive' ||
+    r.startsWith('reactive,') ||
+    r.includes('detected') && !r.includes('not detected') ||
+    r === 'bk virus detected' ||
+    r.startsWith('bk virus detected')
+  ) return 'Positive';
+  // Negative: not detected, negative, non reactive, etc.
+  if (
+    r === 'negative' ||
+    r === 'not detected' ||
+    r === 'non reactive' ||
+    r === 'nonreactive' ||
+    r === 'non-reactive'
+  ) return 'Negative';
+  // Everything else: Not Available, R NR IND, empty, unknown
+  return 'Not Available';
+}
+
 // Preset date ranges
 const DATE_PRESETS = [
   { label: "Last 30 days", getValue: () => ({ from: subDays(new Date(), 30), to: new Date() }) },
@@ -135,9 +159,23 @@ export default function Home() {
     enabled: isApproved,
   });
 
-  const { data: resultData } = trpc.dashboard.resultDistribution.useQuery(dateParams, {
+  const { data: rawResultData } = trpc.dashboard.resultDistribution.useQuery(dateParams, {
     enabled: isApproved,
   });
+
+  // Group raw result data into 3 categories for pie chart
+  const resultData = useMemo(() => {
+    if (!rawResultData) return undefined;
+    const grouped: Record<string, number> = { Positive: 0, Negative: 0, 'Not Available': 0 };
+    for (const item of rawResultData) {
+      const category = normalizeResultCategory(item.result);
+      grouped[category] += item.count;
+    }
+    return Object.entries(grouped)
+      .filter(([, count]) => count > 0)
+      .map(([result, count]) => ({ result, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [rawResultData]);
 
   const { data: topTests } = trpc.dashboard.topTestTypes.useQuery(
     dateParams ? { ...dateParams } : undefined,
@@ -459,7 +497,7 @@ export default function Home() {
               <PieChartIcon className="h-5 w-5 text-chart-2" />
               <div>
                 <CardTitle>Result Distribution</CardTitle>
-                <CardDescription>Top 10 result categories</CardDescription>
+                <CardDescription>Positive / Negative / Not Available</CardDescription>
               </div>
             </div>
           </CardHeader>

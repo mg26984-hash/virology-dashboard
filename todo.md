@@ -244,3 +244,21 @@
 - [x] Keep only Civil ID similarity detection (normalized comparison)
 - [x] Update frontend badges to reflect Civil ID-only matching
 - [x] Update tests - all 95 tests pass
+
+## Admin Role Assignment
+- [ ] Backend: add setRole procedure (owner-only) to promote/demote users to admin
+- [ ] Frontend: add role toggle/button on User Management page
+- [ ] Audit log role changes
+- [ ] Write tests for role assignment
+
+## Pie Chart Result Normalization (Display Only)
+- [x] Group results into Positive/Negative/Not Available in the pie chart frontend code
+- [x] Keep raw database values unchanged
+
+## Result Normalization: Three Categories (Positive / Negative / Not Available)
+- [ ] Query all distinct result values with counts
+- [ ] Normalize DB: Reactive, BK Virus Detected, Positive → Positive
+- [ ] Normalize DB: Not Detected, Negative, Non Reactive → Negative
+- [ ] Normalize DB: Not Available, R NR IND, empty/null → Not Available
+- [ ] Update normalizeResult() in document processing pipeline
+- [ ] Run tests to verify
