@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { toast } from "sonner";
+import JSZip from "jszip";
 
 interface StagedFile {
   file: File;
@@ -80,6 +81,7 @@ export default function Upload() {
   const [tracked, setTracked] = useState<TrackedDocument[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [extractionProgress, setExtractionProgress] = useState<{ current: number; total: number; fileName: string } | null>(null);
   const [batchProgress, setBatchProgress] = useState<ServerBatchProgress | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -148,7 +150,7 @@ export default function Upload() {
     for (const file of Array.from(fileList)) {
       const ext = file.name.toLowerCase().slice(file.name.lastIndexOf("."));
       const isZip = file.type === "application/zip" || file.type === "application/x-zip-compressed" || ext === ".zip";
-      const maxMB = isZip ? 200 : 20;
+      const maxMB = isZip ? 500 : 20;
       if (!allowedExts.includes(ext)) { skipped++; continue; }
       if (file.size > maxMB * 1024 * 1024) { toast.error(file.name + ": exceeds " + maxMB + " MB limit"); continue; }
       let mime = file.type;
@@ -210,7 +212,36 @@ export default function Upload() {
     }, 1500);
   }, [utils]);
 
-  // ── Upload logic using multipart HTTP ──
+  // ── Client-side ZIP extraction helper ──
+  const extractZipFiles = async (zipFile: File): Promise<File[]> => {
+    const allowedExtensions = [".jpg", ".jpeg", ".png", ".pdf"];
+    const zip = await JSZip.loadAsync(zipFile);
+    const entries = Object.entries(zip.files).filter(([name, entry]) => {
+      if (entry.dir) return false;
+      const fileName = name.split("/").pop() || "";
+      if (fileName.startsWith(".") || name.includes("__MACOSX")) return false;
+      const ext = fileName.toLowerCase().slice(fileName.lastIndexOf("."));
+      return allowedExtensions.includes(ext);
+    });
+
+    const extracted: File[] = [];
+    for (let i = 0; i < entries.length; i++) {
+      const [name, entry] = entries[i];
+      const fileName = name.split("/").pop() || name;
+      setExtractionProgress({ current: i + 1, total: entries.length, fileName: zipFile.name });
+      const blob = await entry.async("blob");
+      const ext = fileName.toLowerCase().slice(fileName.lastIndexOf("."));
+      let mimeType = "application/octet-stream";
+      if (ext === ".jpg" || ext === ".jpeg") mimeType = "image/jpeg";
+      else if (ext === ".png") mimeType = "image/png";
+      else if (ext === ".pdf") mimeType = "application/pdf";
+      extracted.push(new File([blob], fileName, { type: mimeType }));
+    }
+    setExtractionProgress(null);
+    return extracted;
+  };
+
+  // ── Upload logic using multipart HTTP with client-side ZIP extraction ──
   const uploadAll = async () => {
     if (staged.length === 0) return;
     setIsUploading(true);
@@ -220,56 +251,38 @@ export default function Upload() {
     setStaged([]);
 
     try {
-      // ── ZIP files: upload via /api/upload/zip ──
+      // ── ZIP files: extract client-side and merge into regular files ──
+      const allFiles: File[] = regular.map((s) => s.file);
       for (const z of zips) {
         try {
-          const formData = new FormData();
-          formData.append("file", z.file);
-
-          const startedAt = Date.now();
-          setBatchProgress({
-            batchId: "zip-uploading", total: 0, uploaded: 0, processing: 0,
-            processed: 0, failed: 0, status: "uploading", errors: [], startedAt, documentIds: [],
-          });
-
-          const res = await fetch("/api/upload/zip", {
-            method: "POST",
-            body: formData,
-            credentials: "include",
-          });
-
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({ error: "Upload failed" }));
-            throw new Error(err.error || "Upload failed with status " + res.status);
+          toast.info("Extracting " + z.file.name + "...");
+          const extracted = await extractZipFiles(z.file);
+          if (extracted.length === 0) {
+            toast.error(z.file.name + ": No valid files found (JPEG, PNG, PDF only)");
+            continue;
           }
-
-          const result = await res.json();
-          toast.success("ZIP uploaded: " + result.total + " files found. Processing...");
-
-          // Start polling for progress
-          startPolling(result.batchId, startedAt);
+          toast.success(z.file.name + ": extracted " + extracted.length + " files");
+          allFiles.push(...extracted);
         } catch (err) {
-          toast.error("Failed to upload " + z.file.name + ": " + (err instanceof Error ? err.message : "unknown error"));
-          setIsUploading(false);
-          setBatchProgress(null);
+          toast.error("Failed to extract " + z.file.name + ": " + (err instanceof Error ? err.message : "Invalid ZIP"));
         }
       }
 
-      // ── Regular files: upload via /api/upload/files ──
-      if (regular.length > 0) {
+      // ── Upload all files (regular + extracted from ZIPs) via /api/upload/files ──
+      if (allFiles.length > 0) {
         try {
-          // Split into batches of 50 files to keep each request manageable
-          const BATCH_SIZE = 50;
-          for (let i = 0; i < regular.length; i += BATCH_SIZE) {
-            const batch = regular.slice(i, i + BATCH_SIZE);
+          // Split into batches of 10 files to keep each request under proxy size limits
+          const BATCH_SIZE = 10;
+          for (let i = 0; i < allFiles.length; i += BATCH_SIZE) {
+            const batch = allFiles.slice(i, i + BATCH_SIZE);
             const formData = new FormData();
             for (const f of batch) {
-              formData.append("files", f.file);
+              formData.append("files", f);
             }
 
             const startedAt = Date.now();
             setBatchProgress({
-              batchId: "files-uploading", total: regular.length, uploaded: i,
+              batchId: "files-uploading", total: allFiles.length, uploaded: i,
               processing: 0, processed: 0, failed: 0, status: "uploading",
               errors: [], startedAt, documentIds: [],
             });
@@ -287,12 +300,12 @@ export default function Upload() {
 
             const result = await res.json();
 
-            if (i + BATCH_SIZE >= regular.length) {
+            if (i + BATCH_SIZE >= allFiles.length) {
               // Last batch — start polling
               toast.success(result.total + " files uploaded. Processing...");
               startPolling(result.batchId, startedAt);
             } else {
-              toast.info("Batch " + Math.floor(i / BATCH_SIZE + 1) + " uploaded (" + (i + batch.length) + "/" + regular.length + ")");
+              toast.info("Batch " + Math.floor(i / BATCH_SIZE + 1) + " uploaded (" + (i + batch.length) + "/" + allFiles.length + ")")
             }
           }
         } catch (err) {
@@ -302,7 +315,7 @@ export default function Upload() {
         }
       }
 
-      if (zips.length === 0 && regular.length === 0) {
+      if (allFiles.length === 0) {
         setIsUploading(false);
       }
     } catch (err) {
@@ -397,7 +410,7 @@ export default function Upload() {
             <UploadIcon className={"h-12 w-12 mx-auto mb-4 transition-colors " + (isDragging ? "text-primary" : "text-muted-foreground")} />
             <p className="text-lg font-medium mb-1">{isDragging ? "Drop files or folders here" : "Drag & drop files or folders here"}</p>
             <p className="text-sm text-muted-foreground">or click to browse your computer</p>
-            <p className="text-xs text-muted-foreground mt-2">JPEG, PNG, PDF (max 20 MB) &middot; ZIP archives (max 200 MB) &middot; Folders with images/PDFs</p>
+            <p className="text-xs text-muted-foreground mt-2">JPEG, PNG, PDF (max 20 MB) &middot; ZIP archives (max 500 MB, extracted in browser) &middot; Folders with images/PDFs</p>
           </div>
         </CardContent>
       </Card>
@@ -432,6 +445,27 @@ export default function Upload() {
                   <Button variant="ghost" size="icon" onClick={() => removeStaged(i)} disabled={isUploading}><X className="h-4 w-4" /></Button>
                 </div>
               ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ZIP extraction progress */}
+      {extractionProgress && (
+        <Card className="border-yellow-500/30">
+          <CardContent className="py-5">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-yellow-400" />
+                  <span className="font-medium">Extracting {extractionProgress.fileName}...</span>
+                </div>
+                <span className="text-sm font-mono text-muted-foreground">
+                  {extractionProgress.current} / {extractionProgress.total}
+                </span>
+              </div>
+              <Progress value={(extractionProgress.current / extractionProgress.total) * 100} className="h-3" />
+              <p className="text-xs text-muted-foreground">Extracting files from ZIP archive in your browser. No upload yet.</p>
             </div>
           </CardContent>
         </Card>
@@ -589,7 +623,7 @@ export default function Upload() {
                 <li>&bull; JPEG images (.jpg, .jpeg)</li>
                 <li>&bull; PNG images (.png)</li>
                 <li>&bull; PDF documents (.pdf)</li>
-                <li>&bull; ZIP archives (.zip) up to 200 MB</li>
+                <li>&bull; ZIP archives (.zip) up to 500 MB</li>
                 <li>&bull; Folders (drag &amp; drop entire folders)</li>
               </ul>
             </div>

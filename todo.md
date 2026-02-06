@@ -334,3 +334,13 @@
 ## Viral Load Chart: Only Show with Quantitative Data
 - [x] Update hasChartData logic to require 2+ data points with at least one numeric viral load value > 0
 - [x] Hide chart entirely for patients with only qualitative results or single-date data
+
+## Bug Fix: Large ZIP File Upload Failing
+- [x] Diagnosed: 180MB ZIP exceeds hosting proxy body size limit
+- [x] Install JSZip for client-side ZIP extraction in browser
+- [x] Update Upload.tsx to extract ZIP files client-side and upload individual files in batches
+- [x] ZIP files now extracted in browser, individual files uploaded in batches of 10
+- [x] Increased ZIP size limit from 200MB to 500MB
+- [x] Added extraction progress UI with progress bar
+- [x] Filters out __MACOSX, .DS_Store, and non-image/PDF files
+- [x] Test large ZIP upload end-to-end
