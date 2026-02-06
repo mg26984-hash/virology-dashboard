@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Users, Upload, Search, Shield, FileSpreadsheet } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, Users, Upload, Search, Shield, FileSpreadsheet, ClipboardList } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -226,6 +226,19 @@ function DashboardLayoutContent({
                         className={`h-4 w-4 ${location === '/admin/export' ? "text-primary" : ""}`}
                       />
                       <span>Export Data</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      isActive={location === '/admin/audit-log'}
+                      onClick={() => setLocation('/admin/audit-log')}
+                      tooltip="Audit Log"
+                      className={`h-10 transition-all font-normal`}
+                    >
+                      <ClipboardList
+                        className={`h-4 w-4 ${location === '/admin/audit-log' ? "text-primary" : ""}`}
+                      />
+                      <span>Audit Log</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 </>

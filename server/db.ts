@@ -171,6 +171,8 @@ export interface SearchPatientsParams {
   dateOfBirth?: string;
   accessionDateFrom?: Date;
   accessionDateTo?: Date;
+  testResult?: string;
+  testType?: string;
   limit?: number;
   offset?: number;
 }
@@ -206,10 +208,9 @@ export async function searchPatients(params: SearchPatientsParams) {
     conditions.push(eq(patients.dateOfBirth, params.dateOfBirth));
   }
 
-  // If date range filters are provided, we need to join with virologyTests
-  // to find patients who have tests within the date range
-  if (params.accessionDateFrom || params.accessionDateTo) {
-    // Get patient IDs that have tests within the date range
+  // If any test-level filters are provided, join with virologyTests to find matching patient IDs
+  const hasTestFilters = params.accessionDateFrom || params.accessionDateTo || params.testResult || params.testType;
+  if (hasTestFilters) {
     const testConditions = [];
     if (params.accessionDateFrom) {
       testConditions.push(gte(virologyTests.accessionDate, params.accessionDateFrom));
@@ -217,18 +218,23 @@ export async function searchPatients(params: SearchPatientsParams) {
     if (params.accessionDateTo) {
       testConditions.push(lte(virologyTests.accessionDate, params.accessionDateTo));
     }
-    
+    if (params.testResult) {
+      testConditions.push(like(virologyTests.result, `%${params.testResult}%`));
+    }
+    if (params.testType) {
+      testConditions.push(like(virologyTests.testType, `%${params.testType}%`));
+    }
+
     const patientsWithTests = await db.selectDistinct({ patientId: virologyTests.patientId })
       .from(virologyTests)
       .where(and(...testConditions));
-    
+
     const patientIds = patientsWithTests.map(p => p.patientId);
-    
+
     if (patientIds.length === 0) {
       return { patients: [], total: 0 };
     }
-    
-    // Add condition to filter by these patient IDs
+
     conditions.push(sql`${patients.id} IN (${sql.join(patientIds.map(id => sql`${id}`), sql`, `)})`);
   }
 
@@ -447,12 +453,20 @@ export async function getDocumentStats() {
 
 // ============ AUDIT LOG FUNCTIONS ============
 
-export async function getAuditLogs(limit: number = 100) {
+export async function getAuditLogs(limit: number = 100, actionFilter?: string) {
   const db = await getDb();
   if (!db) return [];
-  
+
+  const conditions = [];
+  if (actionFilter) {
+    conditions.push(like(auditLogs.action, `%${actionFilter}%`));
+  }
+
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
   return db.select()
     .from(auditLogs)
+    .where(whereClause)
     .orderBy(desc(auditLogs.createdAt))
     .limit(limit);
 }
@@ -650,4 +664,23 @@ export async function getDistinctNationalities(): Promise<string[]> {
     .orderBy(patients.nationality);
 
   return results.map((r) => r.nationality).filter(Boolean) as string[];
+}
+
+export async function getDistinctTestValues(): Promise<{ testTypes: string[]; testResults: string[] }> {
+  const db = await getDb();
+  if (!db) return { testTypes: [], testResults: [] };
+
+  const [typeResults, resultResults] = await Promise.all([
+    db.selectDistinct({ testType: virologyTests.testType })
+      .from(virologyTests)
+      .orderBy(virologyTests.testType),
+    db.selectDistinct({ result: virologyTests.result })
+      .from(virologyTests)
+      .orderBy(virologyTests.result),
+  ]);
+
+  return {
+    testTypes: typeResults.map(r => r.testType),
+    testResults: resultResults.map(r => r.result),
+  };
 }

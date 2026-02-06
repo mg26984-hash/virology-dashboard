@@ -11,6 +11,7 @@ import PatientDetail from "./pages/PatientDetail";
 import UserManagement from "./pages/UserManagement";
 import DashboardLayout from "./components/DashboardLayout";
 import Export from "./pages/Export";
+import AuditLog from "./pages/AuditLog";
 
 function Router() {
   return (
@@ -22,6 +23,7 @@ function Router() {
         <Route path="/patients/:id" component={PatientDetail} />
         <Route path="/admin/users" component={UserManagement} />
         <Route path="/admin/export" component={Export} />
+        <Route path="/admin/audit-log" component={AuditLog} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>

@@ -751,3 +751,105 @@ describe("Cancel Document Processing", () => {
     ).rejects.toThrow();
   });
 });
+
+describe("Result-Level Filtering", () => {
+  it("approved user can search patients with testResult filter", async () => {
+    const approvedUser = createMockUser({ status: "approved" });
+    const ctx = createMockContext(approvedUser);
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.patients.search({
+      testResult: "Detected",
+      limit: 10,
+    });
+
+    expect(result).toHaveProperty("patients");
+    expect(result).toHaveProperty("total");
+    expect(Array.isArray(result.patients)).toBe(true);
+  });
+
+  it("approved user can search patients with testType filter", async () => {
+    const approvedUser = createMockUser({ status: "approved" });
+    const ctx = createMockContext(approvedUser);
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.patients.search({
+      testType: "HCV",
+      limit: 10,
+    });
+
+    expect(result).toHaveProperty("patients");
+    expect(result).toHaveProperty("total");
+    expect(Array.isArray(result.patients)).toBe(true);
+  });
+
+  it("approved user can combine testResult and testType filters", async () => {
+    const approvedUser = createMockUser({ status: "approved" });
+    const ctx = createMockContext(approvedUser);
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.patients.search({
+      testResult: "Not Detected",
+      testType: "HBV",
+      limit: 10,
+    });
+
+    expect(result).toHaveProperty("patients");
+    expect(result).toHaveProperty("total");
+    expect(Array.isArray(result.patients)).toBe(true);
+  });
+
+  it("approved user can get filter options", async () => {
+    const approvedUser = createMockUser({ status: "approved" });
+    const ctx = createMockContext(approvedUser);
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.patients.filterOptions();
+
+    expect(result).toHaveProperty("testTypes");
+    expect(result).toHaveProperty("testResults");
+    expect(Array.isArray(result.testTypes)).toBe(true);
+    expect(Array.isArray(result.testResults)).toBe(true);
+  });
+
+  it("pending user cannot get filter options", async () => {
+    const pendingUser = createMockUser({ status: "pending" });
+    const ctx = createMockContext(pendingUser);
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(caller.patients.filterOptions()).rejects.toThrow();
+  });
+});
+
+describe("Audit Logging", () => {
+  it("admin can view audit logs", async () => {
+    const adminUser = createMockUser({ status: "approved", role: "admin" });
+    const ctx = createMockContext(adminUser);
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.users.auditLogs({ limit: 50 });
+
+    expect(Array.isArray(result)).toBe(true);
+  });
+
+  it("admin can filter audit logs by action", async () => {
+    const adminUser = createMockUser({ status: "approved", role: "admin" });
+    const ctx = createMockContext(adminUser);
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.users.auditLogs({
+      limit: 50,
+      actionFilter: "cancel",
+    });
+
+    expect(Array.isArray(result)).toBe(true);
+  });
+
+  it("non-admin cannot view audit logs", async () => {
+    const regularUser = createMockUser({ status: "approved", role: "user" });
+    const ctx = createMockContext(regularUser);
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(caller.users.auditLogs({ limit: 50 })).rejects.toThrow();
+  });
+});

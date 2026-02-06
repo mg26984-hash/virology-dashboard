@@ -6,6 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -20,7 +27,9 @@ import {
   User,
   Calendar,
   X,
-  Loader2
+  Loader2,
+  FlaskConical,
+  FileText,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
@@ -43,9 +52,16 @@ export default function Patients() {
     dateOfBirth: '',
     accessionDateFrom: '',
     accessionDateTo: '',
+    testResult: '',
+    testType: '',
   });
   const [page, setPage] = useState(0);
   const pageSize = 20;
+
+  // Fetch distinct filter options from the database
+  const { data: filterOptions } = trpc.patients.filterOptions.useQuery(undefined, {
+    enabled: user?.status === 'approved',
+  });
 
   // Build query params
   const queryParams = {
@@ -56,6 +72,8 @@ export default function Patients() {
     dateOfBirth: filters.dateOfBirth || undefined,
     accessionDateFrom: filters.accessionDateFrom || undefined,
     accessionDateTo: filters.accessionDateTo || undefined,
+    testResult: filters.testResult || undefined,
+    testType: filters.testType || undefined,
     limit: pageSize,
     offset: page * pageSize,
   };
@@ -81,6 +99,8 @@ export default function Patients() {
       dateOfBirth: '',
       accessionDateFrom: '',
       accessionDateTo: '',
+      testResult: '',
+      testType: '',
     });
     setSearchQuery('');
     setPage(0);
@@ -88,6 +108,18 @@ export default function Patients() {
 
   const hasActiveFilters = Object.values(filters).some(v => v) || searchQuery;
   const hasDateRangeFilter = filters.accessionDateFrom || filters.accessionDateTo;
+  const hasTestFilter = filters.testResult || filters.testType;
+
+  // Count active filter badges
+  const activeFilterCount = [
+    filters.civilId,
+    filters.name,
+    filters.nationality,
+    filters.dateOfBirth,
+    filters.accessionDateFrom || filters.accessionDateTo ? 'date' : '',
+    filters.testResult,
+    filters.testType,
+  ].filter(Boolean).length;
 
   const totalPages = data ? Math.ceil(data.total / pageSize) : 0;
 
@@ -107,8 +139,8 @@ export default function Patients() {
         >
           <Filter className="mr-2 h-4 w-4" />
           Filters
-          {hasActiveFilters && (
-            <Badge variant="secondary" className="ml-2">Active</Badge>
+          {activeFilterCount > 0 && (
+            <Badge variant="secondary" className="ml-2">{activeFilterCount}</Badge>
           )}
         </Button>
       </div>
@@ -137,6 +169,70 @@ export default function Patients() {
           </Button>
         )}
       </div>
+
+      {/* Active Filter Chips */}
+      {hasActiveFilters && !showFilters && (
+        <div className="flex flex-wrap gap-2">
+          {filters.testResult && (
+            <Badge variant="secondary" className="gap-1 pr-1">
+              <FlaskConical className="h-3 w-3" />
+              Result: {filters.testResult}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-4 w-4 ml-1 hover:bg-transparent"
+                onClick={() => { setFilters(prev => ({ ...prev, testResult: '' })); setPage(0); }}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </Badge>
+          )}
+          {filters.testType && (
+            <Badge variant="secondary" className="gap-1 pr-1">
+              <FileText className="h-3 w-3" />
+              Test: {filters.testType}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-4 w-4 ml-1 hover:bg-transparent"
+                onClick={() => { setFilters(prev => ({ ...prev, testType: '' })); setPage(0); }}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </Badge>
+          )}
+          {filters.nationality && (
+            <Badge variant="secondary" className="gap-1 pr-1">
+              Nationality: {filters.nationality}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-4 w-4 ml-1 hover:bg-transparent"
+                onClick={() => { setFilters(prev => ({ ...prev, nationality: '' })); setPage(0); }}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </Badge>
+          )}
+          {hasDateRangeFilter && (
+            <Badge variant="secondary" className="gap-1 pr-1">
+              <Calendar className="h-3 w-3" />
+              Date: {filters.accessionDateFrom || '...'} to {filters.accessionDateTo || '...'}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-4 w-4 ml-1 hover:bg-transparent"
+                onClick={() => { setFilters(prev => ({ ...prev, accessionDateFrom: '', accessionDateTo: '' })); setPage(0); }}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </Badge>
+          )}
+          <Button variant="ghost" size="sm" onClick={clearFilters} className="text-xs h-6">
+            Clear all
+          </Button>
+        </div>
+      )}
 
       {/* Advanced Filters */}
       {showFilters && (
@@ -204,6 +300,64 @@ export default function Patients() {
               </div>
             </div>
 
+            {/* Test-Level Filters */}
+            <div className="border-t pt-4">
+              <div className="flex items-center gap-2 mb-4">
+                <FlaskConical className="h-4 w-4 text-primary" />
+                <h4 className="font-medium">Test Filters</h4>
+                {hasTestFilter && (
+                  <Badge variant="outline" className="text-xs">
+                    Filtering by test data
+                  </Badge>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground mb-4">
+                Filter patients by their virology test results or test type
+              </p>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Test Type</Label>
+                  <Select
+                    value={filters.testType || "_all_"}
+                    onValueChange={(val) => {
+                      setFilters(prev => ({ ...prev, testType: val === "_all_" ? "" : val }));
+                      setPage(0);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="All test types" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_all_">All test types</SelectItem>
+                      {filterOptions?.testTypes.map((t) => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Test Result</Label>
+                  <Select
+                    value={filters.testResult || "_all_"}
+                    onValueChange={(val) => {
+                      setFilters(prev => ({ ...prev, testResult: val === "_all_" ? "" : val }));
+                      setPage(0);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="All results" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_all_">All results</SelectItem>
+                      {filterOptions?.testResults.map((r) => (
+                        <SelectItem key={r} value={r}>{r}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
             {/* Date Range Filters */}
             <div className="border-t pt-4">
               <div className="flex items-center gap-2 mb-4">
@@ -258,6 +412,7 @@ export default function Patients() {
               <CardDescription>
                 {data ? `${data.total} patients found` : 'Loading...'}
                 {hasDateRangeFilter && ' (filtered by test date range)'}
+                {hasTestFilter && ' (filtered by test data)'}
               </CardDescription>
             </div>
             {isFetching && (

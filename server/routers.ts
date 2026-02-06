@@ -33,6 +33,8 @@ import {
   getExportData,
   getDistinctTestTypes,
   getDistinctNationalities,
+  getDistinctTestValues,
+  createAuditLog,
 } from "./db";
 import ExcelJS from "exceljs";
 import { processUploadedDocument } from "./documentProcessor";
@@ -89,9 +91,14 @@ export const appRouter = router({
         return { success: true };
       }),
     
-    auditLogs: adminProcedure.query(async () => {
-      return getAuditLogs();
-    }),
+    auditLogs: adminProcedure
+      .input(z.object({
+        limit: z.number().optional(),
+        actionFilter: z.string().optional(),
+      }).optional())
+      .query(async ({ input }) => {
+        return getAuditLogs(input?.limit || 200, input?.actionFilter);
+      }),
   }),
 
   // Document upload and processing
@@ -543,7 +550,7 @@ export const appRouter = router({
     // Cancel processing of a document (set to discarded)
     cancelProcessing: approvedProcedure
       .input(z.object({ documentId: z.number() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         const doc = await getDocumentById(input.documentId);
         if (!doc) {
           throw new TRPCError({
@@ -561,13 +568,23 @@ export const appRouter = router({
         }
 
         await updateDocumentStatus(input.documentId, 'discarded', 'Cancelled by user');
+
+        // Audit log
+        if (ctx.user) {
+          await createAuditLog({
+            action: 'document_cancel',
+            userId: ctx.user.id,
+            metadata: JSON.stringify({ documentId: input.documentId, fileName: doc.fileName }),
+          });
+        }
+
         return { success: true, message: 'Document processing cancelled' };
       }),
 
     // Cancel multiple documents at once
     cancelBatch: approvedProcedure
       .input(z.object({ documentIds: z.array(z.number()) }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         let cancelled = 0;
         let skipped = 0;
 
@@ -580,6 +597,15 @@ export const appRouter = router({
           }
           await updateDocumentStatus(docId, 'discarded', 'Cancelled by user');
           cancelled++;
+        }
+
+        // Audit log
+        if (ctx.user && cancelled > 0) {
+          await createAuditLog({
+            action: 'document_cancel_batch',
+            userId: ctx.user.id,
+            metadata: JSON.stringify({ documentIds: input.documentIds, cancelled, skipped }),
+          });
         }
 
         return {
@@ -691,6 +717,8 @@ export const appRouter = router({
         dateOfBirth: z.string().optional(),
         accessionDateFrom: z.string().optional(),
         accessionDateTo: z.string().optional(),
+        testResult: z.string().optional(),
+        testType: z.string().optional(),
         limit: z.number().optional(),
         offset: z.number().optional(),
       }))
@@ -701,6 +729,11 @@ export const appRouter = router({
           accessionDateTo: input.accessionDateTo ? new Date(input.accessionDateTo) : undefined,
         });
       }),
+
+    // Get distinct test types and result values for filter dropdowns
+    filterOptions: approvedProcedure.query(async () => {
+      return getDistinctTestValues();
+    }),
 
     getById: approvedProcedure
       .input(z.object({ id: z.number() }))
@@ -716,7 +749,7 @@ export const appRouter = router({
 
     generatePDF: approvedProcedure
       .input(z.object({ patientId: z.number() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         const patient = await getPatientById(input.patientId);
         if (!patient) {
           throw new TRPCError({
@@ -734,6 +767,15 @@ export const appRouter = router({
           .replace(/\s+/g, "_");
         const dateStr = new Date().toISOString().slice(0, 10);
         const fileName = `virology-report-${safeName}-${dateStr}.pdf`;
+
+        // Audit log
+        if (ctx.user) {
+          await createAuditLog({
+            action: 'pdf_export',
+            userId: ctx.user.id,
+            metadata: JSON.stringify({ patientId: input.patientId, patientName: patient.name, civilId: patient.civilId, testCount: tests.length }),
+          });
+        }
 
         return {
           base64,
@@ -818,7 +860,7 @@ export const appRouter = router({
         civilId: z.string().optional(),
         patientName: z.string().optional(),
       }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         const data = await getExportData({
           dateFrom: input.dateFrom ? new Date(input.dateFrom) : undefined,
           dateTo: input.dateTo ? new Date(input.dateTo) : undefined,
@@ -984,6 +1026,20 @@ export const appRouter = router({
         // Generate filename
         const dateStr = new Date().toISOString().slice(0, 10);
         const fileName = `virology-export-${dateStr}.xlsx`;
+
+        // Audit log
+        if (ctx.user) {
+          await createAuditLog({
+            action: 'excel_export',
+            userId: ctx.user.id,
+            metadata: JSON.stringify({
+              filters: input,
+              rowCount: data.length,
+              uniquePatients: uniquePatients.size,
+              fileName,
+            }),
+          });
+        }
 
         return {
           base64,

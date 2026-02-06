@@ -153,3 +153,16 @@
 - [x] Add cancel/abort button for pending and processing documents
 - [x] Backend endpoint to cancel document processing (set status to discarded)
 - [x] Write tests for cancel processing endpoint
+
+## Result-Level Filtering on Patients Page
+- [x] Add result filter (Detected/Not Detected) to patient search backend
+- [x] Add test type filter to patient search
+- [x] Update Patients page UI with filter dropdowns
+- [x] Show active filters as badges/chips
+
+## Audit Logging for Cancellations and Exports
+- [x] Log document cancellation events (single and batch) with user info
+- [x] Log Excel export events with filters used
+- [x] Log PDF report generation events
+- [x] Create audit log viewer page for admins
+- [x] Write tests for audit logging
