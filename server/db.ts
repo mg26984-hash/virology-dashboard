@@ -837,3 +837,250 @@ export async function getTestsByNationality(limit = 10, from?: string, to?: stri
     count: Number(r.count),
   })) ?? [];
 }
+
+
+// ============ PATIENT MERGE FUNCTIONS ============
+
+export interface DuplicateCandidate {
+  patient1: Patient;
+  patient2: Patient;
+  matchType: 'civil_id' | 'name' | 'dob_name';
+  similarity: number; // 0-100
+  reason: string;
+}
+
+/**
+ * Find potential duplicate patients using multiple matching strategies:
+ * 1. Similar Civil IDs (ignoring spaces, dashes, leading zeros)
+ * 2. Similar names (exact match after normalization, or partial match)
+ * 3. Same DOB + similar name
+ */
+export async function findDuplicatePatients(): Promise<DuplicateCandidate[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  // Get all patients
+  const allPatients = await db.select().from(patients).orderBy(patients.civilId);
+  const duplicates: DuplicateCandidate[] = [];
+  const seen = new Set<string>();
+
+  for (let i = 0; i < allPatients.length; i++) {
+    for (let j = i + 1; j < allPatients.length; j++) {
+      const p1 = allPatients[i];
+      const p2 = allPatients[j];
+      const pairKey = `${Math.min(p1.id, p2.id)}-${Math.max(p1.id, p2.id)}`;
+      if (seen.has(pairKey)) continue;
+
+      // Strategy 1: Similar Civil IDs (strip spaces, dashes, leading zeros)
+      const normCid1 = normalizeCivilId(p1.civilId);
+      const normCid2 = normalizeCivilId(p2.civilId);
+      if (normCid1 && normCid2 && normCid1 === normCid2 && p1.civilId !== p2.civilId) {
+        seen.add(pairKey);
+        duplicates.push({
+          patient1: p1,
+          patient2: p2,
+          matchType: 'civil_id',
+          similarity: 95,
+          reason: `Civil IDs match after normalization: "${p1.civilId}" ≈ "${p2.civilId}"`,
+        });
+        continue;
+      }
+
+      // Strategy 2: Very similar names (case-insensitive, trimmed)
+      const normName1 = normalizeName(p1.name);
+      const normName2 = normalizeName(p2.name);
+      if (normName1 && normName2 && normName1.length > 3 && normName2.length > 3) {
+        if (normName1 === normName2) {
+          seen.add(pairKey);
+          duplicates.push({
+            patient1: p1,
+            patient2: p2,
+            matchType: 'name',
+            similarity: 90,
+            reason: `Names match exactly: "${p1.name}" = "${p2.name}"`,
+          });
+          continue;
+        }
+
+        // Check if one name contains the other (partial match for truncated names)
+        if (normName1.length >= 8 && normName2.length >= 8) {
+          if (normName1.includes(normName2) || normName2.includes(normName1)) {
+            seen.add(pairKey);
+            duplicates.push({
+              patient1: p1,
+              patient2: p2,
+              matchType: 'name',
+              similarity: 75,
+              reason: `Name partial match: "${p1.name}" ≈ "${p2.name}"`,
+            });
+            continue;
+          }
+        }
+
+        // Levenshtein distance for close matches
+        const distance = levenshteinDistance(normName1, normName2);
+        const maxLen = Math.max(normName1.length, normName2.length);
+        const similarityPct = Math.round((1 - distance / maxLen) * 100);
+        if (similarityPct >= 85 && maxLen >= 8) {
+          seen.add(pairKey);
+          duplicates.push({
+            patient1: p1,
+            patient2: p2,
+            matchType: 'name',
+            similarity: similarityPct,
+            reason: `Names are ${similarityPct}% similar: "${p1.name}" ≈ "${p2.name}"`,
+          });
+          continue;
+        }
+      }
+
+      // Strategy 3: Same DOB + similar first name
+      if (p1.dateOfBirth && p2.dateOfBirth && p1.dateOfBirth === p2.dateOfBirth) {
+        const firstName1 = normName1?.split(' ')[0] || '';
+        const firstName2 = normName2?.split(' ')[0] || '';
+        if (firstName1 && firstName2 && firstName1.length >= 3 && firstName1 === firstName2) {
+          seen.add(pairKey);
+          duplicates.push({
+            patient1: p1,
+            patient2: p2,
+            matchType: 'dob_name',
+            similarity: 80,
+            reason: `Same DOB (${p1.dateOfBirth}) + same first name: "${firstName1}"`,
+          });
+        }
+      }
+    }
+  }
+
+  // Sort by similarity descending
+  duplicates.sort((a, b) => b.similarity - a.similarity);
+  return duplicates;
+}
+
+function normalizeCivilId(cid: string): string {
+  return cid.replace(/[\s\-]/g, '').replace(/^0+/, '');
+}
+
+function normalizeName(name: string | null): string {
+  if (!name) return '';
+  return name.trim().toLowerCase().replace(/\s+/g, ' ').replace(/[.,']/g, '');
+}
+
+function levenshteinDistance(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[m][n];
+}
+
+/**
+ * Merge two patients: move all tests and documents from source to target,
+ * update target patient info with any missing fields, then delete source.
+ * Returns the number of tests reassigned.
+ */
+export async function mergePatients(
+  targetId: number,
+  sourceId: number,
+  adminId: number,
+  reason?: string
+): Promise<{ testsReassigned: number; documentsReassigned: number }> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Get both patients
+  const [target] = await db.select().from(patients).where(eq(patients.id, targetId)).limit(1);
+  const [source] = await db.select().from(patients).where(eq(patients.id, sourceId)).limit(1);
+
+  if (!target) throw new Error(`Target patient ${targetId} not found`);
+  if (!source) throw new Error(`Source patient ${sourceId} not found`);
+  if (targetId === sourceId) throw new Error("Cannot merge a patient with itself");
+
+  // Count tests and documents to reassign
+  const [testCountResult] = await db.select({ count: sql<number>`count(*)` })
+    .from(virologyTests)
+    .where(eq(virologyTests.patientId, sourceId));
+  const testsReassigned = testCountResult?.count || 0;
+
+  // Reassign all virology tests from source to target
+  await db.update(virologyTests)
+    .set({ patientId: targetId })
+    .where(eq(virologyTests.patientId, sourceId));
+
+  // Update target patient with any missing info from source
+  const updateFields: Partial<InsertPatient> = {};
+  if (!target.name && source.name) updateFields.name = source.name;
+  if (!target.dateOfBirth && source.dateOfBirth) updateFields.dateOfBirth = source.dateOfBirth;
+  if (!target.nationality && source.nationality) updateFields.nationality = source.nationality;
+  if (!target.gender && source.gender) updateFields.gender = source.gender;
+  if (!target.passportNo && source.passportNo) updateFields.passportNo = source.passportNo;
+
+  if (Object.keys(updateFields).length > 0) {
+    await db.update(patients).set(updateFields).where(eq(patients.id, targetId));
+  }
+
+  // Delete source patient (cascade will handle if there are any remaining references)
+  await db.delete(patients).where(eq(patients.id, sourceId));
+
+  // Create audit log
+  await db.insert(auditLogs).values({
+    action: 'patient_merge',
+    userId: adminId,
+    reason: reason || null,
+    metadata: JSON.stringify({
+      targetPatientId: targetId,
+      targetCivilId: target.civilId,
+      targetName: target.name,
+      sourcePatientId: sourceId,
+      sourceCivilId: source.civilId,
+      sourceName: source.name,
+      testsReassigned,
+      fieldsUpdated: Object.keys(updateFields),
+    }),
+  });
+
+  return { testsReassigned, documentsReassigned: 0 };
+}
+
+/**
+ * Search patients for merge - returns patients matching a query with test counts
+ */
+export async function searchPatientsForMerge(query: string): Promise<(Patient & { testCount: number })[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  const results = await db
+    .select({
+      id: patients.id,
+      civilId: patients.civilId,
+      name: patients.name,
+      dateOfBirth: patients.dateOfBirth,
+      nationality: patients.nationality,
+      gender: patients.gender,
+      passportNo: patients.passportNo,
+      createdAt: patients.createdAt,
+      updatedAt: patients.updatedAt,
+      testCount: sql<number>`COUNT(${virologyTests.id})`,
+    })
+    .from(patients)
+    .leftJoin(virologyTests, eq(virologyTests.patientId, patients.id))
+    .where(
+      or(
+        like(patients.civilId, `%${query}%`),
+        like(patients.name, `%${query}%`)
+      )
+    )
+    .groupBy(patients.id)
+    .orderBy(desc(sql`COUNT(${virologyTests.id})`))
+    .limit(20);
+
+  return results as (Patient & { testCount: number })[];
+}

@@ -226,3 +226,15 @@
 - [x] Test types already clean - no duplicate variants found
 - [x] Add normalizeResult() to document processing pipeline (handles casing, Non Reactive, NEGATIVE, etc.)
 - [x] Run tests to verify - all 86 tests pass
+
+## Patient Merge Tool (Admin)
+- [x] Backend: duplicate detection algorithm (similar Civil ID, similar name, fuzzy matching)
+- [x] Backend: merge procedure - reassign all tests/documents from source to target patient
+- [x] Backend: preserve audit trail of merged records
+- [x] Backend: delete source patient after successful merge
+- [x] Frontend: Patient Merge admin page with duplicate suggestions list
+- [x] Frontend: side-by-side comparison of two patient records before merge
+- [x] Frontend: select primary (target) patient and confirm merge action
+- [x] Frontend: manual search to find and merge any two patients
+- [x] Add Patient Merge page to sidebar navigation (admin only)
+- [x] Write tests for duplicate detection and merge endpoints (9 tests, all passing)

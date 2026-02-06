@@ -39,6 +39,9 @@ import {
   getResultDistribution,
   getTopTestTypes,
   getTestsByNationality,
+  findDuplicatePatients,
+  mergePatients,
+  searchPatientsForMerge,
 } from "./db";
 import ExcelJS from "exceljs";
 import { processUploadedDocument } from "./documentProcessor";
@@ -1207,6 +1210,43 @@ export const appRouter = router({
         };
       }),
   }),
+
+  // ============ PATIENT MERGE (Admin) ============
+
+  findDuplicates: adminProcedure.query(async () => {
+    return findDuplicatePatients();
+  }),
+
+  searchForMerge: adminProcedure
+    .input(z.object({ query: z.string().min(1) }))
+    .query(async ({ input }) => {
+      return searchPatientsForMerge(input.query);
+    }),
+
+  mergePatients: adminProcedure
+    .input(z.object({
+      targetId: z.number(),
+      sourceId: z.number(),
+      reason: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const result = await mergePatients(
+        input.targetId,
+        input.sourceId,
+        ctx.user!.id,
+        input.reason
+      );
+      return result;
+    }),
+
+  getPatientWithTestCount: adminProcedure
+    .input(z.object({ id: z.number() }))
+    .query(async ({ input }) => {
+      const patient = await getPatientById(input.id);
+      if (!patient) throw new TRPCError({ code: 'NOT_FOUND', message: 'Patient not found' });
+      const tests = await getTestsByPatientId(input.id);
+      return { ...patient, testCount: tests.length, recentTests: tests.slice(0, 5) };
+    }),
 });
 
 export type AppRouter = typeof appRouter;

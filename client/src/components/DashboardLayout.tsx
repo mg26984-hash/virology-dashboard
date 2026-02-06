@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Users, Upload, Search, Shield, FileSpreadsheet, ClipboardList } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, Users, Upload, Search, Shield, FileSpreadsheet, ClipboardList, GitMerge } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -226,6 +226,19 @@ function DashboardLayoutContent({
                         className={`h-4 w-4 ${location === '/admin/export' ? "text-primary" : ""}`}
                       />
                       <span>Export Data</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      isActive={location === '/admin/merge'}
+                      onClick={() => setLocation('/admin/merge')}
+                      tooltip="Patient Merge"
+                      className={`h-10 transition-all font-normal`}
+                    >
+                      <GitMerge
+                        className={`h-4 w-4 ${location === '/admin/merge' ? "text-primary" : ""}`}
+                      />
+                      <span>Patient Merge</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
