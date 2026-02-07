@@ -501,3 +501,10 @@
 - [x] Fix purple info note color so text is readable in light mode
 - [x] Make copying the full Quick Upload link (with token) easier and more prominent
 - [x] Show exact date and time (not just date) in Recent Uploads section
+
+## Date/Time & Navigation Improvements
+- [x] Create shared date/time formatting utility with relative time support
+- [x] Add exact time to Patient Detail page (test signed date)
+- [x] Add exact time to User Management page (created/last signed in dates)
+- [x] Add relative time labels ("2 hours ago") alongside exact timestamps across the app
+- [x] Make Recent Uploads on Dashboard clickable to navigate to patient records (completed docs link to patient)

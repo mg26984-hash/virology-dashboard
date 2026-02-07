@@ -1,5 +1,6 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
+import { formatDateTime, relativeTime } from "@/lib/dateUtils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -350,7 +351,8 @@ export default function UserManagement() {
                           </TableCell>
                           <TableCell>{u.email || '-'}</TableCell>
                           <TableCell>
-                            {new Date(u.createdAt).toLocaleDateString()}
+                            <div>{formatDateTime(u.createdAt)}</div>
+                            <div className="text-xs text-muted-foreground/70">{relativeTime(u.createdAt)}</div>
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
@@ -426,7 +428,8 @@ export default function UserManagement() {
                           <TableCell>{getRoleBadge(u.role)}</TableCell>
                           <TableCell>{getStatusBadge(u.status)}</TableCell>
                           <TableCell>
-                            {new Date(u.lastSignedIn).toLocaleDateString()}
+                            <div>{formatDateTime(u.lastSignedIn)}</div>
+                            <div className="text-xs text-muted-foreground/70">{relativeTime(u.lastSignedIn)}</div>
                           </TableCell>
                           <TableCell className="text-right">
                             {u.id !== user?.id && (
@@ -639,7 +642,8 @@ export default function UserManagement() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              {new Date(doc.createdAt).toLocaleDateString()}
+                              <div>{formatDateTime(doc.createdAt)}</div>
+                              <div className="text-xs text-muted-foreground/70">{relativeTime(doc.createdAt)}</div>
                             </TableCell>
                             <TableCell className="text-right">
                               <Button

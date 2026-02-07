@@ -26,6 +26,7 @@ import {
   ArrowLeftRight,
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatDateTime, relativeTime } from "@/lib/dateUtils";
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import ProcessingQueue from "@/components/ProcessingQueue";
@@ -1065,24 +1066,44 @@ export default function Home() {
           <CardContent>
             {recentDocs && recentDocs.length > 0 ? (
               <div className="space-y-3">
-                {recentDocs.map((doc) => (
-                  <div key={doc.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                    <div className="flex items-center gap-3">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-sm font-medium truncate max-w-[200px]">{doc.fileName}</p>
-                        <p className="text-xs text-muted-foreground">{new Date(doc.createdAt).toLocaleString(undefined, { month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                {recentDocs.map((doc) => {
+                  const isClickable = doc.processingStatus === 'completed' && doc.patientId;
+                  const Wrapper = isClickable ? 'a' : 'div';
+                  return (
+                    <Wrapper
+                      key={doc.id}
+                      {...(isClickable ? { href: `/patients/${doc.patientId}`, onClick: (e: React.MouseEvent) => { e.preventDefault(); setLocation(`/patients/${doc.patientId}`); } } : {})}
+                      className={`flex items-center justify-between p-3 rounded-lg bg-muted/50 transition-colors ${isClickable ? 'cursor-pointer hover:bg-muted group' : ''}`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <FileText className={`h-4 w-4 shrink-0 ${isClickable ? 'text-primary group-hover:text-primary' : 'text-muted-foreground'}`} />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium truncate max-w-[180px]">{doc.fileName}</p>
+                            {isClickable && doc.patientName && (
+                              <span className="text-xs text-primary/70 truncate max-w-[100px]">→ {doc.patientName}</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {formatDateTime(doc.createdAt)}
+                            <span className="mx-1">·</span>
+                            <span className="text-muted-foreground/70">{relativeTime(doc.createdAt)}</span>
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                    <Badge variant={
-                      doc.processingStatus === 'completed' ? 'default' :
-                      doc.processingStatus === 'failed' ? 'destructive' :
-                      doc.processingStatus === 'discarded' ? 'secondary' : 'outline'
-                    }>
-                      {doc.processingStatus}
-                    </Badge>
-                  </div>
-                ))}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Badge variant={
+                          doc.processingStatus === 'completed' ? 'default' :
+                          doc.processingStatus === 'failed' ? 'destructive' :
+                          doc.processingStatus === 'discarded' ? 'secondary' : 'outline'
+                        }>
+                          {doc.processingStatus}
+                        </Badge>
+                        {isClickable && <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />}
+                      </div>
+                    </Wrapper>
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">

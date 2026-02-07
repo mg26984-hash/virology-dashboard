@@ -1,5 +1,6 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
+import { formatDateTime, relativeTime } from "@/lib/dateUtils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -669,7 +670,8 @@ export default function PatientDetail() {
                       <div>
                         <p className="text-xs text-muted-foreground">Signed At</p>
                         <p className="text-sm">
-                          {new Date(test.signedAt).toLocaleDateString()}
+                          {formatDateTime(test.signedAt)}
+                          <span className="text-xs text-muted-foreground ml-1">({relativeTime(test.signedAt)})</span>
                         </p>
                       </div>
                     )}

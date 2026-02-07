@@ -481,10 +481,33 @@ export async function getRecentDocuments(limit: number = 20) {
   const db = await getDb();
   if (!db) return [];
   
-  return db.select()
+  const docs = await db.select()
     .from(documents)
     .orderBy(desc(documents.createdAt))
     .limit(limit);
+
+  // For each completed doc, find the linked patient via virologyTests
+  const docsWithPatient = await Promise.all(
+    docs.map(async (doc) => {
+      if (doc.processingStatus === 'completed') {
+        const test = await db.select({
+          patientId: virologyTests.patientId,
+          civilId: patients.civilId,
+          patientName: patients.name,
+        })
+          .from(virologyTests)
+          .leftJoin(patients, eq(virologyTests.patientId, patients.id))
+          .where(eq(virologyTests.documentId, doc.id))
+          .limit(1);
+        if (test.length > 0) {
+          return { ...doc, patientId: test[0].patientId, civilId: test[0].civilId, patientName: test[0].patientName };
+        }
+      }
+      return { ...doc, patientId: null, civilId: null, patientName: null };
+    })
+  );
+
+  return docsWithPatient;
 }
 
 export async function getDocumentsByStatus(
