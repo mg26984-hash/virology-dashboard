@@ -5,7 +5,8 @@ import {
   patients, InsertPatient, Patient,
   virologyTests, InsertVirologyTest, VirologyTest,
   documents, InsertDocument, Document,
-  auditLogs, InsertAuditLog
+  auditLogs, InsertAuditLog,
+  uploadTokens, InsertUploadToken
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -1329,4 +1330,40 @@ export async function searchPatientsForMerge(query: string): Promise<(Patient & 
     .limit(20);
 
   return results as (Patient & { testCount: number })[];
+}
+
+
+// ---- Upload Token Helpers ----
+
+export async function createUploadToken(userId: number, token: string, expiresAt: Date) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(uploadTokens).values({ userId, token, expiresAt });
+  return { token, expiresAt };
+}
+
+export async function validateUploadToken(token: string): Promise<{ valid: boolean; userId?: number }> {
+  const db = await getDb();
+  if (!db) return { valid: false };
+  const results = await db.select().from(uploadTokens)
+    .where(eq(uploadTokens.token, token))
+    .limit(1);
+  if (results.length === 0) return { valid: false };
+  const t = results[0];
+  if (new Date(t.expiresAt) < new Date()) {
+    // Token expired, clean it up
+    await db.delete(uploadTokens).where(eq(uploadTokens.id, t.id));
+    return { valid: false };
+  }
+  // Increment usage count
+  await db.update(uploadTokens).set({ used: (t.used || 0) + 1 }).where(eq(uploadTokens.id, t.id));
+  return { valid: true, userId: t.userId };
+}
+
+export async function cleanExpiredTokens() {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(uploadTokens).where(
+    sql`${uploadTokens.expiresAt} < NOW()`
+  );
 }

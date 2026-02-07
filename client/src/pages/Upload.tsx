@@ -8,6 +8,7 @@ import {
   Upload as UploadIcon, X, CheckCircle2, AlertCircle, Loader2, Image,
   FileType, FileArchive, FolderOpen, RefreshCw, Timer, Clock, Trash2, Ban, XCircle,
   MessageCircle, Smartphone, Download, FolderUp, Shield, ArrowRight, ChevronDown, ChevronUp, Camera, Plus, Pencil,
+  Share2, Copy, Link, ExternalLink,
 } from "lucide-react";
 import PhotoEditor from "@/components/PhotoEditor";
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
@@ -96,6 +97,16 @@ export default function Upload() {
     try { return localStorage.getItem("whatsapp-guide-collapsed") !== "true"; } catch { return true; }
   });
   const [guidePlatform, setGuidePlatform] = useState<"android" | "iphone">("android");
+  const [shareExpanded, setShareExpanded] = useState(false);
+  const [uploadToken, setUploadToken] = useState<string | null>(null);
+  const [tokenCopied, setTokenCopied] = useState(false);
+  const generateTokenMutation = trpc.documents.generateUploadToken.useMutation({
+    onSuccess: (data) => {
+      setUploadToken(data.token);
+      toast.success("Upload token generated! Valid for 24 hours.");
+    },
+    onError: () => toast.error("Failed to generate token"),
+  });
   const toggleWhatsappGuide = useCallback(() => {
     setWhatsappGuideOpen((prev) => {
       const next = !prev;
@@ -722,6 +733,149 @@ sijxJy.png"
             </div>
           </div>
         </CardContent>
+      </Card>
+
+
+      {/* Share from Phone */}
+      <Card>
+        <CardHeader className="pb-2 cursor-pointer" onClick={() => setShareExpanded(!shareExpanded)}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center shrink-0">
+                <Share2 className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Share from Phone</CardTitle>
+                <CardDescription className="text-xs">Share photos directly from your gallery or WhatsApp without opening this site</CardDescription>
+              </div>
+            </div>
+            {shareExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+          </div>
+        </CardHeader>
+        {shareExpanded && <CardContent className="pt-0 space-y-4">
+          {/* Step 1: Generate token */}
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="h-6 w-6 rounded-full bg-purple-600 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">1</div>
+              <div className="flex-1">
+                <p className="text-sm font-medium">Generate an upload token</p>
+                <p className="text-xs text-muted-foreground">This token lets your phone upload without logging in. Valid for 24 hours.</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  {!uploadToken ? (
+                    <Button size="sm" variant="outline" onClick={() => generateTokenMutation.mutate()} disabled={generateTokenMutation.isPending}>
+                      {generateTokenMutation.isPending ? <><Loader2 className="h-3 w-3 mr-2 animate-spin" />Generating...</> : <><Link className="h-3 w-3 mr-2" />Generate Token</>}
+                    </Button>
+                  ) : (
+                    <>
+                      <code className="text-xs bg-muted px-2 py-1 rounded font-mono max-w-[200px] truncate">{uploadToken}</code>
+                      <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => {
+                        navigator.clipboard.writeText(uploadToken);
+                        setTokenCopied(true);
+                        setTimeout(() => setTokenCopied(false), 2000);
+                        toast.success("Token copied!");
+                      }}>
+                        {tokenCopied ? <CheckCircle2 className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+                      </Button>
+                      <Button size="sm" variant="outline" className="text-xs" onClick={() => { setUploadToken(null); generateTokenMutation.reset(); }}>
+                        <RefreshCw className="h-3 w-3 mr-1" />New Token
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Step 2: Platform-specific instructions */}
+            <div className="flex items-start gap-3">
+              <div className="h-6 w-6 rounded-full bg-purple-600 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">2</div>
+              <div className="flex-1 space-y-2">
+                <p className="text-sm font-medium">Set up your phone</p>
+
+                {/* iPhone instructions */}
+                <div className="rounded-lg border border-blue-500/30 bg-blue-950/20 p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Smartphone className="h-4 w-4 text-blue-400" />
+                    <span className="text-sm font-medium">iPhone (iOS Shortcut)</span>
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-500/40 text-blue-400">Recommended</Badge>
+                  </div>
+                  <ol className="text-xs text-muted-foreground space-y-1.5 pl-4 list-decimal">
+                    <li>Open the <strong>Shortcuts</strong> app on your iPhone</li>
+                    <li>Tap <strong>+</strong> to create a new shortcut</li>
+                    <li>Add action: <strong>"Receive input from Share Sheet"</strong> (set type to Images)</li>
+                    <li>Add action: <strong>"Get Contents of URL"</strong> with these settings:</li>
+                  </ol>
+                  <div className="bg-black/20 rounded p-2 text-xs space-y-1 border border-white/5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-white/40 w-14 shrink-0">URL:</span>
+                      <code className="text-emerald-400 break-all">{window.location.origin}/api/upload/quick?token={uploadToken || "YOUR_TOKEN"}</code>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-white/40 w-14 shrink-0">Method:</span>
+                      <code className="text-white/70">POST</code>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-white/40 w-14 shrink-0">Body:</span>
+                      <span className="text-white/70">Form &mdash; Key: <code className="text-emerald-400">images</code>, Type: <code className="text-emerald-400">File</code>, Value: <code className="text-emerald-400">Shortcut Input</code></span>
+                    </div>
+                  </div>
+                  <ol start={5} className="text-xs text-muted-foreground space-y-1.5 pl-4 list-decimal">
+                    <li>Add action: <strong>"Show Result"</strong> with value <em>Contents of URL</em></li>
+                    <li>Name it <strong>"Upload to Virology"</strong> and enable <strong>"Show in Share Sheet"</strong></li>
+                  </ol>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {uploadToken && (
+                      <Button size="sm" variant="outline" onClick={() => {
+                        const url = window.location.origin + "/api/upload/quick?token=" + uploadToken;
+                        navigator.clipboard.writeText(url);
+                        toast.success("Upload URL copied! Paste it in the Shortcut.");
+                      }}>
+                        <Copy className="h-3 w-3 mr-1.5" />Copy Upload URL
+                      </Button>
+                    )}
+                    {uploadToken && (
+                      <Button size="sm" variant="outline" onClick={() => {
+                        const quickUrl = window.location.origin + "/quick-upload?token=" + uploadToken;
+                        navigator.clipboard.writeText(quickUrl);
+                        toast.success("Quick Upload page URL copied!");
+                      }}>
+                        <ExternalLink className="h-3 w-3 mr-1.5" />Copy Quick Upload Page
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Android instructions */}
+                <div className="rounded-lg border border-border p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Smartphone className="h-4 w-4 text-green-600" />
+                    <span className="text-sm font-medium">Android (Add to Home Screen)</span>
+                  </div>
+                  <ol className="text-xs text-muted-foreground space-y-1 pl-4 list-decimal">
+                    <li>Open this site in <strong>Chrome</strong> on your phone</li>
+                    <li>Tap the <strong>three-dot menu</strong> {"→"} <strong>Add to Home Screen</strong></li>
+                    <li>Now when you share photos from Gallery or WhatsApp, select <strong>Virology</strong> from the share sheet</li>
+                  </ol>
+                  <p className="text-xs text-muted-foreground italic">No token needed for Android &mdash; it uses your logged-in session.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Step 3 */}
+            <div className="flex items-start gap-3">
+              <div className="h-6 w-6 rounded-full bg-purple-600 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">3</div>
+              <div className="flex-1">
+                <p className="text-sm font-medium">Share photos directly</p>
+                <p className="text-xs text-muted-foreground">Select one or multiple photos in your gallery or WhatsApp, tap <strong>Share</strong>, and choose <strong>Virology</strong> (Android) or <strong>Upload to Virology</strong> (iPhone). Files are deduplicated and processed automatically on the server.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Info note */}
+          <div className="rounded-lg bg-purple-950/20 border border-purple-500/20 px-3 py-2 flex items-start gap-2">
+            <Shield className="h-3.5 w-3.5 text-purple-400 mt-0.5 shrink-0" />
+            <p className="text-xs text-purple-300/80">Tokens expire after 24 hours. Generate a new one anytime from this section. All uploads are deduplicated &mdash; re-sharing the same photo is safe.</p>
+          </div>
+        </CardContent>}
       </Card>
 
       {/* Staged files */}

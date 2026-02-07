@@ -99,3 +99,18 @@ export const auditLogs = mysqlTable("auditLogs", {
 
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type InsertAuditLog = typeof auditLogs.$inferInsert;
+
+/**
+ * Upload tokens table - short-lived tokens for iOS Shortcut / share-to uploads
+ */
+export const uploadTokens = mysqlTable("uploadTokens", {
+  id: int("id").autoincrement().primaryKey(),
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  expiresAt: timestamp("expiresAt").notNull(),
+  used: int("used").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type UploadToken = typeof uploadTokens.$inferSelect;
+export type InsertUploadToken = typeof uploadTokens.$inferInsert;

@@ -388,4 +388,86 @@ async function processZipBatch(batchId: string, entries: AdmZip.IZipEntry[], use
   progress.status = "complete";
 }
 
+/**
+ * POST /api/upload/quick
+ * Token-based upload endpoint for iOS Shortcuts and share-to flows.
+ * Accepts multipart files with an upload token (no cookie needed).
+ * Token is passed as a query param or Authorization header.
+ */
+router.post("/quick", upload.array("images", 50), async (req: Request, res: Response) => {
+  try {
+    // Get token from query param, header, or form field
+    const token = (req.query.token as string) || req.headers["x-upload-token"] as string || (req.body && req.body.token);
+    if (!token) {
+      res.status(401).json({ error: "Upload token required. Generate one from the dashboard." });
+      return;
+    }
+
+    // Validate token
+    const { validateUploadToken } = await import("./db");
+    const { valid, userId } = await validateUploadToken(token);
+    if (!valid || !userId) {
+      res.status(401).json({ error: "Invalid or expired upload token. Please generate a new one." });
+      return;
+    }
+
+    const files = req.files as Express.Multer.File[];
+    if (!files || files.length === 0) {
+      res.status(400).json({ error: "No files provided" });
+      return;
+    }
+
+    const allowedTypes = ["image/jpeg", "image/png", "application/pdf"];
+    const validFiles = files.filter((f) => allowedTypes.includes(f.mimetype));
+    if (validFiles.length === 0) {
+      res.status(400).json({ error: "No valid image files. Only JPEG, PNG, and PDF are supported." });
+      return;
+    }
+
+    const results: { fileName: string; status: string; documentId?: number }[] = [];
+    let newCount = 0;
+    let dupCount = 0;
+
+    for (const file of validFiles) {
+      const fileHash = computeFileHash(file.buffer);
+      const { duplicate } = await isDuplicate(fileHash);
+
+      if (duplicate) {
+        dupCount++;
+        results.push({ fileName: file.originalname, status: "duplicate" });
+        continue;
+      }
+
+      const fileKey = `virology-reports/${userId}/${nanoid()}-${file.originalname}`;
+      const { url } = await storagePut(fileKey, file.buffer, file.mimetype);
+
+      const document = await createDocument({
+        uploadedBy: userId,
+        fileName: file.originalname,
+        fileKey,
+        fileUrl: url,
+        mimeType: file.mimetype,
+        fileSize: file.size,
+        fileHash,
+        processingStatus: "pending",
+      });
+
+      newCount++;
+      results.push({ fileName: file.originalname, status: "uploaded", documentId: document.id });
+    }
+
+    res.json({
+      success: true,
+      message: `${newCount} new file(s) uploaded, ${dupCount} duplicate(s) skipped. Processing will begin automatically.`,
+      total: validFiles.length,
+      new: newCount,
+      duplicates: dupCount,
+      results,
+    });
+  } catch (error) {
+    console.error("[Quick Upload] Error:", error);
+    res.status(500).json({ error: error instanceof Error ? error.message : "Upload failed" });
+  }
+});
+
 export default router;

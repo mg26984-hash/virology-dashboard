@@ -481,3 +481,13 @@
 - [x] Add edit (pencil) button on staged file thumbnails for image files
 - [x] Replace the original file with the cropped/rotated version on confirm
 - [x] Full-screen overlay works on mobile devices with touch gestures
+
+## Share-to Upload (iOS Share Sheet Integration)
+- [x] Create PWA web app manifest with share_target configuration for receiving images
+- [x] Add service worker to handle share target POST requests
+- [x] Create a server-side /api/quick-upload endpoint that accepts multipart file uploads with token auth
+- [x] Create a /quick-upload page that receives shared files and uploads them (standalone, no login required)
+- [x] Build upload token system (generate, validate, 24h expiry, usage tracking)
+- [x] Add compact "Share from Phone" instructions section on Upload page with iPhone/Android setup
+- [x] Ensure the shared files go through the same upload pipeline with deduplication
+- [x] Write 13 tests for upload token generation, validation, and quick-upload API endpoint

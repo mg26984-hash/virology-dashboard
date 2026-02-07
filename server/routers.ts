@@ -48,6 +48,7 @@ import {
   getProcessingQueue,
   getUploadHistory,
   getDocumentProcessingHistory,
+  createUploadToken,
 } from "./db";
 import { ENV } from './_core/env';
 import ExcelJS from "exceljs";
@@ -152,6 +153,15 @@ export const appRouter = router({
 
   // Document upload and processing
   documents: router({
+    generateUploadToken: approvedProcedure
+      .mutation(async ({ ctx }) => {
+        const crypto = await import("crypto");
+        const token = crypto.randomBytes(32).toString("hex");
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+        await createUploadToken(ctx.user.id, token, expiresAt);
+        return { token, expiresAt: expiresAt.toISOString() };
+      }),
+
     upload: approvedProcedure
       .input(z.object({
         fileName: z.string(),

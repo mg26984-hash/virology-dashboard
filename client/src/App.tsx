@@ -14,6 +14,7 @@ import Export from "./pages/Export";
 import AuditLog from "./pages/AuditLog";
 import PatientMerge from "./pages/PatientMerge";
 import ProcessingHistory from "./pages/ProcessingHistory";
+import QuickUpload from "./pages/QuickUpload";
 
 function Router() {
   return (
@@ -41,7 +42,13 @@ function App() {
       <ThemeProvider defaultTheme="dark" switchable={true}>
         <TooltipProvider>
           <Toaster />
-          <Router />
+          <Switch>
+            {/* QuickUpload is outside DashboardLayout - works with token auth, no login needed */}
+            <Route path="/quick-upload" component={QuickUpload} />
+            <Route>
+              <Router />
+            </Route>
+          </Switch>
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>
