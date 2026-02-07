@@ -1,0 +1,40 @@
+{
+  "query": "SELECT DATE(updatedAt) as d, processingStatus as status, COUNT(*) as cnt FROM documents WHERE processingStatus IN ('completed', 'failed', 'discarded') GROUP BY DATE(updatedAt), processingStatus ORDER BY d DESC LIMIT 30;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute SELECT DATE(updatedAt) as d, processingStatus as status, COUNT(*) as cnt FROM documents WHERE processingStatus IN ('completed', 'failed', 'discarded') GROUP BY DATE(updatedAt), processingStatus ORDER BY d DESC LIMIT 30;",
+  "rows": [
+    {
+      "d": "2026-02-07",
+      "status": "discarded",
+      "cnt": "420"
+    },
+    {
+      "d": "2026-02-07",
+      "status": "completed",
+      "cnt": "11"
+    },
+    {
+      "d": "2026-02-06",
+      "status": "discarded",
+      "cnt": "2625"
+    },
+    {
+      "d": "2026-02-06",
+      "status": "completed",
+      "cnt": "382"
+    },
+    {
+      "d": "2026-02-05",
+      "status": "discarded",
+      "cnt": "560"
+    },
+    {
+      "d": "2026-02-05",
+      "status": "completed",
+      "cnt": "198"
+    }
+  ],
+  "messages": [],
+  "stdout": "d\tstatus\tcnt\n2026-02-07\tdiscarded\t420\n2026-02-07\tcompleted\t11\n2026-02-06\tdiscarded\t2625\n2026-02-06\tcompleted\t382\n2026-02-05\tdiscarded\t560\n2026-02-05\tcompleted\t198\n",
+  "stderr": "",
+  "execution_time_ms": 1663
+}

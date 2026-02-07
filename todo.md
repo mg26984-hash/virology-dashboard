@@ -416,3 +416,19 @@
 - [x] Highlight deduplication: safe to re-upload the same export, duplicates are automatically skipped
 - [x] Add a visual guide or numbered steps with icons
 - [x] Ensure the section integrates with the existing upload flow (drag-and-drop / file picker)
+
+## Collapsible WhatsApp Guide
+- [x] Add collapse/expand toggle to the WhatsApp Export section
+- [x] Persist collapsed state in localStorage so returning users see it collapsed
+- [x] Show a compact summary when collapsed with expand button
+
+## Processing History Chart on Dashboard
+- [x] Add backend endpoint to return document processing counts grouped by day
+- [x] Create a chart component showing processing history (completed, failed, discarded per day)
+- [x] Add the chart to the dashboard below the stats cards
+- [x] Support toggling between 7-day and 30-day views
+
+## Update WhatsApp Guide Text and Images
+- [x] Change step 1 text to "Open OTC Virology 2026 on your WhatsApp"
+- [x] Add screenshot images showing how to export WhatsApp chat with media
+- [x] Make guide collapsible with localStorage persistence

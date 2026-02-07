@@ -47,6 +47,7 @@ import {
   autocompletePatients,
   getProcessingQueue,
   getUploadHistory,
+  getDocumentProcessingHistory,
 } from "./db";
 import { ENV } from './_core/env';
 import ExcelJS from "exceljs";
@@ -1077,6 +1078,13 @@ export const appRouter = router({
       .input(z.object({ limit: z.number().min(1).max(20).optional(), from: z.string().optional(), to: z.string().optional() }).optional())
       .query(async ({ input }) => {
         return getTestsByNationality(input?.limit ?? 10, input?.from, input?.to);
+      }),
+
+    // Processing history: documents processed per day
+    processingHistory: approvedProcedure
+      .input(z.object({ days: z.number().min(1).max(90).optional() }).optional())
+      .query(async ({ input }) => {
+        return getDocumentProcessingHistory(input?.days ?? 30);
       }),
 
     // Generate dashboard analytics PDF report

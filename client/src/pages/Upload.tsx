@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   Upload as UploadIcon, X, CheckCircle2, AlertCircle, Loader2, Image,
   FileType, FileArchive, FolderOpen, RefreshCw, Timer, Clock, Trash2, Ban, XCircle,
-  MessageCircle, Smartphone, Download, FolderUp, Shield, ArrowRight,
+  MessageCircle, Smartphone, Download, FolderUp, Shield, ArrowRight, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { toast } from "sonner";
@@ -88,6 +88,16 @@ export default function Upload() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [now, setNow] = useState(Date.now());
+  const [whatsappGuideOpen, setWhatsappGuideOpen] = useState(() => {
+    try { return localStorage.getItem("whatsapp-guide-collapsed") !== "true"; } catch { return true; }
+  });
+  const toggleWhatsappGuide = useCallback(() => {
+    setWhatsappGuideOpen((prev) => {
+      const next = !prev;
+      try { localStorage.setItem("whatsapp-guide-collapsed", next ? "false" : "true"); } catch {}
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     if (tracked.length === 0 && !batchProgress) return;
@@ -394,66 +404,113 @@ export default function Upload() {
         <p className="text-muted-foreground">Upload virology laboratory reports for automatic processing and data extraction.</p>
       </div>
 
-      {/* WhatsApp Export Guide */}
+      {/* WhatsApp Export Guide (Collapsible) */}
       <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-primary/15 flex items-center justify-center">
-              <MessageCircle className="h-5 w-5 text-primary" />
+        <CardHeader className="cursor-pointer select-none" onClick={toggleWhatsappGuide}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <img
+                src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/laNuWsxOWDChrUaK.jpeg"
+                alt="OTC Virology 2026"
+                className="h-10 w-10 rounded-xl object-cover"
+              />
+              <div>
+                <CardTitle>Upload WhatsApp Export</CardTitle>
+                <CardDescription>
+                  {whatsappGuideOpen
+                    ? "Export from the OTC Virology 2026 group — duplicates are automatically skipped"
+                    : "Click to see step-by-step instructions for WhatsApp chat export"}
+                </CardDescription>
+              </div>
             </div>
-            <div>
-              <CardTitle>Upload WhatsApp Export</CardTitle>
-              <CardDescription>Periodic upload from the lab's WhatsApp group — duplicates are automatically skipped</CardDescription>
-            </div>
+            <Button variant="ghost" size="icon" className="shrink-0 h-8 w-8" onClick={(e) => { e.stopPropagation(); toggleWhatsappGuide(); }}>
+              {whatsappGuideOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-4">
-            <div className="flex gap-3 p-3 rounded-lg bg-background/60 border border-border/50">
-              <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-0.5">
+        {whatsappGuideOpen && <CardContent className="space-y-6">
+          {/* Step-by-step guide */}
+          <div className="space-y-4">
+            {/* Step 1 */}
+            <div className="flex gap-4 items-start p-4 rounded-lg bg-background/60 border border-border/50">
+              <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-1">
                 <span className="text-sm font-bold text-primary">1</span>
               </div>
-              <div>
-                <p className="text-sm font-medium">Open WhatsApp Chat</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Open the lab results group chat on your phone</p>
+              <div className="flex-1">
+                <p className="text-sm font-semibold">Open OTC Virology 2026 on your WhatsApp</p>
+                <p className="text-xs text-muted-foreground mt-1">Find and open the <strong>OTC virology 2026</strong> group chat on your phone</p>
               </div>
             </div>
-            <div className="flex gap-3 p-3 rounded-lg bg-background/60 border border-border/50">
-              <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-0.5">
+
+            {/* Step 2 */}
+            <div className="flex gap-4 items-start p-4 rounded-lg bg-background/60 border border-border/50">
+              <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-1">
                 <span className="text-sm font-bold text-primary">2</span>
               </div>
-              <div>
-                <p className="text-sm font-medium">Export Chat</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Tap <strong>Menu → More → Export Chat → Attach Media</strong></p>
+              <div className="flex-1">
+                <p className="text-sm font-semibold">Tap the three-dot menu → More</p>
+                <p className="text-xs text-muted-foreground mt-1">In the top-right corner, tap <strong>⋮</strong> (three dots), then tap <strong>More</strong></p>
+                <img
+                  src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/VNemHFubGwIOFQpo.jpg"
+                  alt="WhatsApp three-dot menu showing More option"
+                  className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
+                />
               </div>
             </div>
-            <div className="flex gap-3 p-3 rounded-lg bg-background/60 border border-border/50">
-              <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-0.5">
+
+            {/* Step 3 */}
+            <div className="flex gap-4 items-start p-4 rounded-lg bg-background/60 border border-border/50">
+              <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-1">
                 <span className="text-sm font-bold text-primary">3</span>
               </div>
-              <div>
-                <p className="text-sm font-medium">Save the ZIP</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Save the exported <strong>.zip</strong> file to your computer or phone</p>
+              <div className="flex-1">
+                <p className="text-sm font-semibold">Tap "Export chat"</p>
+                <p className="text-xs text-muted-foreground mt-1">From the submenu, select <strong>Export chat</strong></p>
+                <img
+                  src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/ZOiqjJPKBgabUemh.jpg"
+                  alt="WhatsApp submenu showing Export chat option"
+                  className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
+                />
               </div>
             </div>
-            <div className="flex gap-3 p-3 rounded-lg bg-background/60 border border-border/50">
-              <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-0.5">
+
+            {/* Step 4 */}
+            <div className="flex gap-4 items-start p-4 rounded-lg bg-background/60 border border-border/50">
+              <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-1">
                 <span className="text-sm font-bold text-primary">4</span>
               </div>
-              <div>
-                <p className="text-sm font-medium">Drop it Below</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Drag the ZIP into the upload area below — that's it!</p>
+              <div className="flex-1">
+                <p className="text-sm font-semibold">Choose "Attach Media"</p>
+                <p className="text-xs text-muted-foreground mt-1">When prompted, select <strong>Attach Media</strong> to include all images in the export</p>
+                <img
+                  src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/UdDOokncgNGkNwXR.jpg"
+                  alt="WhatsApp Export Chat dialog with Attach Media option"
+                  className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
+                />
+              </div>
+            </div>
+
+            {/* Step 5 */}
+            <div className="flex gap-4 items-start p-4 rounded-lg bg-background/60 border border-border/50">
+              <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-1">
+                <span className="text-sm font-bold text-primary">5</span>
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold">Save the ZIP and drop it below</p>
+                <p className="text-xs text-muted-foreground mt-1">Save the exported <strong>.zip</strong> file to your computer, then drag it into the upload area below</p>
               </div>
             </div>
           </div>
-          <div className="mt-4 flex items-start gap-2 p-3 rounded-lg bg-green-500/5 border border-green-500/20">
+
+          {/* Safe to re-upload banner */}
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-green-500/5 border border-green-500/20">
             <Shield className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-medium text-green-600 dark:text-green-400">Safe to re-upload anytime</p>
               <p className="text-xs text-muted-foreground mt-0.5">Every file is fingerprinted with SHA-256. If you export the same chat again, previously processed images are automatically skipped — only new ones are processed. You'll see a "duplicates skipped" count during upload.</p>
             </div>
           </div>
-        </CardContent>
+        </CardContent>}
       </Card>
 
       {/* Drop zone */}

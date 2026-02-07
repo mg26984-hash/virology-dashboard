@@ -835,6 +835,37 @@ export async function getProcessingStats() {
 }
 
 
+// ============ PROCESSING HISTORY ============
+
+export async function getDocumentProcessingHistory(days: number = 30) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const safeDays = Math.max(1, Math.min(90, Math.floor(days)));
+
+  const results = await db.execute(sql`
+    SELECT 
+      DATE_FORMAT(d.updatedAt, '%Y-%m-%d') AS date,
+      SUM(CASE WHEN d.processingStatus = 'completed' THEN 1 ELSE 0 END) AS completed,
+      SUM(CASE WHEN d.processingStatus = 'failed' THEN 1 ELSE 0 END) AS failed,
+      SUM(CASE WHEN d.processingStatus = 'discarded' THEN 1 ELSE 0 END) AS discarded,
+      COUNT(*) AS total
+    FROM documents d
+    WHERE d.processingStatus IN ('completed', 'failed', 'discarded')
+      AND d.updatedAt >= DATE_SUB(NOW(), INTERVAL ${sql.raw(String(safeDays))} DAY)
+    GROUP BY DATE_FORMAT(d.updatedAt, '%Y-%m-%d')
+    ORDER BY date ASC
+  `);
+
+  return ((results as any)[0] ?? []).map((row: any) => ({
+    date: String(row.date),
+    completed: Number(row.completed) || 0,
+    failed: Number(row.failed) || 0,
+    discarded: Number(row.discarded) || 0,
+    total: Number(row.total) || 0,
+  }));
+}
+
 // ============ EXPORT FUNCTIONS ============
 
 export interface ExportFilters {
