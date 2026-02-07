@@ -548,3 +548,10 @@
 - [x] Add route and sidebar navigation entry for Leaderboard
 - [x] Write tests for leaderboard queries
 - [x] Make Leaderboard visible only to admin users (sidebar + route)
+
+## Dashboard Top 3 Leaderboard Widget
+- [x] Add compact Top 3 BK PCR widget on admin dashboard
+- [x] Add compact Top 3 CMV PCR widget on admin dashboard
+- [x] Only visible to admin users
+- [x] Clickable entries that navigate to patient detail
+- [x] Link to full Leaderboard page

@@ -24,6 +24,8 @@ import {
   Download,
   Loader2,
   ArrowLeftRight,
+  Trophy,
+  Flame,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDateTime, relativeTime } from "@/lib/dateUtils";
@@ -137,6 +139,128 @@ function PieTooltip({ active, payload }: any) {
       <p className="text-sm text-muted-foreground">
         Share: <span className="font-semibold text-card-foreground">{(payload[0].percent * 100).toFixed(1)}%</span>
       </p>
+    </div>
+  );
+}
+
+// ─── Top 3 Leaderboard Widget (Admin Only) ─────────────────────────────
+function formatViralLoadCompact(value: string): string {
+  const num = parseInt(value.replace(/,/g, "").trim(), 10);
+  if (isNaN(num)) return value;
+  if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
+  if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
+  return num.toLocaleString();
+}
+
+function getSeverityDot(value: string) {
+  const num = parseInt(value.replace(/,/g, "").trim(), 10);
+  if (isNaN(num)) return "bg-muted-foreground";
+  if (num >= 1_000_000) return "bg-red-500";
+  if (num >= 100_000) return "bg-orange-500";
+  if (num >= 10_000) return "bg-yellow-500";
+  return "bg-emerald-500";
+}
+
+function getRankBadge(rank: number) {
+  if (rank === 1) return "🥇";
+  if (rank === 2) return "🥈";
+  if (rank === 3) return "🥉";
+  return `#${rank}`;
+}
+
+function Top3LeaderboardWidget() {
+  const [, setLocation] = useLocation();
+  const bkData = trpc.leaderboard.bkPCR.useQuery({ limit: 3 });
+  const cmvData = trpc.leaderboard.cmvPCR.useQuery({ limit: 3 });
+
+  const renderMiniList = (data: any[] | undefined, isLoading: boolean, emptyLabel: string) => {
+    if (isLoading) {
+      return (
+        <div className="space-y-2">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-10 rounded-md bg-muted/50 animate-pulse" />
+          ))}
+        </div>
+      );
+    }
+    if (!data || data.length === 0) {
+      return (
+        <p className="text-sm text-muted-foreground text-center py-4">No {emptyLabel} data yet</p>
+      );
+    }
+    return (
+      <div className="space-y-1.5">
+        {data.map((entry: any, idx: number) => (
+          <div
+            key={entry.patientId}
+            onClick={() => setLocation(`/patients/${entry.patientId}`)}
+            className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-accent/60 cursor-pointer transition-colors group"
+          >
+            <span className="text-base w-6 text-center shrink-0">{getRankBadge(idx + 1)}</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
+                {entry.patientName || "Unknown"}
+              </p>
+              <p className="text-xs text-muted-foreground truncate">ID: {entry.civilId}</p>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <div className={`w-2 h-2 rounded-full ${getSeverityDot(entry.viralLoad)}`} />
+              <span className="text-sm font-bold tabular-nums">{formatViralLoadCompact(entry.viralLoad)}</span>
+            </div>
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      <Card className="overflow-hidden">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Flame className="h-4 w-4 text-orange-500" />
+              <CardTitle className="text-sm font-semibold">Top BK Virus (Blood)</CardTitle>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs h-7 px-2 text-muted-foreground hover:text-primary"
+              onClick={() => setLocation('/leaderboard')}
+            >
+              View all
+              <ChevronRight className="h-3 w-3 ml-0.5" />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0 pb-3">
+          {renderMiniList(bkData.data as any[] | undefined, bkData.isLoading, "BK Virus")}
+        </CardContent>
+      </Card>
+
+      <Card className="overflow-hidden">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-blue-500" />
+              <CardTitle className="text-sm font-semibold">Top CMV PCR (Blood)</CardTitle>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs h-7 px-2 text-muted-foreground hover:text-primary"
+              onClick={() => setLocation('/leaderboard')}
+            >
+              View all
+              <ChevronRight className="h-3 w-3 ml-0.5" />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0 pb-3">
+          {renderMiniList(cmvData.data as any[] | undefined, cmvData.isLoading, "CMV")}
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -533,6 +657,9 @@ export default function Home() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Top 3 Leaderboard Widget (Admin Only) */}
+      {user?.role === 'admin' && <Top3LeaderboardWidget />}
 
       {/* Date Range Picker for Analytics */}
       <Card>
