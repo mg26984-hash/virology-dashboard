@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   Upload as UploadIcon, X, CheckCircle2, AlertCircle, Loader2, Image,
   FileType, FileArchive, FolderOpen, RefreshCw, Timer, Clock, Trash2, Ban, XCircle,
+  MessageCircle, Smartphone, Download, FolderUp, Shield, ArrowRight,
 } from "lucide-react";
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { toast } from "sonner";
@@ -392,6 +393,68 @@ export default function Upload() {
         <h1 className="text-2xl font-bold tracking-tight">Upload Reports</h1>
         <p className="text-muted-foreground">Upload virology laboratory reports for automatic processing and data extraction.</p>
       </div>
+
+      {/* WhatsApp Export Guide */}
+      <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-primary/15 flex items-center justify-center">
+              <MessageCircle className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle>Upload WhatsApp Export</CardTitle>
+              <CardDescription>Periodic upload from the lab's WhatsApp group — duplicates are automatically skipped</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-4">
+            <div className="flex gap-3 p-3 rounded-lg bg-background/60 border border-border/50">
+              <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-0.5">
+                <span className="text-sm font-bold text-primary">1</span>
+              </div>
+              <div>
+                <p className="text-sm font-medium">Open WhatsApp Chat</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Open the lab results group chat on your phone</p>
+              </div>
+            </div>
+            <div className="flex gap-3 p-3 rounded-lg bg-background/60 border border-border/50">
+              <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-0.5">
+                <span className="text-sm font-bold text-primary">2</span>
+              </div>
+              <div>
+                <p className="text-sm font-medium">Export Chat</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Tap <strong>Menu → More → Export Chat → Attach Media</strong></p>
+              </div>
+            </div>
+            <div className="flex gap-3 p-3 rounded-lg bg-background/60 border border-border/50">
+              <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-0.5">
+                <span className="text-sm font-bold text-primary">3</span>
+              </div>
+              <div>
+                <p className="text-sm font-medium">Save the ZIP</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Save the exported <strong>.zip</strong> file to your computer or phone</p>
+              </div>
+            </div>
+            <div className="flex gap-3 p-3 rounded-lg bg-background/60 border border-border/50">
+              <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-0.5">
+                <span className="text-sm font-bold text-primary">4</span>
+              </div>
+              <div>
+                <p className="text-sm font-medium">Drop it Below</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Drag the ZIP into the upload area below — that's it!</p>
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 flex items-start gap-2 p-3 rounded-lg bg-green-500/5 border border-green-500/20">
+            <Shield className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-green-600 dark:text-green-400">Safe to re-upload anytime</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Every file is fingerprinted with SHA-256. If you export the same chat again, previously processed images are automatically skipped — only new ones are processed. You'll see a "duplicates skipped" count during upload.</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Drop zone */}
       <Card>

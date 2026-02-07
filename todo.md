@@ -409,3 +409,10 @@
 - [x] Frontend: add "Process All Pending" button in Processing Queue component (admin only)
 - [x] Show pending count on button, loading state while processing
 - [x] Write tests for the new endpoint
+
+## Dedicated WhatsApp Export Upload Section
+- [x] Add a prominent "Upload WhatsApp Export" card/section at the top of the Upload page
+- [x] Include step-by-step instructions for exporting chat from WhatsApp (with media)
+- [x] Highlight deduplication: safe to re-upload the same export, duplicates are automatically skipped
+- [x] Add a visual guide or numbered steps with icons
+- [x] Ensure the section integrates with the existing upload flow (drag-and-drop / file picker)
