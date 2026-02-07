@@ -524,9 +524,37 @@ export async function getDocumentStats() {
 
 // ============ PROCESSING QUEUE ============
 
+/**
+ * Reset documents stuck in "processing" for more than the given threshold back to "pending".
+ * This handles zombie processes from server restarts or LLM timeouts.
+ */
+export async function resetStaleProcessing(thresholdMinutes: number = 10): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+
+  const cutoff = new Date(Date.now() - thresholdMinutes * 60 * 1000);
+  const result = await db.update(documents)
+    .set({ processingStatus: 'pending' })
+    .where(
+      and(
+        eq(documents.processingStatus, 'processing'),
+        lte(documents.updatedAt, cutoff)
+      )
+    );
+
+  const resetCount = (result as any)[0]?.affectedRows || 0;
+  if (resetCount > 0) {
+    console.log(`[StaleRecovery] Reset ${resetCount} stale processing documents back to pending (threshold: ${thresholdMinutes}min)`);
+  }
+  return resetCount;
+}
+
 export async function getProcessingQueue(limit: number = 50) {
   const db = await getDb();
-  if (!db) return { items: [], counts: { pending: 0, processing: 0, failed: 0, completed: 0, discarded: 0 } };
+  if (!db) return { items: [], counts: { pending: 0, processing: 0, failed: 0, completed: 0, discarded: 0 }, speed: { docsPerMinute: 0, completedLast5Min: 0, completedLast30Min: 0, completedLast60Min: 0, totalRemaining: 0, estimatedMinutesRemaining: null as number | null }, staleReset: 0 };
+
+  // Auto-recover stale processing documents (stuck > 10 min)
+  const staleReset = await resetStaleProcessing(10);
 
   const [items, countResult] = await Promise.all([
     db.select({
@@ -564,7 +592,63 @@ export async function getProcessingQueue(limit: number = 50) {
     if (r.status) counts[r.status] = r.count;
   });
 
-  return { items, counts };
+  // Calculate processing speed: docs completed in recent time windows
+  const now = new Date();
+  const fiveMinAgo = new Date(now.getTime() - 5 * 60 * 1000);
+  const thirtyMinAgo = new Date(now.getTime() - 30 * 60 * 1000);
+  const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+
+  const [recent5, recent30, recent60] = await Promise.all([
+    db.select({ count: sql<number>`count(*)` })
+      .from(documents)
+      .where(and(
+        eq(documents.processingStatus, 'completed'),
+        gte(documents.updatedAt, fiveMinAgo)
+      )),
+    db.select({ count: sql<number>`count(*)` })
+      .from(documents)
+      .where(and(
+        eq(documents.processingStatus, 'completed'),
+        gte(documents.updatedAt, thirtyMinAgo)
+      )),
+    db.select({ count: sql<number>`count(*)` })
+      .from(documents)
+      .where(and(
+        eq(documents.processingStatus, 'completed'),
+        gte(documents.updatedAt, oneHourAgo)
+      )),
+  ]);
+
+  const completedLast5Min = recent5[0]?.count || 0;
+  const completedLast30Min = recent30[0]?.count || 0;
+  const completedLast60Min = recent60[0]?.count || 0;
+
+  // Calculate docs per minute using the best available window
+  let docsPerMinute = 0;
+  if (completedLast5Min > 0) {
+    docsPerMinute = completedLast5Min / 5;
+  } else if (completedLast30Min > 0) {
+    docsPerMinute = completedLast30Min / 30;
+  } else if (completedLast60Min > 0) {
+    docsPerMinute = completedLast60Min / 60;
+  }
+
+  const totalRemaining = counts.pending + counts.processing;
+  const estimatedMinutesRemaining = docsPerMinute > 0 ? Math.ceil(totalRemaining / docsPerMinute) : null;
+
+  return {
+    items,
+    counts,
+    speed: {
+      docsPerMinute: Math.round(docsPerMinute * 10) / 10,
+      completedLast5Min,
+      completedLast30Min,
+      completedLast60Min,
+      totalRemaining,
+      estimatedMinutesRemaining,
+    },
+    staleReset,
+  };
 }
 
 // ============ AUDIT LOG FUNCTIONS ============

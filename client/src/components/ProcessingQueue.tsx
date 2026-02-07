@@ -2,9 +2,9 @@ import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Zap, RefreshCw, ChevronDown, ChevronUp, Loader2, AlertCircle, Clock, XCircle, RotateCcw } from "lucide-react";
+import { Zap, RefreshCw, ChevronDown, ChevronUp, Loader2, AlertCircle, Clock, XCircle, RotateCcw, Gauge, Timer } from "lucide-react";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 
 function fmtSize(b: number | null): string {
   if (!b) return "";
@@ -94,8 +94,18 @@ export default function ProcessingQueue() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const lastStaleRef = useRef(0);
+  const staleReset = (queueData as any)?.staleReset || 0;
+
+  useEffect(() => {
+    if (staleReset > 0 && staleReset !== lastStaleRef.current) {
+      toast.info(`Auto-recovered ${staleReset} stale document${staleReset > 1 ? 's' : ''} (stuck >10min) back to pending`);
+      lastStaleRef.current = staleReset;
+    }
+  }, [staleReset]);
+
   if (!queueData) return null;
-  const { counts, items } = queueData;
+  const { counts, items, speed } = queueData as any;
   const totalActive = counts.pending + counts.processing + counts.failed;
   if (totalActive === 0) return null;
   const totalAll = counts.completed + counts.pending + counts.processing + counts.failed + counts.discarded;
@@ -145,8 +155,47 @@ export default function ProcessingQueue() {
             <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-yellow-500 inline-block" /> Pending ({counts.pending.toLocaleString()})</div>
             <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-red-500 inline-block" /> Failed ({counts.failed.toLocaleString()})</div>
           </div>
+          {speed && speed.docsPerMinute > 0 && (
+            <div className="flex flex-wrap items-center gap-4 mb-4 p-3 rounded-lg bg-primary/5 border border-primary/10">
+              <div className="flex items-center gap-2">
+                <Gauge className="h-4 w-4 text-primary" />
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{speed.docsPerMinute} docs/min</p>
+                  <p className="text-[10px] text-muted-foreground">Processing speed</p>
+                </div>
+              </div>
+              <div className="h-8 w-px bg-border hidden sm:block" />
+              <div className="flex items-center gap-2">
+                <Timer className="h-4 w-4 text-primary" />
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    {speed.estimatedMinutesRemaining !== null
+                      ? speed.estimatedMinutesRemaining < 60
+                        ? `~${speed.estimatedMinutesRemaining} min`
+                        : `~${Math.floor(speed.estimatedMinutesRemaining / 60)}h ${speed.estimatedMinutesRemaining % 60}m`
+                      : "Calculating..."}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">{speed.totalRemaining} remaining</p>
+                </div>
+              </div>
+              <div className="h-8 w-px bg-border hidden sm:block" />
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>{speed.completedLast5Min} in 5m</span>
+                <span className="text-muted-foreground/50">|</span>
+                <span>{speed.completedLast30Min} in 30m</span>
+                <span className="text-muted-foreground/50">|</span>
+                <span>{speed.completedLast60Min} in 1h</span>
+              </div>
+            </div>
+          )}
+          {speed && speed.docsPerMinute === 0 && isLive && (
+            <div className="flex items-center gap-2 mb-4 p-3 rounded-lg bg-yellow-500/5 border border-yellow-500/10 text-xs text-muted-foreground">
+              <Gauge className="h-4 w-4 text-yellow-500" />
+              <span>Waiting for processing to start... Speed data will appear once documents begin completing.</span>
+            </div>
+          )}
           <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
-            {items.map((item) => (
+            {items.map((item: any) => (
               <QueueRow key={item.id} item={item as QItem}
                 onCancel={(id) => cancelDoc.mutate({ documentId: id })}
                 onRetry={(id) => reprocessDoc.mutate({ documentId: id })}

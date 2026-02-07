@@ -354,3 +354,15 @@
 - [x] Auto-refresh: 3s when active items, 15s when idle
 - [x] Collapsible card with Live indicator
 - [ ] Write tests for the processing queue endpoint
+
+## Processing Speed Indicator
+- [x] Add backend speed calculation (docs completed in last 5m/30m/60m windows)
+- [x] Show docs/minute speed and estimated completion time in the Processing Queue
+- [x] Show "Waiting for processing to start..." when no recent completions
+- [x] Update in real-time as documents complete
+
+## Bug Fix: Stale/Zombie Processing Documents
+- [x] Reset documents stuck in "processing" for >10 minutes back to "pending"
+- [x] Add auto-recovery mechanism that detects and resets stale processing docs on each queue poll
+- [x] Auto-recovered 7 stale documents (stuck 22-23h) back to pending on first poll
+- [x] Toast notification when stale documents are auto-recovered
