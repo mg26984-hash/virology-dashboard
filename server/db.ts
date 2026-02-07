@@ -651,6 +651,71 @@ export async function getProcessingQueue(limit: number = 50) {
   };
 }
 
+// ============ UPLOAD HISTORY ============
+
+export async function getUploadHistory(limit: number = 50, offset: number = 0) {
+  const db = await getDb();
+  if (!db) return { batches: [], total: 0 };
+
+  // Get documents grouped by uploader and date, ordered by most recent
+  const rows = await db.select({
+    uploadedBy: documents.uploadedBy,
+    uploaderName: users.name,
+    uploaderEmail: users.email,
+    uploadDate: sql<string>`DATE(${documents.createdAt})`,
+    totalFiles: sql<number>`COUNT(*)`,
+    completedFiles: sql<number>`SUM(CASE WHEN ${documents.processingStatus} = 'completed' THEN 1 ELSE 0 END)`,
+    failedFiles: sql<number>`SUM(CASE WHEN ${documents.processingStatus} = 'failed' THEN 1 ELSE 0 END)`,
+    pendingFiles: sql<number>`SUM(CASE WHEN ${documents.processingStatus} = 'pending' THEN 1 ELSE 0 END)`,
+    processingFiles: sql<number>`SUM(CASE WHEN ${documents.processingStatus} = 'processing' THEN 1 ELSE 0 END)`,
+    discardedFiles: sql<number>`SUM(CASE WHEN ${documents.processingStatus} = 'discarded' THEN 1 ELSE 0 END)`,
+    totalSize: sql<number>`SUM(${documents.fileSize})`,
+    firstUpload: sql<Date>`MIN(${documents.createdAt})`,
+    lastUpload: sql<Date>`MAX(${documents.createdAt})`,
+    lastProcessed: sql<Date>`MAX(${documents.updatedAt})`,
+  })
+    .from(documents)
+    .leftJoin(users, eq(documents.uploadedBy, users.id))
+    .groupBy(documents.uploadedBy, users.name, users.email, sql`DATE(${documents.createdAt})`)
+    .orderBy(sql`MAX(${documents.createdAt}) DESC`)
+    .limit(limit)
+    .offset(offset);
+
+  const [countResult] = await db.select({
+    total: sql<number>`COUNT(DISTINCT CONCAT(${documents.uploadedBy}, '-', DATE(${documents.createdAt})))`,
+  }).from(documents);
+
+  return {
+    batches: rows.map(r => {
+      const totalFiles = Number(r.totalFiles) || 0;
+      const completedFiles = Number(r.completedFiles) || 0;
+      const failedFiles = Number(r.failedFiles) || 0;
+      const pendingFiles = Number(r.pendingFiles) || 0;
+      const processingFiles = Number(r.processingFiles) || 0;
+      const discardedFiles = Number(r.discardedFiles) || 0;
+      const totalSize = Number(r.totalSize) || 0;
+      return {
+        uploadedBy: r.uploadedBy,
+        uploaderName: r.uploaderName || 'Unknown',
+        uploaderEmail: r.uploaderEmail || '',
+        uploadDate: r.uploadDate,
+        totalFiles,
+        completedFiles,
+        failedFiles,
+        pendingFiles,
+        processingFiles,
+        discardedFiles,
+        totalSize,
+        firstUpload: r.firstUpload,
+        lastUpload: r.lastUpload,
+        lastProcessed: r.lastProcessed,
+        successRate: totalFiles ? Math.round((completedFiles / totalFiles) * 100) : 0,
+      };
+    }),
+    total: Number(countResult?.total) || 0,
+  };
+}
+
 // ============ AUDIT LOG FUNCTIONS ============
 
 export async function getAuditLogs(limit: number = 100, actionFilter?: string) {

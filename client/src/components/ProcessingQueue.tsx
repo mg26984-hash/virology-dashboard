@@ -93,9 +93,48 @@ export default function ProcessingQueue() {
     onSuccess: () => { toast.success("Queued for reprocessing"); utils.documents.processingQueue.invalidate(); },
     onError: (e: any) => toast.error(e.message),
   });
+  const retryAllFailed = trpc.documents.retryAllFailed.useMutation({
+    onSuccess: (data) => { toast.success(data.message); utils.documents.processingQueue.invalidate(); utils.dashboard.stats.invalidate(); },
+    onError: (e: any) => toast.error(e.message),
+  });
 
   const lastStaleRef = useRef(0);
   const staleReset = (queueData as any)?.staleReset || 0;
+  const prevActiveRef = useRef<number | null>(null);
+  const notifPermRef = useRef(false);
+
+  // Request notification permission on mount
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().then(p => { notifPermRef.current = p === 'granted'; });
+    } else if ('Notification' in window && Notification.permission === 'granted') {
+      notifPermRef.current = true;
+    }
+  }, []);
+
+  // Detect batch completion: active count drops to 0 from > 0
+  useEffect(() => {
+    if (!queueData) return;
+    const d = queueData as any;
+    const currentActive = d.counts.pending + d.counts.processing;
+    const prevActive = prevActiveRef.current;
+
+    if (prevActive !== null && prevActive > 0 && currentActive === 0) {
+      const completed = d.counts.completed || 0;
+      const failed = d.counts.failed || 0;
+      const msg = `Processing complete! ${completed} completed${failed > 0 ? `, ${failed} failed` : ''}.`;
+      toast.success(msg);
+
+      if (notifPermRef.current && 'Notification' in window && document.hidden) {
+        new Notification('Virology Dashboard', {
+          body: msg,
+          icon: '/favicon.ico',
+          tag: 'batch-complete',
+        });
+      }
+    }
+    prevActiveRef.current = currentActive;
+  }, [queueData]);
 
   useEffect(() => {
     if (staleReset > 0 && staleReset !== lastStaleRef.current) {
@@ -129,6 +168,18 @@ export default function ProcessingQueue() {
                 {(counts.processing > 0 || counts.pending > 0) && counts.failed > 0 && " \u00b7 "}
                 {counts.failed > 0 && <span className="text-red-500 font-medium">{counts.failed} failed</span>}
               </CardDescription>
+              {counts.failed > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs mt-1 border-red-500/30 text-red-400 hover:bg-red-500/10"
+                  onClick={() => retryAllFailed.mutate()}
+                  disabled={retryAllFailed.isPending}
+                >
+                  {retryAllFailed.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RotateCcw className="h-3 w-3 mr-1" />}
+                  Retry All Failed ({counts.failed})
+                </Button>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2">

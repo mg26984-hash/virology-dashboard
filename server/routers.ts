@@ -46,6 +46,7 @@ import {
   updatePatientDemographics,
   autocompletePatients,
   getProcessingQueue,
+  getUploadHistory,
 } from "./db";
 import { ENV } from './_core/env';
 import ExcelJS from "exceljs";
@@ -712,6 +713,36 @@ export const appRouter = router({
         return getDocumentsByStatus(input.statuses, input.limit || 100);
       }),
 
+    // Retry all failed documents (any approved user)
+    retryAllFailed: approvedProcedure
+      .mutation(async () => {
+        const docs = await getDocumentsByStatus(['failed'], 200);
+        if (docs.length === 0) {
+          return { success: true, message: 'No failed documents to retry', queued: 0 };
+        }
+        let queued = 0;
+        for (const doc of docs) {
+          await updateDocumentStatus(doc.id, 'pending');
+          queued++;
+        }
+        // Process them in background
+        for (const doc of docs) {
+          const docId = doc.id;
+          const docUrl = doc.fileUrl;
+          const docMimeType = doc.mimeType || 'image/jpeg';
+          setImmediate(async () => {
+            try {
+              await updateDocumentStatus(docId, 'processing');
+              const result = await processUploadedDocument(docId, docUrl, docMimeType);
+              console.log(`[RetryAllFailed] Completed ${docId}:`, JSON.stringify(result));
+            } catch (error) {
+              console.error(`[RetryAllFailed] Failed ${docId}:`, error);
+            }
+          });
+        }
+        return { success: true, message: `Queued ${queued} failed documents for retry`, queued };
+      }),
+
     // Batch reprocess documents (admin only)
     batchReprocess: adminProcedure
       .input(z.object({
@@ -756,6 +787,16 @@ export const appRouter = router({
           message: `Queued ${queued} documents for reprocessing`,
           queued,
         };
+      }),
+
+    // Upload history / processing log
+    uploadHistory: approvedProcedure
+      .input(z.object({
+        limit: z.number().optional(),
+        offset: z.number().optional(),
+      }).optional())
+      .query(async ({ input }) => {
+        return getUploadHistory(input?.limit || 20, input?.offset || 0);
       }),
   }),
 

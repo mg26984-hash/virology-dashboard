@@ -13,6 +13,7 @@ import DashboardLayout from "./components/DashboardLayout";
 import Export from "./pages/Export";
 import AuditLog from "./pages/AuditLog";
 import PatientMerge from "./pages/PatientMerge";
+import ProcessingHistory from "./pages/ProcessingHistory";
 
 function Router() {
   return (
@@ -26,6 +27,7 @@ function Router() {
         <Route path="/admin/export" component={Export} />
         <Route path="/admin/audit-log" component={AuditLog} />
         <Route path="/admin/merge" component={PatientMerge} />
+        <Route path="/processing-history" component={ProcessingHistory} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>

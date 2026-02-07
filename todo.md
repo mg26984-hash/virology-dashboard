@@ -366,3 +366,24 @@
 - [x] Add auto-recovery mechanism that detects and resets stale processing docs on each queue poll
 - [x] Auto-recovered 7 stale documents (stuck 22-23h) back to pending on first poll
 - [x] Toast notification when stale documents are auto-recovered
+
+## Retry All Failed Bulk Button
+- [x] Add backend endpoint to retry all failed documents in one call
+- [x] Add "Retry All Failed" button to the Processing Queue component
+- [x] Button shows count of failed docs, resets all to pending on click
+- [x] Auto-refreshes queue counts after retry
+
+## Browser Push Notifications for Batch Completion
+- [x] Request notification permission on first queue poll
+- [x] Detect when active items transition from >0 to 0 (batch complete)
+- [x] Send browser push notification with batch summary
+- [x] Show completed/failed counts in notification body
+
+## Processing History/Log Page
+- [x] Add backend endpoint to fetch upload batch history grouped by user+date
+- [x] Create ProcessingHistory page with batch cards
+- [x] Show batch timestamp, uploader, file count, success/fail rates, duration
+- [x] Summary stats: total files, completed, failed, total size
+- [x] Color-coded status badges per batch
+- [x] Add navigation link in sidebar
+- [x] Fixed number coercion bug (MySQL returns strings for aggregates)
