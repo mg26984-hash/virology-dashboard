@@ -91,6 +91,7 @@ export default function Upload() {
   const [whatsappGuideOpen, setWhatsappGuideOpen] = useState(() => {
     try { return localStorage.getItem("whatsapp-guide-collapsed") !== "true"; } catch { return true; }
   });
+  const [guidePlatform, setGuidePlatform] = useState<"android" | "iphone">("android");
   const toggleWhatsappGuide = useCallback(() => {
     setWhatsappGuideOpen((prev) => {
       const next = !prev;
@@ -429,9 +430,25 @@ export default function Upload() {
           </div>
         </CardHeader>
         {whatsappGuideOpen && <CardContent className="space-y-6">
+          {/* Platform toggle */}
+          <div className="flex gap-1 p-1 rounded-lg bg-muted/50 w-fit">
+            <button
+              onClick={() => setGuidePlatform("android")}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${guidePlatform === "android" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Android
+            </button>
+            <button
+              onClick={() => setGuidePlatform("iphone")}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${guidePlatform === "iphone" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              iPhone
+            </button>
+          </div>
+
           {/* Step-by-step guide */}
           <div className="space-y-4">
-            {/* Step 1 */}
+            {/* Step 1 - same for both */}
             <div className="flex gap-4 items-start p-4 rounded-lg bg-background/60 border border-border/50">
               <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-1">
                 <span className="text-sm font-bold text-primary">1</span>
@@ -442,55 +459,93 @@ export default function Upload() {
               </div>
             </div>
 
-            {/* Step 2 */}
-            <div className="flex gap-4 items-start p-4 rounded-lg bg-background/60 border border-border/50">
-              <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-1">
-                <span className="text-sm font-bold text-primary">2</span>
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-semibold">Tap the three-dot menu → More</p>
-                <p className="text-xs text-muted-foreground mt-1">In the top-right corner, tap <strong>⋮</strong> (three dots), then tap <strong>More</strong></p>
-                <img
-                  src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/HmZNRYpaWaMhxEWn.png"
-                  alt="WhatsApp three-dot menu showing More option"
-                  className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
-                />
-              </div>
-            </div>
+            {guidePlatform === "android" ? (
+              <>
+                {/* Android Step 2 */}
+                <div className="flex gap-4 items-start p-4 rounded-lg bg-background/60 border border-border/50">
+                  <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-1">
+                    <span className="text-sm font-bold text-primary">2</span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold">Tap the three-dot menu → More</p>
+                    <p className="text-xs text-muted-foreground mt-1">In the top-right corner, tap <strong>⋮</strong> (three dots), then tap <strong>More</strong></p>
+                    <img
+                      src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/HmZNRYpaWaMhxEWn.png"
+                      alt="WhatsApp three-dot menu showing More option"
+                      className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
+                    />
+                  </div>
+                </div>
+                {/* Android Step 3 */}
+                <div className="flex gap-4 items-start p-4 rounded-lg bg-background/60 border border-border/50">
+                  <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-1">
+                    <span className="text-sm font-bold text-primary">3</span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold">Tap "Export chat"</p>
+                    <p className="text-xs text-muted-foreground mt-1">From the submenu, select <strong>Export chat</strong></p>
+                    <img
+                      src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/xykfuJtrcUHWKfPc.png"
+                      alt="WhatsApp submenu showing Export chat option"
+                      className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
+                    />
+                  </div>
+                </div>
+                {/* Android Step 4 */}
+                <div className="flex gap-4 items-start p-4 rounded-lg bg-background/60 border border-border/50">
+                  <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-1">
+                    <span className="text-sm font-bold text-primary">4</span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold">Choose "Attach Media"</p>
+                    <p className="text-xs text-muted-foreground mt-1">When prompted, select <strong>Attach Media</strong> to include all images in the export</p>
+                    <img
+                      src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/SWwOSiwixB
+sijxJy.png"
+                      alt="WhatsApp Export Chat dialog with Attach Media option"
+                      className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
+                    />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* iPhone Step 2 */}
+                <div className="flex gap-4 items-start p-4 rounded-lg bg-background/60 border border-border/50">
+                  <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-1">
+                    <span className="text-sm font-bold text-primary">2</span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold">Tap the group name at the top</p>
+                    <p className="text-xs text-muted-foreground mt-1">Tap <strong>OTC virology 2026</strong> at the top of the chat to open group info</p>
+                  </div>
+                </div>
+                {/* iPhone Step 3 */}
+                <div className="flex gap-4 items-start p-4 rounded-lg bg-background/60 border border-border/50">
+                  <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0
+ mt-1">
+                    <span className="text-sm font-bold text-primary">3</span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold">Scroll down and tap "Export Chat"</p>
+                    <p className="text-xs text-muted-foreground mt-1">Scroll to the bottom of group info and tap <strong>Export Chat</strong></p>
+                  </div>
+                </div>
+                {/* iPhone Step 4 */}
+                <div className="flex gap-4 items-start p-4 rounded-lg bg-background/60 border border-border/50">
+                  <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-1">
+                    <span className="text-sm font-bold text-primary">4</span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold">Choose
+ "Attach Media"</p>
+                    <p className="text-xs text-muted-foreground mt-1">When prompted, select <strong>Attach Media</strong> to include all images in the export</p>
+                  </div>
+                </div>
+              </>
+            )}
 
-            {/* Step 3 */}
-            <div className="flex gap-4 items-start p-4 rounded-lg bg-background/60 border border-border/50">
-              <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-1">
-                <span className="text-sm font-bold text-primary">3</span>
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-semibold">Tap "Export chat"</p>
-                <p className="text-xs text-muted-foreground mt-1">From the submenu, select <strong>Export chat</strong></p>
-                <img
-                  src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/xykfuJtrcUHWKfPc.png"
-                  alt="WhatsApp submenu showing Export chat option"
-                  className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
-                />
-              </div>
-            </div>
-
-            {/* Step 4 */}
-            <div className="flex gap-4 items-start p-4 rounded-lg bg-background/60 border border-border/50">
-              <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-1">
-                <span className="text-sm font-bold text-primary">4</span>
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-semibold">Choose "Attach Media"</p>
-                <p className="text-xs text-muted-foreground mt-1">When prompted, select <strong>Attach Media</strong> to include all images in the export</p>
-                <img
-                  src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/SWwOSiwixBsijxJy.png"
-                  alt="WhatsApp Export Chat dialog with Attach Media option"
-                  className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
-                />
-              </div>
-            </div>
-
-            {/* Step 5 */}
+            {/* Step 5 - same for both */}
             <div className="flex gap-4 items-start p-4 rounded-lg bg-background/60 border border-border/50">
               <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-1">
                 <span className="text-sm font-bold text-primary">5</span>
@@ -498,6 +553,7 @@ export default function Upload() {
               <div className="flex-1">
                 <p className="text-sm font-semibold">Save the ZIP and drop it below</p>
                 <p className="text-xs text-muted-foreground mt-1">Save the exported <strong>.zip</strong> file to your computer, then drag it into the upload area below</p>
+
               </div>
             </div>
           </div>

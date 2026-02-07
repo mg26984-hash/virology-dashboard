@@ -446,3 +446,8 @@
 
 ## Add Background Processing Note on Upload Page
 - [x] Add a note telling users they don't need to stay on the tab — processing continues server-side
+
+## Add iPhone Guide to WhatsApp Export Section
+- [x] Add Android/iPhone toggle tabs to the WhatsApp guide (compact, no extra space)
+- [x] iPhone steps: Open group → Tap group name → Export Chat → Attach Media → Save ZIP
+- [x] Keep existing Android steps intact
