@@ -157,7 +157,7 @@ export const appRouter = router({
       .mutation(async ({ ctx }) => {
         const crypto = await import("crypto");
         const token = crypto.randomBytes(32).toString("hex");
-        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+        const expiresAt = new Date("2037-12-31T23:59:59Z"); // permanent token (max safe MySQL timestamp)
         await createUploadToken(ctx.user.id, token, expiresAt);
         return { token, expiresAt: expiresAt.toISOString() };
       }),

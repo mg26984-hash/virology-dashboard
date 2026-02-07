@@ -1350,11 +1350,7 @@ export async function validateUploadToken(token: string): Promise<{ valid: boole
     .limit(1);
   if (results.length === 0) return { valid: false };
   const t = results[0];
-  if (new Date(t.expiresAt) < new Date()) {
-    // Token expired, clean it up
-    await db.delete(uploadTokens).where(eq(uploadTokens.id, t.id));
-    return { valid: false };
-  }
+  // Tokens are permanent — no expiry check needed
   // Increment usage count
   await db.update(uploadTokens).set({ used: (t.used || 0) + 1 }).where(eq(uploadTokens.id, t.id));
   return { valid: true, userId: t.userId };

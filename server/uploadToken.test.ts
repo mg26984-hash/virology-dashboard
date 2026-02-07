@@ -44,12 +44,11 @@ describe("Upload Token Generation", () => {
     expect(result).toHaveProperty("expiresAt");
     expect(typeof result.token).toBe("string");
     expect(result.token.length).toBe(64); // 32 bytes hex = 64 chars
-    // expiresAt should be ~24 hours from now
+    // Token should be permanent (far future expiry)
     const expiresAt = new Date(result.expiresAt);
     const now = new Date();
     const diffMs = expiresAt.getTime() - now.getTime();
-    expect(diffMs).toBeGreaterThan(23 * 60 * 60 * 1000); // > 23 hours
-    expect(diffMs).toBeLessThan(25 * 60 * 60 * 1000); // < 25 hours
+    expect(diffMs).toBeGreaterThan(365 * 24 * 60 * 60 * 1000); // > 1 year from now
   });
 
   it("pending user cannot generate an upload token", async () => {

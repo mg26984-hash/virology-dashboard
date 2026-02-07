@@ -103,7 +103,7 @@ export default function Upload() {
   const generateTokenMutation = trpc.documents.generateUploadToken.useMutation({
     onSuccess: (data) => {
       setUploadToken(data.token);
-      toast.success("Upload token generated! Valid for 24 hours.");
+      toast.success("Upload token generated!");
     },
     onError: () => toast.error("Failed to generate token"),
   });
@@ -759,7 +759,7 @@ sijxJy.png"
               <div className="h-6 w-6 rounded-full bg-purple-600 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">1</div>
               <div className="flex-1">
                 <p className="text-sm font-medium">Generate an upload token</p>
-                <p className="text-xs text-muted-foreground">This token lets your phone upload without logging in. Valid for 24 hours.</p>
+                <p className="text-xs text-muted-foreground">This token lets your phone upload without logging in. It never expires.</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   {!uploadToken ? (
                     <Button size="sm" variant="outline" onClick={() => generateTokenMutation.mutate()} disabled={generateTokenMutation.isPending}>
@@ -792,16 +792,16 @@ sijxJy.png"
                 <p className="text-sm font-medium">Set up your phone</p>
 
                 {/* iPhone instructions — two options */}
-                <div className="rounded-lg border border-blue-500/30 bg-blue-950/20 p-3 space-y-3">
+                <div className="rounded-lg border border-blue-300 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-950/20 p-3 space-y-3">
                   <div className="flex items-center gap-2">
-                    <Smartphone className="h-4 w-4 text-blue-400" />
+                    <Smartphone className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                     <span className="text-sm font-medium">iPhone</span>
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-500/40 text-blue-400">Recommended</Badge>
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-500/40 text-blue-600 dark:text-blue-400">Recommended</Badge>
                   </div>
 
                   {/* Option A: Quick Upload page — easiest */}
                   <div className="space-y-1.5">
-                    <p className="text-xs font-medium text-blue-300">Option A &mdash; Quick Upload Page <span className="text-[10px] text-emerald-400 ml-1">(Easiest)</span></p>
+                    <p className="text-xs font-medium text-blue-700 dark:text-blue-300">Option A &mdash; Quick Upload Page <span className="text-[10px] text-emerald-600 dark:text-emerald-400 ml-1">(Easiest)</span></p>
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
                       Open this link on your iPhone in Safari. Pick photos and tap Upload &mdash; no Shortcuts app needed.
                     </p>
@@ -820,11 +820,11 @@ sijxJy.png"
                     </div>
                   </div>
 
-                  <div className="border-t border-white/10" />
+                  <div className="border-t border-blue-200 dark:border-white/10" />
 
                   {/* Option B: iOS Shortcut — for share sheet */}
                   <div className="space-y-1.5">
-                    <p className="text-xs font-medium text-blue-300">Option B &mdash; iOS Shortcut <span className="text-[10px] text-white/40 ml-1">(Share Sheet)</span></p>
+                    <p className="text-xs font-medium text-blue-700 dark:text-blue-300">Option B &mdash; iOS Shortcut <span className="text-[10px] text-muted-foreground ml-1">(Share Sheet)</span></p>
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
                       Share photos from your gallery, WhatsApp, or any app using the iOS Share button.
                     </p>
@@ -833,12 +833,12 @@ sijxJy.png"
                       <li>In the search bar at the bottom, type <strong>URL</strong> and add <strong>Get Contents of URL</strong></li>
                       <li>Tap the pale blue <strong>URL</strong> word inside the action and paste your upload URL:</li>
                     </ol>
-                    <div className="bg-black/30 rounded px-2.5 py-1.5 text-[11px] border border-white/5 break-all">
-                      <code className="text-emerald-400">{window.location.origin}/api/upload/quick?token={uploadToken || "YOUR_TOKEN"}</code>
+                    <div className="bg-gray-100 dark:bg-black/30 rounded px-2.5 py-1.5 text-[11px] border border-gray-300 dark:border-white/5 break-all">
+                      <code className="text-emerald-700 dark:text-emerald-400">{window.location.origin}/api/upload/quick?token={uploadToken || "YOUR_TOKEN"}</code>
                     </div>
                     <ol start={4} className="text-xs text-muted-foreground space-y-1 pl-4 list-decimal">
                       <li>Tap the arrow <strong>&rsaquo;</strong> next to the action to expand it. Change <strong>Method</strong> to <strong>POST</strong></li>
-                      <li>Tap <strong>Body</strong> &rarr; choose <strong>Form</strong>. Add a field: Key = <code className="text-emerald-400 text-[11px]">images</code>, Type = <code className="text-emerald-400 text-[11px]">File</code>, Value = <code className="text-emerald-400 text-[11px]">Shortcut Input</code></li>
+                      <li>Tap <strong>Body</strong> &rarr; choose <strong>Form</strong>. Add a field: Key = <code className="text-emerald-700 dark:text-emerald-400 text-[11px]">images</code>, Type = <code className="text-emerald-700 dark:text-emerald-400 text-[11px]">File</code>, Value = <code className="text-emerald-700 dark:text-emerald-400 text-[11px]">Shortcut Input</code></li>
                       <li>Tap the shortcut name at the top &rarr; rename to <strong>Upload to Virology</strong></li>
                       <li>Tap the <strong>&#x2193;</strong> arrow next to the name &rarr; tap <strong>Details</strong> or <strong>Privacy</strong> &rarr; enable <strong>Show in Share Sheet</strong></li>
                       <li>Tap <strong>Done</strong>. Now share any photo &rarr; pick <strong>Upload to Virology</strong> from the share menu</li>
@@ -884,9 +884,9 @@ sijxJy.png"
           </div>
 
           {/* Info note */}
-          <div className="rounded-lg bg-purple-950/20 border border-purple-500/20 px-3 py-2 flex items-start gap-2">
-            <Shield className="h-3.5 w-3.5 text-purple-400 mt-0.5 shrink-0" />
-            <p className="text-xs text-purple-300/80">Tokens expire after 24 hours. Generate a new one anytime from this section. All uploads are deduplicated &mdash; re-sharing the same photo is safe.</p>
+          <div className="rounded-lg bg-purple-100 dark:bg-purple-950/20 border border-purple-300 dark:border-purple-500/20 px-3 py-2 flex items-start gap-2">
+            <Shield className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400 mt-0.5 shrink-0" />
+            <p className="text-xs text-purple-700 dark:text-purple-300/80">Your token never expires. You can regenerate it anytime if needed. All uploads are deduplicated &mdash; re-sharing the same photo is safe.</p>
           </div>
         </CardContent>}
       </Card>

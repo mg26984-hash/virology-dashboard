@@ -495,3 +495,7 @@
 ## Fix iOS Shortcut Instructions
 - [x] Update iPhone instructions to reflect actual iOS 16+ Shortcuts workflow (no "Receive input from Share Sheet" action)
 - [x] Simplify iPhone iOS Shortcut instructions - avoid referencing action names that vary across iOS versions
+
+## Token & UI Fixes
+- [x] Make upload tokens permanent (never expire) - backend + UI text
+- [x] Fix purple info note color so text is readable in light mode
