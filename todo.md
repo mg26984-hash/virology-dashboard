@@ -555,3 +555,10 @@
 - [x] Only visible to admin users
 - [x] Clickable entries that navigate to patient detail
 - [x] Link to full Leaderboard page
+
+## Bug Fix: Top 3 Leaderboard Widget Not Visible
+- [x] Investigate why Top 3 widget is not showing for the user (admin check, positioning, or rendering issue)
+- [x] Fix the issue so the widget is visible on the admin dashboard
+
+## Bug Fix: Missing Quick Upload Link on Upload Reports Page
+- [x] Fix "Copy the green link above" text — the actual Quick Upload URL link is not visible above the instruction

@@ -814,9 +814,15 @@ sijxJy.png"
                   {/* Option A: Quick Upload page — easiest */}
                   <div className="space-y-1.5">
                     <p className="text-xs font-medium text-blue-700 dark:text-blue-300">Option A &mdash; Quick Upload Page <span className="text-[10px] text-emerald-600 dark:text-emerald-400 ml-1">(Easiest)</span></p>
-                    <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Copy the green link above and open it in Safari on your iPhone. Pick photos and tap Upload &mdash; no Shortcuts app needed.
-                    </p>
+                    {uploadToken ? (
+                      <p className="text-[11px] text-muted-foreground leading-relaxed">
+                        Copy the green link above and open it in Safari on your iPhone. Pick photos and tap Upload &mdash; no Shortcuts app needed.
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-muted-foreground leading-relaxed">
+                        First, generate a token in <strong>Step 1</strong> above. A green Quick Upload link will appear &mdash; copy it and open it in Safari on your iPhone. Pick photos and tap Upload &mdash; no Shortcuts app needed.
+                      </p>
+                    )}
                   </div>
 
                   <div className="border-t border-blue-200 dark:border-white/10" />
