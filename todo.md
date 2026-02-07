@@ -525,3 +525,6 @@
 - [x] Add Transfer Ownership UI button + confirmation dialog with warning
 - [ ] Write tests for Transfer Ownership
 - [x] Promote Osama Gheith (ogheith81@gmail.com) to admin via database
+
+## Remove Processing History Chart
+- [x] Remove the Processing History chart from the dashboard Home page

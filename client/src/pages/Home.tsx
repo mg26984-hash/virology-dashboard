@@ -30,7 +30,6 @@ import { formatDateTime, relativeTime } from "@/lib/dateUtils";
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import ProcessingQueue from "@/components/ProcessingQueue";
-import ProcessingHistoryChart from "@/components/ProcessingHistoryChart";
 import { format, subMonths, subDays, subWeeks } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import {
@@ -507,8 +506,6 @@ export default function Home() {
       {/* Real-Time Processing Queue */}
       <ProcessingQueue />
 
-      {/* Processing History Chart */}
-      <ProcessingHistoryChart />
 
       {/* Date Range Picker for Analytics */}
       <Card>
