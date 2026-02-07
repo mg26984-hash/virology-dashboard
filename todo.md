@@ -443,3 +443,6 @@
 - [x] Replace generic screenshots with AI-generated mockups showing "OTC virology 2026" group name and kitten icon
 - [x] Ensure step 1 clearly shows the OTC virology 2026 group
 - [x] Update step 2, 3, and 4 screenshots to reference the correct group
+
+## Add Background Processing Note on Upload Page
+- [x] Add a note telling users they don't need to stay on the tab — processing continues server-side

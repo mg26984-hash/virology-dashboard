@@ -510,6 +510,14 @@ export default function Upload() {
               <p className="text-xs text-muted-foreground mt-0.5">Every file is fingerprinted with SHA-256. If you export the same chat again, previously processed images are automatically skipped — only new ones are processed. You'll see a "duplicates skipped" count during upload.</p>
             </div>
           </div>
+
+          <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+            <Clock className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-blue-600 dark:text-blue-400">No need to stay on this page</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Once files are uploaded, processing continues on the server automatically. You can close this tab or navigate away — your reports will be ready when you come back.</p>
+            </div>
+          </div>
         </CardContent>}
       </Card>
 
