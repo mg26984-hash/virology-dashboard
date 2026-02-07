@@ -1,8 +1,9 @@
+import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Zap, RefreshCw, ChevronDown, ChevronUp, Loader2, AlertCircle, Clock, XCircle, RotateCcw, Gauge, Timer } from "lucide-react";
+import { Zap, RefreshCw, ChevronDown, ChevronUp, Loader2, AlertCircle, Clock, XCircle, RotateCcw, Gauge, Timer, Play } from "lucide-react";
 import { toast } from "sonner";
 import { useState, useEffect, useRef } from "react";
 
@@ -75,6 +76,8 @@ function QueueRow({ item, onCancel, onRetry, cp, rp }: {
 }
 
 export default function ProcessingQueue() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [expanded, setExpanded] = useState(true);
   const utils = trpc.useUtils();
   const { data: queueData } = trpc.documents.processingQueue.useQuery(
@@ -95,6 +98,14 @@ export default function ProcessingQueue() {
   });
   const retryAllFailed = trpc.documents.retryAllFailed.useMutation({
     onSuccess: (data) => { toast.success(data.message); utils.documents.processingQueue.invalidate(); utils.dashboard.stats.invalidate(); },
+    onError: (e: any) => toast.error(e.message),
+  });
+  const processAllPending = trpc.documents.processAllPending.useMutation({
+    onSuccess: (data) => {
+      toast.success(data.message);
+      utils.documents.processingQueue.invalidate();
+      utils.dashboard.stats.invalidate();
+    },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -168,18 +179,35 @@ export default function ProcessingQueue() {
                 {(counts.processing > 0 || counts.pending > 0) && counts.failed > 0 && " \u00b7 "}
                 {counts.failed > 0 && <span className="text-red-500 font-medium">{counts.failed} failed</span>}
               </CardDescription>
-              {counts.failed > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs mt-1 border-red-500/30 text-red-400 hover:bg-red-500/10"
-                  onClick={() => retryAllFailed.mutate()}
-                  disabled={retryAllFailed.isPending}
-                >
-                  {retryAllFailed.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RotateCcw className="h-3 w-3 mr-1" />}
-                  Retry All Failed ({counts.failed})
-                </Button>
-              )}
+              <div className="flex flex-wrap gap-2 mt-1">
+                {isAdmin && counts.pending > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs border-primary/30 text-primary hover:bg-primary/10"
+                    onClick={() => {
+                      toast.info(`Processing ${counts.pending} pending documents... This may take a while.`);
+                      processAllPending.mutate();
+                    }}
+                    disabled={processAllPending.isPending}
+                  >
+                    {processAllPending.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Play className="h-3 w-3 mr-1" />}
+                    {processAllPending.isPending ? "Processing..." : `Process All Pending (${counts.pending})`}
+                  </Button>
+                )}
+                {counts.failed > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs border-red-500/30 text-red-400 hover:bg-red-500/10"
+                    onClick={() => retryAllFailed.mutate()}
+                    disabled={retryAllFailed.isPending}
+                  >
+                    {retryAllFailed.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RotateCcw className="h-3 w-3 mr-1" />}
+                    Retry All Failed ({counts.failed})
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2">

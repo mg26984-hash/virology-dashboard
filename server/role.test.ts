@@ -66,8 +66,11 @@ describe("Admin Role Assignment", () => {
     const updated = await db.select().from(users).where(eq(users.id, targetUser.id));
     expect(updated[0].role).toBe("admin");
 
-    // Verify audit log was created
-    const logs = await db.select().from(auditLogs).orderBy(desc(auditLogs.id)).limit(1);
+    // Verify audit log was created (filter by action to avoid interference from other tests)
+    const logs = await db.select().from(auditLogs)
+      .where(eq(auditLogs.action, "user_role_admin"))
+      .orderBy(desc(auditLogs.id)).limit(1);
+    expect(logs.length).toBeGreaterThan(0);
     expect(logs[0].action).toBe("user_role_admin");
     expect(logs[0].targetUserId).toBe(targetUser.id);
 

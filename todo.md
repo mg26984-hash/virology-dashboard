@@ -401,4 +401,11 @@
 - [x] Investigate why pending documents are not being processed
 - [x] Add a background worker that picks up pending documents and processes them
 - [x] Ensure processing resumes automatically after server restart
-- [ ] Add a "Process All Pending" admin button as fallback
+- [x] Add a "Process All Pending" admin button as fallback
+
+## Process All Pending Admin Button
+- [x] Backend: add tRPC mutation to trigger immediate processing of all pending documents
+- [x] Export a triggerProcessing function from backgroundWorker that runs immediately
+- [x] Frontend: add "Process All Pending" button in Processing Queue component (admin only)
+- [x] Show pending count on button, loading state while processing
+- [x] Write tests for the new endpoint

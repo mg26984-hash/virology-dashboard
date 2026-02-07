@@ -53,6 +53,7 @@ import ExcelJS from "exceljs";
 import { processUploadedDocument } from "./documentProcessor";
 import { generatePatientPDF, generateBulkPatientPDF } from "./pdfReport";
 import { generateDashboardPDF } from "./dashboardPdfReport";
+import { triggerProcessAllPending } from "./backgroundWorker";
 
 // Middleware to check if user is approved
 const approvedProcedure = protectedProcedure.use(async ({ ctx, next }) => {
@@ -786,6 +787,26 @@ export const appRouter = router({
           success: true,
           message: `Queued ${queued} documents for reprocessing`,
           queued,
+        };
+      }),
+
+    // Process all pending documents immediately (admin only)
+    processAllPending: adminProcedure
+      .mutation(async ({ ctx }) => {
+        // Audit log this admin action
+        await createAuditLog({
+          action: 'process_all_pending',
+          userId: ctx.user!.id,
+          reason: 'Admin triggered manual processing of all pending documents',
+        });
+
+        // Run the processing in the background so the mutation returns quickly
+        // but still returns the summary when done
+        const summary = await triggerProcessAllPending();
+        return {
+          success: true,
+          message: `Processed ${summary.totalProcessed} documents: ${summary.completed} completed, ${summary.failed} failed, ${summary.discarded} discarded, ${summary.duplicate} duplicate`,
+          ...summary,
         };
       }),
 
