@@ -438,3 +438,8 @@
 - [x] Replace window.open with fetch+blob download approach to bypass popup blockers
 - [x] Verified bulk PDF (Patients.tsx) and single PDF (PatientDetail.tsx) already use safe blob download
 - [x] All 110 tests pass
+
+## Update WhatsApp Guide Screenshots
+- [x] Replace generic screenshots with AI-generated mockups showing "OTC virology 2026" group name and kitten icon
+- [x] Ensure step 1 clearly shows the OTC virology 2026 group
+- [x] Update step 2, 3, and 4 screenshots to reference the correct group

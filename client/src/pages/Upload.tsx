@@ -410,7 +410,7 @@ export default function Upload() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <img
-                src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/laNuWsxOWDChrUaK.jpeg"
+                src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/YnzcKgmdmodlaxDG.jpeg"
                 alt="OTC Virology 2026"
                 className="h-10 w-10 rounded-xl object-cover"
               />
@@ -451,7 +451,7 @@ export default function Upload() {
                 <p className="text-sm font-semibold">Tap the three-dot menu → More</p>
                 <p className="text-xs text-muted-foreground mt-1">In the top-right corner, tap <strong>⋮</strong> (three dots), then tap <strong>More</strong></p>
                 <img
-                  src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/VNemHFubGwIOFQpo.jpg"
+                  src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/HmZNRYpaWaMhxEWn.png"
                   alt="WhatsApp three-dot menu showing More option"
                   className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
                 />
@@ -467,7 +467,7 @@ export default function Upload() {
                 <p className="text-sm font-semibold">Tap "Export chat"</p>
                 <p className="text-xs text-muted-foreground mt-1">From the submenu, select <strong>Export chat</strong></p>
                 <img
-                  src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/ZOiqjJPKBgabUemh.jpg"
+                  src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/xykfuJtrcUHWKfPc.png"
                   alt="WhatsApp submenu showing Export chat option"
                   className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
                 />
@@ -483,7 +483,7 @@ export default function Upload() {
                 <p className="text-sm font-semibold">Choose "Attach Media"</p>
                 <p className="text-xs text-muted-foreground mt-1">When prompted, select <strong>Attach Media</strong> to include all images in the export</p>
                 <img
-                  src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/UdDOokncgNGkNwXR.jpg"
+                  src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/SWwOSiwixBsijxJy.png"
                   alt="WhatsApp Export Chat dialog with Attach Media option"
                   className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
                 />
