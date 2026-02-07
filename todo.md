@@ -451,3 +451,14 @@
 - [x] Add Android/iPhone toggle tabs to the WhatsApp guide (compact, no extra space)
 - [x] iPhone steps: Open group → Tap group name → Export Chat → Attach Media → Save ZIP
 - [x] Keep existing Android steps intact
+
+## Add iPhone WhatsApp Screenshots to Guide
+- [ ] Generate iPhone mockup: Tap group name at top showing OTC virology 2026 with kitten icon
+- [ ] Generate iPhone mockup: Export Chat option in group info scroll
+- [ ] Generate iPhone mockup: Attach Media dialog
+- [ ] Upload screenshots to S3 and add to iPhone guide steps
+
+## Fix iPhone WhatsApp Screenshots to Match Current UI
+- [x] Research current 2025/2026 iPhone WhatsApp interface design
+- [x] Regenerate screenshots matching the updated iOS WhatsApp UI (chat view, group info with Export Chat, Attach Media action sheet)
+- [x] Update Upload page with accurate iPhone screenshots

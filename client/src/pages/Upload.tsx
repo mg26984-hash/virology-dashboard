@@ -518,17 +518,26 @@ sijxJy.png"
                   <div className="flex-1">
                     <p className="text-sm font-semibold">Tap the group name at the top</p>
                     <p className="text-xs text-muted-foreground mt-1">Tap <strong>OTC virology 2026</strong> at the top of the chat to open group info</p>
+                    <img
+                      src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/KPxKDwkOwmmCqjkY.png"
+                      alt="iPhone WhatsApp - tap group name OTC virology 2026"
+                      className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
+                    />
                   </div>
                 </div>
                 {/* iPhone Step 3 */}
                 <div className="flex gap-4 items-start p-4 rounded-lg bg-background/60 border border-border/50">
-                  <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0
- mt-1">
+                  <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-1">
                     <span className="text-sm font-bold text-primary">3</span>
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-semibold">Scroll down and tap "Export Chat"</p>
                     <p className="text-xs text-muted-foreground mt-1">Scroll to the bottom of group info and tap <strong>Export Chat</strong></p>
+                    <img
+                      src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/ZWBfsTGcdjlckDek.png"
+                      alt="iPhone WhatsApp - Export Chat option in group info"
+                      className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
+                    />
                   </div>
                 </div>
                 {/* iPhone Step 4 */}
@@ -537,9 +546,13 @@ sijxJy.png"
                     <span className="text-sm font-bold text-primary">4</span>
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-semibold">Choose
- "Attach Media"</p>
+                    <p className="text-sm font-semibold">Choose "Attach Media"</p>
                     <p className="text-xs text-muted-foreground mt-1">When prompted, select <strong>Attach Media</strong> to include all images in the export</p>
+                    <img
+                      src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/nknLofChGhjpQwjv.png"
+                      alt="iPhone WhatsApp - Attach Media dialog"
+                      className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
+                    />
                   </div>
                 </div>
               </>
