@@ -467,3 +467,9 @@
 - [x] Add a camera capture button/option alongside existing file upload with OR divider
 - [x] Use HTML input with capture="environment" attribute for mobile camera access
 - [x] Integrate captured photos into the existing upload pipeline (reuses addFiles)
+
+## Multi-Photo Camera Mode
+- [x] Allow users to take multiple photos in sequence using the camera
+- [x] Show a preview gallery of captured photos with ability to remove individual ones
+- [x] Add "Upload All" button to batch-upload all captured photos at once
+- [x] Keep the single-photo camera option working as before on the same button

@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   Upload as UploadIcon, X, CheckCircle2, AlertCircle, Loader2, Image,
   FileType, FileArchive, FolderOpen, RefreshCw, Timer, Clock, Trash2, Ban, XCircle,
-  MessageCircle, Smartphone, Download, FolderUp, Shield, ArrowRight, ChevronDown, ChevronUp, Camera,
+  MessageCircle, Smartphone, Download, FolderUp, Shield, ArrowRight, ChevronDown, ChevronUp, Camera, Plus,
 } from "lucide-react";
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { toast } from "sonner";
@@ -87,6 +87,7 @@ export default function Upload() {
   const [batchProgress, setBatchProgress] = useState<ServerBatchProgress | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const [cameraPhotos, setCameraPhotos] = useState<{ file: File; preview: string }[]>([]);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [now, setNow] = useState(Date.now());
   const [whatsappGuideOpen, setWhatsappGuideOpen] = useState(() => {
@@ -636,13 +637,77 @@ sijxJy.png"
                 type="file"
                 accept="image/jpeg,image/png"
                 capture="environment"
-                onChange={(e) => e.target.files && addFiles(e.target.files)}
+                onChange={(e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                  const file = e.target.files[0];
+                  const preview = URL.createObjectURL(file);
+                  setCameraPhotos((prev) => [...prev, { file, preview }]);
+                  toast.success("Photo captured! Take another or upload all.");
+                }
+                e.target.value = "";
+              }}
                 className="hidden"
               />
-              <Camera className="h-10 w-10 mb-3 text-muted-foreground" />
-              <p className="text-base font-medium mb-1">Take a Photo</p>
-              <p className="text-sm text-muted-foreground">Use your device camera</p>
-              <p className="text-xs text-muted-foreground mt-2">Opens camera on mobile devices</p>
+              {cameraPhotos.length === 0 ? (
+                <>
+                  <Camera className="h-10 w-10 mb-3 text-muted-foreground" />
+                  <p className="text-base font-medium mb-1">Take a Photo</p>
+                  <p className="text-sm text-muted-foreground">Use your device camera</p>
+                  <p className="text-xs text-muted-foreground mt-2">Opens camera on mobile devices</p>
+                </>
+              ) : (
+                <div className="w-full space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium">{cameraPhotos.length} photo{cameraPhotos.length !== 1 ? "s" : ""} captured</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => { e.stopPropagation(); cameraPhotos.forEach((p) => URL.revokeObjectURL(p.preview)); setCameraPhotos([]); }}
+                      className="text-xs text-muted-foreground hover:text-destructive"
+                    >
+                      Clear all
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {cameraPhotos.map((photo, idx) => (
+                      <div key={idx} className="relative group w-16 h-16 rounded-lg overflow-hidden border border-border">
+                        <img src={photo.preview} alt={"Photo " + (idx + 1)} className="w-full h-full object-cover" />
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            URL.revokeObjectURL(photo.preview);
+                            setCameraPhotos((prev) => prev.filter((_, i) => i !== idx));
+                          }}
+                          className="absolute top-0 right-0 bg-black/60 text-white rounded-bl p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); cameraInputRef.current?.click(); }}
+                      className="w-16 h-16 rounded-lg border-2 border-dashed border-muted-foreground/30 flex items-center justify-center hover:border-primary/50 hover:bg-muted/50 transition-colors"
+                    >
+                      <Plus className="h-5 w-5 text-muted-foreground" />
+                    </button>
+                  </div>
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const files = cameraPhotos.map((p) => p.file);
+                      addFiles(files);
+                      cameraPhotos.forEach((p) => URL.revokeObjectURL(p.preview));
+                      setCameraPhotos([]);
+                      toast.success(files.length + " photo" + (files.length !== 1 ? "s" : "") + " added to upload queue");
+                    }}
+                    className="w-full"
+                    size="sm"
+                  >
+                    <UploadIcon className="h-4 w-4 mr-2" />
+                    Upload {cameraPhotos.length} Photo{cameraPhotos.length !== 1 ? "s" : ""}
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </CardContent>
