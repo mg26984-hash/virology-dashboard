@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   Upload as UploadIcon, X, CheckCircle2, AlertCircle, Loader2, Image,
   FileType, FileArchive, FolderOpen, RefreshCw, Timer, Clock, Trash2, Ban, XCircle,
-  MessageCircle, Smartphone, Download, FolderUp, Shield, ArrowRight, ChevronDown, ChevronUp,
+  MessageCircle, Smartphone, Download, FolderUp, Shield, ArrowRight, ChevronDown, ChevronUp, Camera,
 } from "lucide-react";
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { toast } from "sonner";
@@ -86,6 +86,7 @@ export default function Upload() {
   const [extractionProgress, setExtractionProgress] = useState<{ current: number; total: number; fileName: string } | null>(null);
   const [batchProgress, setBatchProgress] = useState<ServerBatchProgress | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [now, setNow] = useState(Date.now());
   const [whatsappGuideOpen, setWhatsappGuideOpen] = useState(() => {
@@ -594,21 +595,55 @@ sijxJy.png"
       <Card>
         <CardHeader>
           <CardTitle>Upload Files</CardTitle>
-          <CardDescription>Drag and drop files or click to browse. Supports JPEG, PNG, PDF, and ZIP archives.</CardDescription>
+          <CardDescription>Drag and drop files, browse, or take a photo with your camera. Supports JPEG, PNG, PDF, and ZIP archives.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div
-            onDrop={onDrop}
-            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-            onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
-            onClick={() => fileInputRef.current?.click()}
-            className={"relative border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all duration-200 " + (isDragging ? "border-primary bg-primary/10" : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50")}
-          >
-            <input ref={fileInputRef} type="file" multiple accept="image/jpeg,image/png,application/pdf,.zip" onChange={(e) => e.target.files && addFiles(e.target.files)} className="hidden" />
-            <UploadIcon className={"h-12 w-12 mx-auto mb-4 transition-colors " + (isDragging ? "text-primary" : "text-muted-foreground")} />
-            <p className="text-lg font-medium mb-1">{isDragging ? "Drop files or folders here" : "Drag & drop files or folders here"}</p>
-            <p className="text-sm text-muted-foreground">or click to browse your computer</p>
-            <p className="text-xs text-muted-foreground mt-2">JPEG, PNG, PDF (max 20 MB) &middot; ZIP archives (max 500 MB, extracted in browser) &middot; Folders with images/PDFs</p>
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 items-stretch">
+            {/* Drop zone / file picker */}
+            <div
+              onDrop={onDrop}
+              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+              onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
+              onClick={() => fileInputRef.current?.click()}
+              className={"relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200 flex flex-col items-center justify-center " + (isDragging ? "border-primary bg-primary/10" : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50")}
+            >
+              <input ref={fileInputRef} type="file" multiple accept="image/jpeg,image/png,application/pdf,.zip" onChange={(e) => e.target.files && addFiles(e.target.files)} className="hidden" />
+              <UploadIcon className={"h-10 w-10 mb-3 transition-colors " + (isDragging ? "text-primary" : "text-muted-foreground")} />
+              <p className="text-base font-medium mb-1">{isDragging ? "Drop files or folders here" : "Drag & drop files here"}</p>
+              <p className="text-sm text-muted-foreground">or click to browse</p>
+              <p className="text-xs text-muted-foreground mt-2">JPEG, PNG, PDF (max 20 MB) &middot; ZIP (max 500 MB) &middot; Folders</p>
+            </div>
+
+            {/* Divider */}
+            <div className="hidden md:flex flex-col items-center justify-center">
+              <div className="w-px h-full bg-border relative">
+                <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card text-muted-foreground text-xs font-medium px-1 py-1">OR</span>
+              </div>
+            </div>
+            <div className="flex md:hidden items-center gap-3">
+              <div className="flex-1 h-px bg-border" />
+              <span className="text-xs text-muted-foreground font-medium">OR</span>
+              <div className="flex-1 h-px bg-border" />
+            </div>
+
+            {/* Camera capture */}
+            <div
+              onClick={() => cameraInputRef.current?.click()}
+              className="border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200 border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50 flex flex-col items-center justify-center"
+            >
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/jpeg,image/png"
+                capture="environment"
+                onChange={(e) => e.target.files && addFiles(e.target.files)}
+                className="hidden"
+              />
+              <Camera className="h-10 w-10 mb-3 text-muted-foreground" />
+              <p className="text-base font-medium mb-1">Take a Photo</p>
+              <p className="text-sm text-muted-foreground">Use your device camera</p>
+              <p className="text-xs text-muted-foreground mt-2">Opens camera on mobile devices</p>
+            </div>
           </div>
         </CardContent>
       </Card>

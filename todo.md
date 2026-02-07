@@ -462,3 +462,8 @@
 - [x] Research current 2025/2026 iPhone WhatsApp interface design
 - [x] Regenerate screenshots matching the updated iOS WhatsApp UI (chat view, group info with Export Chat, Attach Media action sheet)
 - [x] Update Upload page with accurate iPhone screenshots
+
+## Add Camera Capture to Upload Page
+- [x] Add a camera capture button/option alongside existing file upload with OR divider
+- [x] Use HTML input with capture="environment" attribute for mobile camera access
+- [x] Integrate captured photos into the existing upload pipeline (reuses addFiles)
