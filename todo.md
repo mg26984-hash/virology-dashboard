@@ -499,3 +499,4 @@
 ## Token & UI Fixes
 - [x] Make upload tokens permanent (never expire) - backend + UI text
 - [x] Fix purple info note color so text is readable in light mode
+- [x] Make copying the full Quick Upload link (with token) easier and more prominent

@@ -760,25 +760,37 @@ sijxJy.png"
               <div className="flex-1">
                 <p className="text-sm font-medium">Generate an upload token</p>
                 <p className="text-xs text-muted-foreground">This token lets your phone upload without logging in. It never expires.</p>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
+                <div className="mt-2 space-y-2">
                   {!uploadToken ? (
                     <Button size="sm" variant="outline" onClick={() => generateTokenMutation.mutate()} disabled={generateTokenMutation.isPending}>
                       {generateTokenMutation.isPending ? <><Loader2 className="h-3 w-3 mr-2 animate-spin" />Generating...</> : <><Link className="h-3 w-3 mr-2" />Generate Token</>}
                     </Button>
                   ) : (
                     <>
-                      <code className="text-xs bg-muted px-2 py-1 rounded font-mono max-w-[200px] truncate">{uploadToken}</code>
-                      <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => {
-                        navigator.clipboard.writeText(uploadToken);
-                        setTokenCopied(true);
-                        setTimeout(() => setTokenCopied(false), 2000);
-                        toast.success("Token copied!");
-                      }}>
-                        {tokenCopied ? <CheckCircle2 className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
-                      </Button>
-                      <Button size="sm" variant="outline" className="text-xs" onClick={() => { setUploadToken(null); generateTokenMutation.reset(); }}>
-                        <RefreshCw className="h-3 w-3 mr-1" />New Token
-                      </Button>
+                      {/* Full Quick Upload link — one tap to copy */}
+                      <div className="rounded-lg border border-emerald-300 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-950/20 p-2.5 space-y-2">
+                        <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400">Your Quick Upload Link</p>
+                        <div className="flex items-center gap-2">
+                          <code className="text-[11px] bg-white dark:bg-black/30 border border-emerald-200 dark:border-emerald-800/30 px-2 py-1.5 rounded font-mono flex-1 truncate text-emerald-800 dark:text-emerald-300 select-all">
+                            {window.location.origin}/quick-upload?token={uploadToken}
+                          </code>
+                          <Button size="sm" className="shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => {
+                            const fullUrl = window.location.origin + "/quick-upload?token=" + uploadToken;
+                            navigator.clipboard.writeText(fullUrl);
+                            setTokenCopied(true);
+                            setTimeout(() => setTokenCopied(false), 2000);
+                            toast.success("Quick Upload link copied! Open it on your phone.");
+                          }}>
+                            {tokenCopied ? <><CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />Copied!</> : <><Copy className="h-3.5 w-3.5 mr-1.5" />Copy Link</>}
+                          </Button>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">Open this link on your phone to upload photos directly. Send it to yourself via WhatsApp or iMessage.</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button size="sm" variant="outline" className="text-xs" onClick={() => { setUploadToken(null); generateTokenMutation.reset(); }}>
+                          <RefreshCw className="h-3 w-3 mr-1" />Regenerate Token
+                        </Button>
+                      </div>
                     </>
                   )}
                 </div>
@@ -803,21 +815,8 @@ sijxJy.png"
                   <div className="space-y-1.5">
                     <p className="text-xs font-medium text-blue-700 dark:text-blue-300">Option A &mdash; Quick Upload Page <span className="text-[10px] text-emerald-600 dark:text-emerald-400 ml-1">(Easiest)</span></p>
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Open this link on your iPhone in Safari. Pick photos and tap Upload &mdash; no Shortcuts app needed.
+                      Copy the green link above and open it in Safari on your iPhone. Pick photos and tap Upload &mdash; no Shortcuts app needed.
                     </p>
-                    <div className="flex flex-wrap gap-2">
-                      {uploadToken ? (
-                        <Button size="sm" variant="outline" onClick={() => {
-                          const quickUrl = window.location.origin + "/quick-upload?token=" + uploadToken;
-                          navigator.clipboard.writeText(quickUrl);
-                          toast.success("Quick Upload link copied! Open it in Safari on your iPhone.");
-                        }}>
-                          <Copy className="h-3 w-3 mr-1.5" />Copy Quick Upload Link
-                        </Button>
-                      ) : (
-                        <span className="text-[11px] text-muted-foreground italic">Generate a token first (above) to get your link.</span>
-                      )}
-                    </div>
                   </div>
 
                   <div className="border-t border-blue-200 dark:border-white/10" />
