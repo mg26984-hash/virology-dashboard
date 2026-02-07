@@ -7,8 +7,9 @@ import { Progress } from "@/components/ui/progress";
 import {
   Upload as UploadIcon, X, CheckCircle2, AlertCircle, Loader2, Image,
   FileType, FileArchive, FolderOpen, RefreshCw, Timer, Clock, Trash2, Ban, XCircle,
-  MessageCircle, Smartphone, Download, FolderUp, Shield, ArrowRight, ChevronDown, ChevronUp, Camera, Plus,
+  MessageCircle, Smartphone, Download, FolderUp, Shield, ArrowRight, ChevronDown, ChevronUp, Camera, Plus, Pencil,
 } from "lucide-react";
+import PhotoEditor from "@/components/PhotoEditor";
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import JSZip from "jszip";
@@ -88,6 +89,7 @@ export default function Upload() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [cameraPhotos, setCameraPhotos] = useState<{ file: File; preview: string }[]>([]);
+  const [editingPhoto, setEditingPhoto] = useState<{ src: string; fileName: string; type: "camera" | "staged"; index: number } | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [now, setNow] = useState(Date.now());
   const [whatsappGuideOpen, setWhatsappGuideOpen] = useState(() => {
@@ -675,6 +677,15 @@ sijxJy.png"
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
+                            setEditingPhoto({ src: photo.preview, fileName: photo.file.name, type: "camera", index: idx });
+                          }}
+                          className="absolute bottom-0 left-0 bg-black/60 text-white rounded-tr p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
                             URL.revokeObjectURL(photo.preview);
                             setCameraPhotos((prev) => prev.filter((_, i) => i !== idx));
                           }}
@@ -740,6 +751,9 @@ sijxJy.png"
                       {s.folderName && <span className="inline-flex items-center gap-1 ml-2 text-xs text-muted-foreground"><FolderOpen className="h-3 w-3" />{s.folderName}</span>}
                     </p>
                   </div>
+                  {s.preview && !s.isZip && (
+                    <Button variant="ghost" size="icon" onClick={() => setEditingPhoto({ src: s.preview!, fileName: s.file.name, type: "staged", index: i })} disabled={isUploading} title="Edit photo"><Pencil className="h-4 w-4" /></Button>
+                  )}
                   <Button variant="ghost" size="icon" onClick={() => removeStaged(i)} disabled={isUploading}><X className="h-4 w-4" /></Button>
                 </div>
               ))}
@@ -947,6 +961,36 @@ sijxJy.png"
           </div>
         </CardContent>
       </Card>
+      {/* Photo Editor Overlay */}
+      {editingPhoto && (
+        <PhotoEditor
+          imageSrc={editingPhoto.src}
+          fileName={editingPhoto.fileName}
+          onCancel={() => setEditingPhoto(null)}
+          onConfirm={(croppedFile) => {
+            if (editingPhoto.type === "camera") {
+              const newPreview = URL.createObjectURL(croppedFile);
+              setCameraPhotos((prev) => {
+                const updated = [...prev];
+                URL.revokeObjectURL(updated[editingPhoto.index].preview);
+                updated[editingPhoto.index] = { file: croppedFile, preview: newPreview };
+                return updated;
+              });
+              toast.success("Photo edited successfully");
+            } else {
+              const newPreview = URL.createObjectURL(croppedFile);
+              setStaged((prev) => {
+                const updated = [...prev];
+                if (updated[editingPhoto.index].preview) URL.revokeObjectURL(updated[editingPhoto.index].preview!);
+                updated[editingPhoto.index] = { ...updated[editingPhoto.index], file: croppedFile, preview: newPreview };
+                return updated;
+              });
+              toast.success("Photo edited successfully");
+            }
+            setEditingPhoto(null);
+          }}
+        />
+      )}
     </div>
   );
 }

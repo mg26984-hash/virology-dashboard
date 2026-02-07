@@ -473,3 +473,11 @@
 - [x] Show a preview gallery of captured photos with ability to remove individual ones
 - [x] Add "Upload All" button to batch-upload all captured photos at once
 - [x] Keep the single-photo camera option working as before on the same button
+
+## Photo Annotation Overlay (Crop & Rotate)
+- [x] Install react-easy-crop library (supports crop, zoom, rotate)
+- [x] Build PhotoEditor overlay component with crop, rotate, zoom, and confirm/cancel actions
+- [x] Add edit (pencil) button on camera photo thumbnails to open the editor
+- [x] Add edit (pencil) button on staged file thumbnails for image files
+- [x] Replace the original file with the cropped/rotated version on confirm
+- [x] Full-screen overlay works on mobile devices with touch gestures
