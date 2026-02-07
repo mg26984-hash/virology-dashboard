@@ -73,6 +73,7 @@ export const documents = mysqlTable("documents", {
   fileUrl: text("fileUrl").notNull(),
   mimeType: varchar("mimeType", { length: 100 }),
   fileSize: int("fileSize"),
+  fileHash: varchar("fileHash", { length: 64 }),
   processingStatus: mysqlEnum("processingStatus", ["pending", "processing", "completed", "failed", "discarded"]).default("pending").notNull(),
   processingError: text("processingError"),
   extractedData: text("extractedData"),

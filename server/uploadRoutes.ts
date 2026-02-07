@@ -2,10 +2,32 @@ import { Router, Request, Response } from "express";
 import multer from "multer";
 import AdmZip from "adm-zip";
 import { nanoid } from "nanoid";
+import crypto from "crypto";
 import { sdk } from "./_core/sdk";
 import { storagePut } from "./storage";
-import { createDocument, getDocumentById } from "./db";
+import { createDocument, getDocumentById, getDb } from "./db";
 import { processUploadedDocument } from "./documentProcessor";
+import { documents } from "../drizzle/schema";
+import { eq } from "drizzle-orm";
+
+// Compute SHA-256 hash of file content for deduplication
+function computeFileHash(buffer: Buffer): string {
+  return crypto.createHash("sha256").update(buffer).digest("hex");
+}
+
+// Check if a file with the same hash already exists in the database
+async function isDuplicate(fileHash: string): Promise<{ duplicate: boolean; existingDocId?: number }> {
+  const db = await getDb();
+  if (!db) return { duplicate: false };
+  const existing = await db.select({ id: documents.id, processingStatus: documents.processingStatus })
+    .from(documents)
+    .where(eq(documents.fileHash, fileHash))
+    .limit(1);
+  if (existing.length > 0) {
+    return { duplicate: true, existingDocId: existing[0].id };
+  }
+  return { duplicate: false };
+}
 
 // In-memory storage for multer — files up to 250MB
 const storage = multer.memoryStorage();
@@ -21,6 +43,7 @@ interface BatchProgress {
   processing: number;
   processed: number;
   failed: number;
+  skippedDuplicates: number;
   documentIds: number[];
   errors: string[];
   status: "uploading" | "processing" | "complete" | "error";
@@ -46,6 +69,7 @@ const router = Router();
 /**
  * POST /api/upload/files
  * Multipart upload for images/PDFs (up to 500 files at once)
+ * Includes SHA-256 deduplication: files already in the database are skipped.
  */
 router.post("/files", upload.array("files", 500), async (req: Request, res: Response) => {
   try {
@@ -84,6 +108,7 @@ router.post("/files", upload.array("files", 500), async (req: Request, res: Resp
       processing: 0,
       processed: 0,
       failed: 0,
+      skippedDuplicates: 0,
       documentIds: [],
       errors: [],
       status: "uploading",
@@ -172,6 +197,7 @@ router.post("/zip", upload.single("file"), async (req: Request, res: Response) =
       processing: 0,
       processed: 0,
       failed: 0,
+      skippedDuplicates: 0,
       documentIds: [],
       errors: [],
       status: "uploading",
@@ -244,6 +270,18 @@ async function processFileBatch(batchId: string, files: Express.Multer.File[], u
     await Promise.all(
       batch.map(async (file) => {
         try {
+          // Compute file hash for deduplication
+          const fileHash = computeFileHash(file.buffer);
+          const { duplicate } = await isDuplicate(fileHash);
+          
+          if (duplicate) {
+            console.log(`[Upload] Skipping duplicate file: ${file.originalname} (hash: ${fileHash.substring(0, 12)}...)`);
+            progress.skippedDuplicates++;
+            progress.uploaded++;
+            progress.processed++;
+            return;
+          }
+
           progress.processing++;
           const fileKey = `virology-reports/${userId}/${nanoid()}-${file.originalname}`;
           const { url } = await storagePut(fileKey, file.buffer, file.mimetype);
@@ -256,6 +294,7 @@ async function processFileBatch(batchId: string, files: Express.Multer.File[], u
             fileUrl: url,
             mimeType: file.mimetype,
             fileSize: file.size,
+            fileHash,
             processingStatus: "pending",
           });
 
@@ -291,8 +330,21 @@ async function processZipBatch(batchId: string, entries: AdmZip.IZipEntry[], use
       batch.map(async (entry) => {
         const fileName = entry.entryName.split("/").pop() || entry.entryName;
         try {
-          progress.processing++;
           const fileBuffer = entry.getData();
+          
+          // Compute file hash for deduplication
+          const fileHash = computeFileHash(fileBuffer);
+          const { duplicate } = await isDuplicate(fileHash);
+          
+          if (duplicate) {
+            console.log(`[Upload] Skipping duplicate file from ZIP: ${fileName} (hash: ${fileHash.substring(0, 12)}...)`);
+            progress.skippedDuplicates++;
+            progress.uploaded++;
+            progress.processed++;
+            return;
+          }
+
+          progress.processing++;
           const ext = fileName.toLowerCase().slice(fileName.lastIndexOf("."));
 
           let mimeType = "application/octet-stream";
@@ -311,6 +363,7 @@ async function processZipBatch(batchId: string, entries: AdmZip.IZipEntry[], use
             fileUrl: url,
             mimeType,
             fileSize: fileBuffer.length,
+            fileHash,
             processingStatus: "pending",
           });
 

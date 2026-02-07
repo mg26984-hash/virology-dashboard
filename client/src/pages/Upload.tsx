@@ -32,6 +32,7 @@ interface ServerBatchProgress {
   processing: number;
   processed: number;
   failed: number;
+  skippedDuplicates: number;
   status: "uploading" | "processing" | "complete" | "error";
   errors: string[];
   startedAt: number;
@@ -283,7 +284,7 @@ export default function Upload() {
             const startedAt = Date.now();
             setBatchProgress({
               batchId: "files-uploading", total: allFiles.length, uploaded: i,
-              processing: 0, processed: 0, failed: 0, status: "uploading",
+              processing: 0, processed: 0, failed: 0, skippedDuplicates: 0, status: "uploading",
               errors: [], startedAt, documentIds: [],
             });
 
@@ -494,6 +495,7 @@ export default function Upload() {
                 <div className="flex items-center gap-3">
                   <span className="text-blue-400">{batchProgress.uploaded} uploaded to S3</span>
                   <span className="text-green-400">{batchProgress.processed} processed</span>
+                  {batchProgress.skippedDuplicates > 0 && <span className="text-yellow-400">{batchProgress.skippedDuplicates} duplicates skipped</span>}
                   {batchProgress.failed > 0 && <span className="text-destructive">{batchProgress.failed} failed</span>}
                 </div>
                 <span>

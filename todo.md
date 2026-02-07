@@ -387,3 +387,18 @@
 - [x] Color-coded status badges per batch
 - [x] Add navigation link in sidebar
 - [x] Fixed number coercion bug (MySQL returns strings for aggregates)
+
+## WhatsApp ZIP Upload with Automatic Deduplication
+- [x] Add fileHash column to documents table for dedup tracking
+- [x] Compute SHA-256 hash of each file on upload (server-side)
+- [x] Check hash against existing documents before processing — skip duplicates
+- [x] Return dedup stats in upload response (new vs skipped)
+- [x] Update Upload UI to show dedup feedback (e.g., "15 new, 340 already processed")
+- [ ] Add a prominent "Upload WhatsApp Export" section on the upload page
+- [ ] Test deduplication with re-uploaded files
+
+## Bug Fix: 415 Documents Stuck Pending for 22+ Hours
+- [x] Investigate why pending documents are not being processed
+- [x] Add a background worker that picks up pending documents and processes them
+- [x] Ensure processing resumes automatically after server restart
+- [ ] Add a "Process All Pending" admin button as fallback

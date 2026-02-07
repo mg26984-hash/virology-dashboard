@@ -8,6 +8,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import uploadRoutes from "../uploadRoutes";
+import { startBackgroundWorker } from "../backgroundWorker";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -63,6 +64,8 @@ async function startServer() {
 
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
+    // Start background worker to process pending documents
+    startBackgroundWorker(30000); // Check every 30 seconds
   });
 }
 
