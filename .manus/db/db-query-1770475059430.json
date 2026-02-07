@@ -1,0 +1,22 @@
+{
+  "query": "SELECT id, role, openId, name FROM users LIMIT 10",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute SELECT id, role, openId, name FROM users LIMIT 10",
+  "rows": [
+    {
+      "id": "1",
+      "role": "admin",
+      "openId": "nPtvS3FjrgpNRuGEU3ERv5",
+      "name": "Mohammed Megahed"
+    },
+    {
+      "id": "510025",
+      "role": "user",
+      "openId": "YF24mQsFptTihE2gRY9d56",
+      "name": "mg26984"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\trole\topenId\tname\n1\tadmin\tnPtvS3FjrgpNRuGEU3ERv5\tMohammed Megahed\n510025\tuser\tYF24mQsFptTihE2gRY9d56\tmg26984\n",
+  "stderr": "",
+  "execution_time_ms": 1619
+}

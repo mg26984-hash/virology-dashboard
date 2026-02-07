@@ -434,7 +434,7 @@ export default function UserManagement() {
                           <TableCell className="text-right">
                             {u.id !== user?.id && (
                               <div className="flex justify-end gap-2">
-                                {isOwner && u.status === 'approved' && (
+                                {u.status === 'approved' && (
                                   <Button
                                     size="sm"
                                     variant="outline"

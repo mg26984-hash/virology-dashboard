@@ -508,3 +508,8 @@
 - [x] Add exact time to User Management page (created/last signed in dates)
 - [x] Add relative time labels ("2 hours ago") alongside exact timestamps across the app
 - [x] Make Recent Uploads on Dashboard clickable to navigate to patient records (completed docs link to patient)
+
+## Admin Promote/Demote
+- [x] Allow admin users to promote other users to admin role
+- [x] Allow admin users to demote other admins back to regular user role
+- [x] Audit log entries for role changes (already existed, verified working)

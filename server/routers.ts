@@ -125,7 +125,7 @@ export const appRouter = router({
         return { success: true };
       }),
 
-    setRole: ownerProcedure
+    setRole: adminProcedure
       .input(z.object({
         userId: z.number(),
         role: z.enum(['user', 'admin']),
