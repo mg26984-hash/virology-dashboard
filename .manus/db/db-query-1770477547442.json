@@ -1,0 +1,31 @@
+{
+  "query": "UPDATE users SET role = 'admin' WHERE email = 'ogheith81@gmail.com'; SELECT id, name, email, role, openId FROM users ORDER BY id",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute UPDATE users SET role = 'admin' WHERE email = 'ogheith81@gmail.com'; SELECT id, name, email, role, openId FROM users ORDER BY id",
+  "rows": [
+    {
+      "id": "1",
+      "name": "Mohammed Megahed",
+      "email": "mg26984@gmail.com",
+      "role": "admin",
+      "openId": "nPtvS3FjrgpNRuGEU3ERv5"
+    },
+    {
+      "id": "510025",
+      "name": "mg26984",
+      "email": "mg26984@yahoo.com",
+      "role": "user",
+      "openId": "YF24mQsFptTihE2gRY9d56"
+    },
+    {
+      "id": "661934",
+      "name": "Osama Gheith",
+      "email": "ogheith81@gmail.com",
+      "role": "admin",
+      "openId": "WxjrKxCBgtXWfBDBWc9ciR"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\temail\trole\topenId\n1\tMohammed Megahed\tmg26984@gmail.com\tadmin\tnPtvS3FjrgpNRuGEU3ERv5\n510025\tmg26984\tmg26984@yahoo.com\tuser\tYF24mQsFptTihE2gRY9d56\n661934\tOsama Gheith\togheith81@gmail.com\tadmin\tWxjrKxCBgtXWfBDBWc9ciR\n",
+  "stderr": "",
+  "execution_time_ms": 1833
+}

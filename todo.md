@@ -518,3 +518,10 @@
 - [x] Revert setRole back to owner-only (ownerProcedure) instead of adminProcedure
 - [x] Restore isOwner check in frontend for promote/demote button visibility
 - [x] Add confirmation dialog before promoting or demoting users
+
+## Role Badges & Transfer Ownership
+- [x] Add color-coded role badges (Owner/Admin/User) with Crown/Shield/User icons in the user list
+- [x] Implement Transfer Ownership backend endpoint (owner-only, requires target to be admin)
+- [x] Add Transfer Ownership UI button + confirmation dialog with warning
+- [ ] Write tests for Transfer Ownership
+- [x] Promote Osama Gheith (ogheith81@gmail.com) to admin via database

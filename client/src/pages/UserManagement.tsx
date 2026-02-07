@@ -50,7 +50,9 @@ import {
   RefreshCw,
   FileText,
   AlertTriangle,
-  Trash2
+  Trash2,
+  Crown,
+  User2
 } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
@@ -104,9 +106,23 @@ export default function UserManagement() {
     onSuccess: (_, variables) => {
       toast.success(`User ${variables.role === 'admin' ? 'promoted to admin' : 'demoted to user'} successfully`);
       refetchUsers();
+      setRoleConfirm(null);
     },
     onError: (error) => {
       toast.error(`Failed to update role: ${error.message}`);
+    }
+  });
+
+  const [transferConfirm, setTransferConfirm] = useState<{ userId: number; name: string } | null>(null);
+  const transferOwnershipMutation = trpc.users.transferOwnership.useMutation({
+    onSuccess: (result) => {
+      toast.success(`Ownership transferred to ${result.newOwnerName}. You are now an admin.`);
+      setTransferConfirm(null);
+      refetchUsers();
+      window.location.reload();
+    },
+    onError: (error) => {
+      toast.error(`Failed to transfer ownership: ${error.message}`);
     }
   });
 
@@ -209,11 +225,14 @@ export default function UserManagement() {
     }
   };
 
-  const getRoleBadge = (role: string) => {
-    if (role === 'admin') {
-      return <Badge className="bg-purple-600"><Shield className="mr-1 h-3 w-3" />Admin</Badge>;
+  const getRoleBadge = (role: string, userIsOwner?: boolean) => {
+    if (userIsOwner) {
+      return <Badge className="bg-amber-500 text-white"><Crown className="mr-1 h-3 w-3" />Owner</Badge>;
     }
-    return <Badge variant="secondary">User</Badge>;
+    if (role === 'admin') {
+      return <Badge className="bg-purple-600 text-white"><Shield className="mr-1 h-3 w-3" />Admin</Badge>;
+    }
+    return <Badge variant="secondary"><User2 className="mr-1 h-3 w-3" />User</Badge>;
   };
 
   const getDocStatusBadge = (status: string) => {
@@ -436,7 +455,7 @@ export default function UserManagement() {
                             <div className="font-medium">{u.name || 'Unknown'}</div>
                           </TableCell>
                           <TableCell>{u.email || '-'}</TableCell>
-                          <TableCell>{getRoleBadge(u.role)}</TableCell>
+                          <TableCell>{getRoleBadge(u.role, u.isOwner)}</TableCell>
                           <TableCell>{getStatusBadge(u.status)}</TableCell>
                           <TableCell>
                             <div>{formatDateTime(u.lastSignedIn)}</div>
@@ -446,24 +465,40 @@ export default function UserManagement() {
                             {u.id !== user?.id && (
                               <div className="flex justify-end gap-2">
                                 {isOwner && u.status === 'approved' && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className={u.role === 'admin' ? 'text-amber-500 hover:text-amber-500' : 'text-purple-500 hover:text-purple-500'}
-                                    onClick={() => setRoleConfirm({
-                                      userId: u.id,
-                                      name: u.name || 'Unknown',
-                                      currentRole: u.role,
-                                      newRole: u.role === 'admin' ? 'user' : 'admin',
-                                    })}
-                                    disabled={setRoleMutation.isPending}
-                                  >
-                                    {u.role === 'admin' ? (
-                                      <><ShieldOff className="mr-1 h-4 w-4" />Remove Admin</>
-                                    ) : (
-                                      <><ShieldCheck className="mr-1 h-4 w-4" />Make Admin</>
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className={u.role === 'admin' ? 'text-amber-500 hover:text-amber-500' : 'text-purple-500 hover:text-purple-500'}
+                                      onClick={() => setRoleConfirm({
+                                        userId: u.id,
+                                        name: u.name || 'Unknown',
+                                        currentRole: u.role,
+                                        newRole: u.role === 'admin' ? 'user' : 'admin',
+                                      })}
+                                      disabled={setRoleMutation.isPending}
+                                    >
+                                      {u.role === 'admin' ? (
+                                        <><ShieldOff className="mr-1 h-4 w-4" />Remove Admin</>
+                                      ) : (
+                                        <><ShieldCheck className="mr-1 h-4 w-4" />Make Admin</>
+                                      )}
+                                    </Button>
+                                    {u.role === 'admin' && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="text-amber-600 hover:text-amber-600 border-amber-300"
+                                        onClick={() => setTransferConfirm({
+                                          userId: u.id,
+                                          name: u.name || 'Unknown',
+                                        })}
+                                        disabled={transferOwnershipMutation.isPending}
+                                      >
+                                        <Crown className="mr-1 h-4 w-4" />Transfer Ownership
+                                      </Button>
                                     )}
-                                  </Button>
+                                  </>
                                 )}
                                 {u.status !== 'approved' && (
                                   <Button
@@ -835,6 +870,37 @@ export default function UserManagement() {
               }}
             >
               {roleConfirm?.newRole === 'admin' ? 'Yes, Promote' : 'Yes, Remove Admin'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Transfer Ownership Confirmation Dialog */}
+      <AlertDialog open={!!transferConfirm} onOpenChange={(open) => !open && setTransferConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Crown className="h-5 w-5 text-amber-500" />
+              Transfer Ownership
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>Are you sure you want to transfer project ownership to <strong>{transferConfirm?.name}</strong>?</p>
+                <p className="text-destructive font-medium">This action cannot be undone. You will be demoted to admin and will no longer be able to manage ownership or assign roles.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-amber-600 hover:bg-amber-700"
+              onClick={() => {
+                if (transferConfirm) {
+                  transferOwnershipMutation.mutate({ newOwnerUserId: transferConfirm.userId });
+                }
+              }}
+            >
+              Yes, Transfer Ownership
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

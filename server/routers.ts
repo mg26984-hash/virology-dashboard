@@ -49,6 +49,7 @@ import {
   getUploadHistory,
   getDocumentProcessingHistory,
   createUploadToken,
+  getUserById,
 } from "./db";
 import { ENV } from './_core/env';
 import ExcelJS from "exceljs";
@@ -111,7 +112,11 @@ export const appRouter = router({
   // User management (admin only)
   users: router({
     list: adminProcedure.query(async () => {
-      return getAllUsers();
+      const allUsers = await getAllUsers();
+      return allUsers.map(u => ({
+        ...u,
+        isOwner: u.openId === ENV.ownerOpenId,
+      }));
     }),
     
     updateStatus: adminProcedure
@@ -139,6 +144,48 @@ export const appRouter = router({
         }
         await updateUserRole(input.userId, input.role, ctx.user!.id);
         return { success: true };
+      }),
+
+    transferOwnership: ownerProcedure
+      .input(z.object({
+        newOwnerUserId: z.number(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        if (input.newOwnerUserId === ctx.user!.id) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "You are already the owner",
+          });
+        }
+        // Verify the target user exists and is an admin
+        const targetUser = await getUserById(input.newOwnerUserId);
+        if (!targetUser) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+        }
+        if (targetUser.role !== 'admin') {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "You can only transfer ownership to an admin user",
+          });
+        }
+        if (targetUser.status !== 'approved') {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Target user must be approved",
+          });
+        }
+        // Update OWNER_OPEN_ID env var at runtime
+        process.env.OWNER_OPEN_ID = targetUser.openId;
+        // Demote current owner to admin
+        await updateUserRole(ctx.user!.id, 'admin', ctx.user!.id, 'Ownership transferred');
+        // Log the transfer
+        await createAuditLog({
+          action: 'ownership_transferred',
+          userId: ctx.user!.id,
+          targetUserId: input.newOwnerUserId,
+          reason: `Ownership transferred from ${ctx.user!.name || ctx.user!.openId} to ${targetUser.name || targetUser.openId}`,
+        });
+        return { success: true, newOwnerName: targetUser.name };
       }),
     
     auditLogs: adminProcedure
