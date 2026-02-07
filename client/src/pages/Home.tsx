@@ -319,10 +319,25 @@ export default function Home() {
   }, []);
 
   const generateReport = trpc.dashboard.generateReport.useMutation({
-    onSuccess: (data) => {
-      // Open the PDF in a new tab
-      window.open(data.url, '_blank');
-      toast.success('Dashboard report generated successfully');
+    onSuccess: async (data) => {
+      try {
+        // Fetch the PDF as a blob to avoid popup blockers
+        const response = await fetch(data.url);
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = `dashboard-report-${new Date().toISOString().slice(0, 10)}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(blobUrl);
+        toast.success('Dashboard report downloaded successfully');
+      } catch {
+        // Fallback: use window.location to navigate directly
+        window.location.href = data.url;
+        toast.success('Dashboard report generated successfully');
+      }
     },
     onError: (err) => {
       toast.error(`Failed to generate report: ${err.message}`);

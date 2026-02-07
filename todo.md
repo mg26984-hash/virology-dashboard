@@ -432,3 +432,9 @@
 - [x] Change step 1 text to "Open OTC Virology 2026 on your WhatsApp"
 - [x] Add screenshot images showing how to export WhatsApp chat with media
 - [x] Make guide collapsible with localStorage persistence
+
+## Bug Fix: Popup Blocking on Bulk PDF Reports
+- [x] Identify where window.open or popup is used in PDF generation (found in Home.tsx dashboard report)
+- [x] Replace window.open with fetch+blob download approach to bypass popup blockers
+- [x] Verified bulk PDF (Patients.tsx) and single PDF (PatientDetail.tsx) already use safe blob download
+- [x] All 110 tests pass
