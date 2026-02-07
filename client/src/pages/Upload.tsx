@@ -103,7 +103,18 @@ export default function Upload() {
   const generateTokenMutation = trpc.documents.generateUploadToken.useMutation({
     onSuccess: (data) => {
       setUploadToken(data.token);
-      toast.success("Upload token generated!");
+      const quickUrl = window.location.origin + "/quick-upload?token=" + data.token;
+      toast.success("Quick Upload link ready!", {
+        description: quickUrl,
+        duration: 15000,
+        action: {
+          label: "Copy Link",
+          onClick: () => {
+            navigator.clipboard.writeText(quickUrl);
+            toast.success("Link copied! Send it to your phone via WhatsApp or iMessage.");
+          },
+        },
+      });
     },
     onError: () => toast.error("Failed to generate token"),
   });

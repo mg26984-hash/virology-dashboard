@@ -562,3 +562,6 @@
 
 ## Bug Fix: Missing Quick Upload Link on Upload Reports Page
 - [x] Fix "Copy the green link above" text — the actual Quick Upload URL link is not visible above the instruction
+
+## Auto Copy-Link Toast on Token Generation
+- [x] Show a toast with the Quick Upload URL and a "Copy" action button when the token is generated
