@@ -534,3 +534,8 @@
 - [x] Integrate breadcrumbs into DashboardLayout for automatic route-based breadcrumbs
 - [x] Add dynamic breadcrumbs for detail pages (Patient Detail shows Dashboard > Patients > Patient Detail)
 - [x] Add quick-action Upload Reports card on dashboard where Processing History chart was
+
+## Breadcrumb & Quick Action Improvements
+- [x] Show patient name in breadcrumb on Patient Detail page instead of generic "Patient Detail"
+- [x] Add Patients quick-action card alongside Upload Reports on dashboard
+- [x] Hide breadcrumb on mobile (mobile header already shows page name)

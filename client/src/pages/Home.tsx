@@ -507,18 +507,32 @@ export default function Home() {
       <ProcessingQueue />
 
       {/* Quick Actions */}
-      <Card className="card-hover cursor-pointer border-dashed border-2 border-primary/30 bg-primary/5 hover:bg-primary/10 transition-all" onClick={() => setLocation('/upload')}>
-        <CardContent className="flex items-center gap-4 py-5">
-          <div className="flex items-center justify-center h-12 w-12 rounded-xl bg-primary/15 shrink-0">
-            <Upload className="h-6 w-6 text-primary" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-base">Upload Reports</h3>
-            <p className="text-sm text-muted-foreground">Upload virology reports, WhatsApp exports, or share photos from your phone</p>
-          </div>
-          <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
-        </CardContent>
-      </Card>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="card-hover cursor-pointer border-dashed border-2 border-primary/30 bg-primary/5 hover:bg-primary/10 transition-all" onClick={() => setLocation('/upload')}>
+          <CardContent className="flex items-center gap-4 py-5">
+            <div className="flex items-center justify-center h-12 w-12 rounded-xl bg-primary/15 shrink-0">
+              <Upload className="h-6 w-6 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-base">Upload Reports</h3>
+              <p className="text-sm text-muted-foreground">Upload virology reports or share photos from your phone</p>
+            </div>
+            <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
+          </CardContent>
+        </Card>
+        <Card className="card-hover cursor-pointer border-dashed border-2 border-chart-2/30 bg-chart-2/5 hover:bg-chart-2/10 transition-all" onClick={() => setLocation('/patients')}>
+          <CardContent className="flex items-center gap-4 py-5">
+            <div className="flex items-center justify-center h-12 w-12 rounded-xl bg-chart-2/15 shrink-0">
+              <Search className="h-6 w-6 text-chart-2" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-base">Search Patients</h3>
+              <p className="text-sm text-muted-foreground">Find patients by Civil ID, name, or browse the database</p>
+            </div>
+            <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Date Range Picker for Analytics */}
       <Card>

@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
+import { trpc } from "@/lib/trpc";
 import { LayoutDashboard, LogOut, PanelLeft, Users, Upload, Search, Shield, FileSpreadsheet, ClipboardList, GitMerge, Sun, Moon, History, Home } from "lucide-react";
 import {
   Breadcrumb,
@@ -147,6 +148,14 @@ function DashboardLayoutContent({
   const sidebarRef = useRef<HTMLDivElement>(null);
   const activeMenuItem = menuItems.find(item => item.path === location);
 
+  // Fetch patient name for breadcrumb when on patient detail page
+  const patientIdMatch = location.match(/^\/patients\/(\d+)$/);
+  const patientId = patientIdMatch ? parseInt(patientIdMatch[1]) : null;
+  const { data: patientData } = trpc.patients.getById.useQuery(
+    { id: patientId! },
+    { enabled: !!patientId }
+  );
+
   // Build breadcrumb segments from current location
   const breadcrumbs = useMemo(() => {
     const routeMap: Record<string, string> = {
@@ -169,10 +178,11 @@ function DashboardLayoutContent({
     }
     // Dynamic: /patients/:id
     if (location.startsWith('/patients/')) {
+      const patientName = patientData?.name || 'Patient Detail';
       return [
         { label: 'Dashboard', path: '/' },
         { label: 'Patients', path: '/patients' },
-        { label: 'Patient Detail', path: location },
+        { label: patientName, path: location },
       ];
     }
     // Admin sub-routes
@@ -183,7 +193,7 @@ function DashboardLayoutContent({
       ];
     }
     return [{ label: 'Dashboard', path: '/' }];
-  }, [location]);
+  }, [location, patientData]);
   const isMobile = useIsMobile();
 
   useEffect(() => {
