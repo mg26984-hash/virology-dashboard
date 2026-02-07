@@ -50,6 +50,8 @@ import {
   getDocumentProcessingHistory,
   createUploadToken,
   getUserById,
+  getBKPCRLeaderboard,
+  getCMVPCRLeaderboard,
 } from "./db";
 import { ENV } from './_core/env';
 import ExcelJS from "exceljs";
@@ -1457,6 +1459,20 @@ export const appRouter = router({
       const tests = await getTestsByPatientId(input.id);
       return { ...patient, testCount: tests.length, recentTests: tests.slice(0, 5) };
     }),
+
+  // ─── Leaderboard ──────────────────────────────────────────────────────
+  leaderboard: router({
+    bkPCR: adminProcedure
+      .input(z.object({ limit: z.number().min(1).max(50).default(20) }).optional())
+      .query(async ({ input }) => {
+        return getBKPCRLeaderboard(input?.limit ?? 20);
+      }),
+    cmvPCR: adminProcedure
+      .input(z.object({ limit: z.number().min(1).max(50).default(20) }).optional())
+      .query(async ({ input }) => {
+        return getCMVPCRLeaderboard(input?.limit ?? 20);
+      }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;

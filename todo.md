@@ -539,3 +539,12 @@
 - [x] Show patient name in breadcrumb on Patient Detail page instead of generic "Patient Detail"
 - [x] Add Patients quick-action card alongside Upload Reports on dashboard
 - [x] Hide breadcrumb on mobile (mobile header already shows page name)
+
+## Leaderboard - High BK PCR & CMV PCR Counts
+- [x] Investigate database schema for BK PCR and CMV PCR test data storage
+- [x] Build backend queries to rank patients by highest BK PCR (blood) and CMV PCR counts
+- [x] Create tRPC procedures for leaderboard data
+- [x] Build Leaderboard frontend page with BK PCR and CMV PCR rankings
+- [x] Add route and sidebar navigation entry for Leaderboard
+- [x] Write tests for leaderboard queries
+- [x] Make Leaderboard visible only to admin users (sidebar + route)

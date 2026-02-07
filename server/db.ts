@@ -1393,3 +1393,107 @@ export async function cleanExpiredTokens() {
     sql`${uploadTokens.expiresAt} < NOW()`
   );
 }
+
+
+// ─── Leaderboard Queries ──────────────────────────────────────────────────────
+
+/**
+ * Get patients with highest BK PCR viral loads in blood.
+ * Matches test types: "Polyomaviruses (BKV & JCV) DNA in Blood", "BK Virus", etc.
+ * Only includes results where "BK Virus Detected" is in the result text.
+ * Returns the single highest viral load per patient.
+ */
+export async function getBKPCRLeaderboard(limit = 20) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const rows = await db.execute(sql`
+    SELECT 
+      p.id as patientId,
+      p.civilId,
+      p.name as patientName,
+      p.nationality,
+      vt.viralLoad,
+      vt.unit,
+      vt.result,
+      vt.accessionDate,
+      vt.testType,
+      CAST(REPLACE(REPLACE(vt.viralLoad, ',', ''), ' ', '') AS UNSIGNED) as numericLoad
+    FROM ${virologyTests} vt
+    JOIN ${patients} p ON vt.patientId = p.id
+    WHERE (
+      vt.testType LIKE '%BKV%DNA%Blood%'
+      OR vt.testType LIKE '%BK Virus%'
+      OR vt.testType = 'BK Virus'
+    )
+    AND vt.viralLoad IS NOT NULL 
+    AND vt.viralLoad != ''
+    AND CAST(REPLACE(REPLACE(vt.viralLoad, ',', ''), ' ', '') AS UNSIGNED) > 0
+    AND (vt.result LIKE '%BK%Detected%' OR vt.result LIKE '%Detected%')
+    ORDER BY numericLoad DESC
+    LIMIT ${limit * 3}
+  `);
+
+  // Deduplicate: keep only the highest viral load per patient
+  const seen = new Set<number>();
+  const results: any[] = [];
+  for (const row of (rows as any)[0]) {
+    const pid = row.patientId;
+    if (!seen.has(pid)) {
+      seen.add(pid);
+      results.push(row);
+      if (results.length >= limit) break;
+    }
+  }
+  return results;
+}
+
+/**
+ * Get patients with highest CMV PCR viral loads in blood.
+ * Matches test types: "Cytomegalovirus (CMV) DNA in Blood", "CMV PCR", "CMV -DNA Quantitative"
+ * Returns the single highest viral load per patient.
+ */
+export async function getCMVPCRLeaderboard(limit = 20) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const rows = await db.execute(sql`
+    SELECT 
+      p.id as patientId,
+      p.civilId,
+      p.name as patientName,
+      p.nationality,
+      vt.viralLoad,
+      vt.unit,
+      vt.result,
+      vt.accessionDate,
+      vt.testType,
+      CAST(REPLACE(REPLACE(vt.viralLoad, ',', ''), ' ', '') AS UNSIGNED) as numericLoad
+    FROM ${virologyTests} vt
+    JOIN ${patients} p ON vt.patientId = p.id
+    WHERE (
+      vt.testType LIKE '%CMV%DNA%Blood%'
+      OR vt.testType = 'CMV PCR'
+      OR vt.testType = 'CMV -DNA Quantitative'
+    )
+    AND vt.viralLoad IS NOT NULL 
+    AND vt.viralLoad != ''
+    AND CAST(REPLACE(REPLACE(vt.viralLoad, ',', ''), ' ', '') AS UNSIGNED) > 0
+    AND vt.result LIKE '%Detected%'
+    ORDER BY numericLoad DESC
+    LIMIT ${limit * 3}
+  `);
+
+  // Deduplicate: keep only the highest viral load per patient
+  const seen = new Set<number>();
+  const results: any[] = [];
+  for (const row of (rows as any)[0]) {
+    const pid = row.patientId;
+    if (!seen.has(pid)) {
+      seen.add(pid);
+      results.push(row);
+      if (results.length >= limit) break;
+    }
+  }
+  return results;
+}

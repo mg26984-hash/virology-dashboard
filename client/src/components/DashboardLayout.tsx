@@ -22,7 +22,7 @@ import {
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
 import { trpc } from "@/lib/trpc";
-import { LayoutDashboard, LogOut, PanelLeft, Users, Upload, Search, Shield, FileSpreadsheet, ClipboardList, GitMerge, Sun, Moon, History, Home } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, Users, Upload, Search, Shield, FileSpreadsheet, ClipboardList, GitMerge, Sun, Moon, History, Home, Trophy } from "lucide-react";
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -167,6 +167,7 @@ function DashboardLayoutContent({
       '/admin/export': 'Export Data',
       '/admin/merge': 'Patient Merge',
       '/admin/audit-log': 'Audit Log',
+      '/leaderboard': 'Leaderboard',
     };
     // Exact match
     if (routeMap[location]) {
@@ -332,6 +333,19 @@ function DashboardLayoutContent({
                         className={`h-4 w-4 ${location === '/admin/audit-log' ? "text-primary" : ""}`}
                       />
                       <span>Audit Log</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      isActive={location === '/leaderboard'}
+                      onClick={() => setLocation('/leaderboard')}
+                      tooltip="Leaderboard"
+                      className={`h-10 transition-all font-normal`}
+                    >
+                      <Trophy
+                        className={`h-4 w-4 ${location === '/leaderboard' ? "text-primary" : ""}`}
+                      />
+                      <span>Leaderboard</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 </>

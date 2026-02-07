@@ -1,0 +1,74 @@
+{
+  "query": "SELECT testType, COUNT(*) as cnt FROM virologyTests WHERE testType LIKE '%BK%' OR testType LIKE '%CMV%' GROUP BY testType ORDER BY cnt DESC;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute SELECT testType, COUNT(*) as cnt FROM virologyTests WHERE testType LIKE '%BK%' OR testType LIKE '%CMV%' GROUP BY testType ORDER BY cnt DESC;",
+  "rows": [
+    {
+      "testType": "Cytomegalovirus (CMV) DNA in Blood",
+      "cnt": "308"
+    },
+    {
+      "testType": "Polyomaviruses (BKV & JCV) DNA in Blood",
+      "cnt": "219"
+    },
+    {
+      "testType": "Polyomaviruses (BKV & JCV) DNA in Urine",
+      "cnt": "84"
+    },
+    {
+      "testType": "Cytomegalovirus (CMV) IgG Ab",
+      "cnt": "53"
+    },
+    {
+      "testType": "Cytomegalovirus (CMV) IgM Ab",
+      "cnt": "52"
+    },
+    {
+      "testType": "CMV IgG",
+      "cnt": "8"
+    },
+    {
+      "testType": "CMV IgM",
+      "cnt": "6"
+    },
+    {
+      "testType": "Cytomegalovirus (CMV) IgM Ab in Blood",
+      "cnt": "2"
+    },
+    {
+      "testType": "Cytomegalovirus (CMV) IgG Ab-Titer",
+      "cnt": "2"
+    },
+    {
+      "testType": "Polyomaviruses (BKV & JCV) DNA",
+      "cnt": "1"
+    },
+    {
+      "testType": "BK Virus",
+      "cnt": "1"
+    },
+    {
+      "testType": "CMV PCR",
+      "cnt": "1"
+    },
+    {
+      "testType": "CMV -DNA Quantitative",
+      "cnt": "1"
+    },
+    {
+      "testType": "Cytomegalovirus (CMV) IgG Ab in Blood",
+      "cnt": "1"
+    },
+    {
+      "testType": "BK Urine Virus",
+      "cnt": "1"
+    },
+    {
+      "testType": "Cytomegalovirus (CMV) DNA in Biopsy",
+      "cnt": "1"
+    }
+  ],
+  "messages": [],
+  "stdout": "testType\tcnt\nCytomegalovirus (CMV) DNA in Blood\t308\nPolyomaviruses (BKV & JCV) DNA in Blood\t219\nPolyomaviruses (BKV & JCV) DNA in Urine\t84\nCytomegalovirus (CMV) IgG Ab\t53\nCytomegalovirus (CMV) IgM Ab\t52\nCMV IgG\t8\nCMV IgM\t6\nCytomegalovirus (CMV) IgM Ab in Blood\t2\nCytomegalovirus (CMV) IgG Ab-Titer\t2\nPolyomaviruses (BKV & JCV) DNA\t1\nBK Virus\t1\nCMV PCR\t1\nCMV -DNA Quantitative\t1\nCytomegalovirus (CMV) IgG Ab in Blood\t1\nBK Urine Virus\t1\nCytomegalovirus (CMV) DNA in Biopsy\t1\n",
+  "stderr": "",
+  "execution_time_ms": 1609
+}
