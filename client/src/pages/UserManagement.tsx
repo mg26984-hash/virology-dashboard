@@ -13,6 +13,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -54,6 +64,7 @@ export default function UserManagement() {
   const [reason, setReason] = useState('');
   const [reprocessStatuses, setReprocessStatuses] = useState<string[]>(['failed', 'discarded']);
   const [isReprocessing, setIsReprocessing] = useState(false);
+  const [roleConfirm, setRoleConfirm] = useState<{ userId: number; name: string; currentRole: string; newRole: 'user' | 'admin' } | null>(null);
 
   // Check if current user is the owner (only owners can assign admin roles)
   const isOwner = (user as any)?.isOwner === true;
@@ -434,14 +445,16 @@ export default function UserManagement() {
                           <TableCell className="text-right">
                             {u.id !== user?.id && (
                               <div className="flex justify-end gap-2">
-                                {u.status === 'approved' && (
+                                {isOwner && u.status === 'approved' && (
                                   <Button
                                     size="sm"
                                     variant="outline"
                                     className={u.role === 'admin' ? 'text-amber-500 hover:text-amber-500' : 'text-purple-500 hover:text-purple-500'}
-                                    onClick={() => setRoleMutation.mutate({
+                                    onClick={() => setRoleConfirm({
                                       userId: u.id,
-                                      role: u.role === 'admin' ? 'user' : 'admin',
+                                      name: u.name || 'Unknown',
+                                      currentRole: u.role,
+                                      newRole: u.role === 'admin' ? 'user' : 'admin',
                                     })}
                                     disabled={setRoleMutation.isPending}
                                   >
@@ -794,6 +807,38 @@ export default function UserManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Role change confirmation dialog */}
+      <AlertDialog open={!!roleConfirm} onOpenChange={(open) => !open && setRoleConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {roleConfirm?.newRole === 'admin' ? 'Promote to Admin' : 'Remove Admin Role'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {roleConfirm?.newRole === 'admin' ? (
+                <>Are you sure you want to promote <strong>{roleConfirm?.name}</strong> to admin? They will gain full access to manage users, documents, and system settings.</>
+              ) : (
+                <>Are you sure you want to remove admin privileges from <strong>{roleConfirm?.name}</strong>? They will lose access to management features and revert to a regular user.</>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className={roleConfirm?.newRole === 'admin' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-amber-600 hover:bg-amber-700'}
+              onClick={() => {
+                if (roleConfirm) {
+                  setRoleMutation.mutate({ userId: roleConfirm.userId, role: roleConfirm.newRole });
+                  setRoleConfirm(null);
+                }
+              }}
+            >
+              {roleConfirm?.newRole === 'admin' ? 'Yes, Promote' : 'Yes, Remove Admin'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

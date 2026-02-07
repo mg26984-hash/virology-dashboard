@@ -86,45 +86,24 @@ describe("Admin Role Assignment", () => {
     expect(reverted[0].role).toBe("user");
   });
 
-  it("non-owner admin can assign roles", async () => {
+  it("non-owner admin cannot assign roles", async () => {
     const db = await getDb();
     if (!db) throw new Error("DB not available");
 
-    // Insert a temporary non-owner admin user
-    await db.insert(users).values({
-      openId: "test-non-owner-admin-" + Date.now(),
-      name: "Test Admin",
-      email: "testadmin@test.com",
-      role: "admin",
-      status: "approved",
-    });
-    const insertedAdmins = await db.select().from(users).where(eq(users.email, "testadmin@test.com"));
-    const actingAdmin = insertedAdmins[0];
-
-    // Find a target user to promote
     const allUsers = await db.select().from(users);
-    const targetUser = allUsers.find(u => u.id !== actingAdmin.id && u.openId !== OWNER_OPEN_ID);
-    if (!targetUser) throw new Error("No target user found");
-    const originalRole = targetUser.role;
+    const targetUser = allUsers[0];
 
+    // Create a non-owner admin
     const nonOwnerAdmin = createMockUser({
-      id: actingAdmin.id,
-      openId: actingAdmin.openId,
+      id: 999,
+      openId: "non-owner-admin-123",
       role: "admin",
     });
     const caller = appRouter.createCaller(createMockContext(nonOwnerAdmin));
 
-    const newRole = targetUser.role === 'admin' ? 'user' : 'admin';
-    const result = await caller.users.setRole({ userId: targetUser.id, role: newRole });
-    expect(result.success).toBe(true);
-
-    // Verify the role was changed
-    const updated = await db.select().from(users).where(eq(users.id, targetUser.id));
-    expect(updated[0].role).toBe(newRole);
-
-    // Cleanup: reset target role and delete temp admin
-    await db.update(users).set({ role: originalRole }).where(eq(users.id, targetUser.id));
-    await db.delete(users).where(eq(users.id, actingAdmin.id));
+    await expect(
+      caller.users.setRole({ userId: targetUser.id, role: "admin" })
+    ).rejects.toThrow("Only the project owner can assign admin roles");
   });
 
   it("owner cannot change their own role", async () => {

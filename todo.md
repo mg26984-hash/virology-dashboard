@@ -513,3 +513,8 @@
 - [x] Allow admin users to promote other users to admin role
 - [x] Allow admin users to demote other admins back to regular user role
 - [x] Audit log entries for role changes (already existed, verified working)
+
+## Role Assignment Restrictions & Confirmation
+- [x] Revert setRole back to owner-only (ownerProcedure) instead of adminProcedure
+- [x] Restore isOwner check in frontend for promote/demote button visibility
+- [x] Add confirmation dialog before promoting or demoting users
