@@ -528,3 +528,9 @@
 
 ## Remove Processing History Chart
 - [x] Remove the Processing History chart from the dashboard Home page
+
+## Breadcrumb Navigation
+- [x] Create reusable Breadcrumb component (using shadcn/ui breadcrumb)
+- [x] Integrate breadcrumbs into DashboardLayout for automatic route-based breadcrumbs
+- [x] Add dynamic breadcrumbs for detail pages (Patient Detail shows Dashboard > Patients > Patient Detail)
+- [x] Add quick-action Upload Reports card on dashboard where Processing History chart was

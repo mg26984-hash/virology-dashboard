@@ -21,8 +21,17 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Users, Upload, Search, Shield, FileSpreadsheet, ClipboardList, GitMerge, Sun, Moon, History } from "lucide-react";
-import { CSSProperties, useEffect, useRef, useState } from "react";
+import { LayoutDashboard, LogOut, PanelLeft, Users, Upload, Search, Shield, FileSpreadsheet, ClipboardList, GitMerge, Sun, Moon, History, Home } from "lucide-react";
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { Link } from "wouter";
+import { CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
@@ -137,6 +146,44 @@ function DashboardLayoutContent({
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const activeMenuItem = menuItems.find(item => item.path === location);
+
+  // Build breadcrumb segments from current location
+  const breadcrumbs = useMemo(() => {
+    const routeMap: Record<string, string> = {
+      '/': 'Dashboard',
+      '/upload': 'Upload Reports',
+      '/patients': 'Patients',
+      '/processing-history': 'Processing History',
+      '/admin/users': 'User Management',
+      '/admin/export': 'Export Data',
+      '/admin/merge': 'Patient Merge',
+      '/admin/audit-log': 'Audit Log',
+    };
+    // Exact match
+    if (routeMap[location]) {
+      if (location === '/') return [{ label: 'Dashboard', path: '/' }];
+      return [
+        { label: 'Dashboard', path: '/' },
+        { label: routeMap[location], path: location },
+      ];
+    }
+    // Dynamic: /patients/:id
+    if (location.startsWith('/patients/')) {
+      return [
+        { label: 'Dashboard', path: '/' },
+        { label: 'Patients', path: '/patients' },
+        { label: 'Patient Detail', path: location },
+      ];
+    }
+    // Admin sub-routes
+    if (location.startsWith('/admin/')) {
+      return [
+        { label: 'Dashboard', path: '/' },
+        { label: location.split('/').pop()?.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'Admin', path: location },
+      ];
+    }
+    return [{ label: 'Dashboard', path: '/' }];
+  }, [location]);
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -341,7 +388,31 @@ function DashboardLayoutContent({
             </div>
           </div>
         )}
-        <main className="flex-1 p-4">{children}</main>
+        <main className="flex-1 p-4">
+          {/* Breadcrumb Navigation */}
+          {breadcrumbs.length > 1 && (
+            <Breadcrumb className="mb-4">
+              <BreadcrumbList>
+                {breadcrumbs.map((crumb, index) => {
+                  const isLast = index === breadcrumbs.length - 1;
+                  return (
+                    <BreadcrumbItem key={crumb.path}>
+                      {index > 0 && <BreadcrumbSeparator />}
+                      {isLast ? (
+                        <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
+                      ) : (
+                        <BreadcrumbLink asChild>
+                          <Link href={crumb.path}>{crumb.label}</Link>
+                        </BreadcrumbLink>
+                      )}
+                    </BreadcrumbItem>
+                  );
+                })}
+              </BreadcrumbList>
+            </Breadcrumb>
+          )}
+          {children}
+        </main>
       </SidebarInset>
     </>
   );

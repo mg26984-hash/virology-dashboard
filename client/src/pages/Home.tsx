@@ -506,6 +506,19 @@ export default function Home() {
       {/* Real-Time Processing Queue */}
       <ProcessingQueue />
 
+      {/* Quick Actions */}
+      <Card className="card-hover cursor-pointer border-dashed border-2 border-primary/30 bg-primary/5 hover:bg-primary/10 transition-all" onClick={() => setLocation('/upload')}>
+        <CardContent className="flex items-center gap-4 py-5">
+          <div className="flex items-center justify-center h-12 w-12 rounded-xl bg-primary/15 shrink-0">
+            <Upload className="h-6 w-6 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-base">Upload Reports</h3>
+            <p className="text-sm text-muted-foreground">Upload virology reports, WhatsApp exports, or share photos from your phone</p>
+          </div>
+          <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
+        </CardContent>
+      </Card>
 
       {/* Date Range Picker for Analytics */}
       <Card>
