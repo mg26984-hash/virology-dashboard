@@ -491,3 +491,7 @@
 - [x] Add compact "Share from Phone" instructions section on Upload page with iPhone/Android setup
 - [x] Ensure the shared files go through the same upload pipeline with deduplication
 - [x] Write 13 tests for upload token generation, validation, and quick-upload API endpoint
+
+## Fix iOS Shortcut Instructions
+- [x] Update iPhone instructions to reflect actual iOS 16+ Shortcuts workflow (no "Receive input from Share Sheet" action)
+- [x] Simplify iPhone iOS Shortcut instructions - avoid referencing action names that vary across iOS versions

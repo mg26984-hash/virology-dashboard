@@ -791,56 +791,69 @@ sijxJy.png"
               <div className="flex-1 space-y-2">
                 <p className="text-sm font-medium">Set up your phone</p>
 
-                {/* iPhone instructions */}
-                <div className="rounded-lg border border-blue-500/30 bg-blue-950/20 p-3 space-y-2">
+                {/* iPhone instructions — two options */}
+                <div className="rounded-lg border border-blue-500/30 bg-blue-950/20 p-3 space-y-3">
                   <div className="flex items-center gap-2">
                     <Smartphone className="h-4 w-4 text-blue-400" />
-                    <span className="text-sm font-medium">iPhone (iOS Shortcut)</span>
+                    <span className="text-sm font-medium">iPhone</span>
                     <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-500/40 text-blue-400">Recommended</Badge>
                   </div>
-                  <ol className="text-xs text-muted-foreground space-y-1.5 pl-4 list-decimal">
-                    <li>Open the <strong>Shortcuts</strong> app on your iPhone</li>
-                    <li>Tap <strong>+</strong> to create a new shortcut</li>
-                    <li>Add action: <strong>"Receive input from Share Sheet"</strong> (set type to Images)</li>
-                    <li>Add action: <strong>"Get Contents of URL"</strong> with these settings:</li>
-                  </ol>
-                  <div className="bg-black/20 rounded p-2 text-xs space-y-1 border border-white/5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-white/40 w-14 shrink-0">URL:</span>
-                      <code className="text-emerald-400 break-all">{window.location.origin}/api/upload/quick?token={uploadToken || "YOUR_TOKEN"}</code>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-white/40 w-14 shrink-0">Method:</span>
-                      <code className="text-white/70">POST</code>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <span className="text-white/40 w-14 shrink-0">Body:</span>
-                      <span className="text-white/70">Form &mdash; Key: <code className="text-emerald-400">images</code>, Type: <code className="text-emerald-400">File</code>, Value: <code className="text-emerald-400">Shortcut Input</code></span>
+
+                  {/* Option A: Quick Upload page — easiest */}
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-medium text-blue-300">Option A &mdash; Quick Upload Page <span className="text-[10px] text-emerald-400 ml-1">(Easiest)</span></p>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Open this link on your iPhone in Safari. Pick photos and tap Upload &mdash; no Shortcuts app needed.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {uploadToken ? (
+                        <Button size="sm" variant="outline" onClick={() => {
+                          const quickUrl = window.location.origin + "/quick-upload?token=" + uploadToken;
+                          navigator.clipboard.writeText(quickUrl);
+                          toast.success("Quick Upload link copied! Open it in Safari on your iPhone.");
+                        }}>
+                          <Copy className="h-3 w-3 mr-1.5" />Copy Quick Upload Link
+                        </Button>
+                      ) : (
+                        <span className="text-[11px] text-muted-foreground italic">Generate a token first (above) to get your link.</span>
+                      )}
                     </div>
                   </div>
-                  <ol start={5} className="text-xs text-muted-foreground space-y-1.5 pl-4 list-decimal">
-                    <li>Add action: <strong>"Show Result"</strong> with value <em>Contents of URL</em></li>
-                    <li>Name it <strong>"Upload to Virology"</strong> and enable <strong>"Show in Share Sheet"</strong></li>
-                  </ol>
-                  <div className="flex flex-wrap gap-2 mt-1">
-                    {uploadToken && (
-                      <Button size="sm" variant="outline" onClick={() => {
-                        const url = window.location.origin + "/api/upload/quick?token=" + uploadToken;
-                        navigator.clipboard.writeText(url);
-                        toast.success("Upload URL copied! Paste it in the Shortcut.");
-                      }}>
-                        <Copy className="h-3 w-3 mr-1.5" />Copy Upload URL
-                      </Button>
-                    )}
-                    {uploadToken && (
-                      <Button size="sm" variant="outline" onClick={() => {
-                        const quickUrl = window.location.origin + "/quick-upload?token=" + uploadToken;
-                        navigator.clipboard.writeText(quickUrl);
-                        toast.success("Quick Upload page URL copied!");
-                      }}>
-                        <ExternalLink className="h-3 w-3 mr-1.5" />Copy Quick Upload Page
-                      </Button>
-                    )}
+
+                  <div className="border-t border-white/10" />
+
+                  {/* Option B: iOS Shortcut — for share sheet */}
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-medium text-blue-300">Option B &mdash; iOS Shortcut <span className="text-[10px] text-white/40 ml-1">(Share Sheet)</span></p>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Share photos from your gallery, WhatsApp, or any app using the iOS Share button.
+                    </p>
+                    <ol className="text-xs text-muted-foreground space-y-1 pl-4 list-decimal">
+                      <li>Open the <strong>Shortcuts</strong> app &rarr; tap <strong>+</strong> (new shortcut)</li>
+                      <li>In the search bar at the bottom, type <strong>URL</strong> and add <strong>Get Contents of URL</strong></li>
+                      <li>Tap the pale blue <strong>URL</strong> word inside the action and paste your upload URL:</li>
+                    </ol>
+                    <div className="bg-black/30 rounded px-2.5 py-1.5 text-[11px] border border-white/5 break-all">
+                      <code className="text-emerald-400">{window.location.origin}/api/upload/quick?token={uploadToken || "YOUR_TOKEN"}</code>
+                    </div>
+                    <ol start={4} className="text-xs text-muted-foreground space-y-1 pl-4 list-decimal">
+                      <li>Tap the arrow <strong>&rsaquo;</strong> next to the action to expand it. Change <strong>Method</strong> to <strong>POST</strong></li>
+                      <li>Tap <strong>Body</strong> &rarr; choose <strong>Form</strong>. Add a field: Key = <code className="text-emerald-400 text-[11px]">images</code>, Type = <code className="text-emerald-400 text-[11px]">File</code>, Value = <code className="text-emerald-400 text-[11px]">Shortcut Input</code></li>
+                      <li>Tap the shortcut name at the top &rarr; rename to <strong>Upload to Virology</strong></li>
+                      <li>Tap the <strong>&#x2193;</strong> arrow next to the name &rarr; tap <strong>Details</strong> or <strong>Privacy</strong> &rarr; enable <strong>Show in Share Sheet</strong></li>
+                      <li>Tap <strong>Done</strong>. Now share any photo &rarr; pick <strong>Upload to Virology</strong> from the share menu</li>
+                    </ol>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {uploadToken && (
+                        <Button size="sm" variant="outline" onClick={() => {
+                          const url = window.location.origin + "/api/upload/quick?token=" + uploadToken;
+                          navigator.clipboard.writeText(url);
+                          toast.success("Upload URL copied! Paste it in the Shortcut.");
+                        }}>
+                          <Copy className="h-3 w-3 mr-1.5" />Copy Upload URL
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
