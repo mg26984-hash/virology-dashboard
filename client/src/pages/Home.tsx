@@ -1071,7 +1071,7 @@ export default function Home() {
                       <FileText className="h-4 w-4 text-muted-foreground" />
                       <div>
                         <p className="text-sm font-medium truncate max-w-[200px]">{doc.fileName}</p>
-                        <p className="text-xs text-muted-foreground">{new Date(doc.createdAt).toLocaleDateString()}</p>
+                        <p className="text-xs text-muted-foreground">{new Date(doc.createdAt).toLocaleString(undefined, { month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                       </div>
                     </div>
                     <Badge variant={
