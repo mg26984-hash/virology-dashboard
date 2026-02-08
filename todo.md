@@ -582,3 +582,9 @@
 - [x] Add detailed server logging to quick upload endpoint
 - [x] Add server-side POST /quick-upload fallback route (redirects to /api/upload/quick)
 - [x] Add HEIC support to main upload endpoint and frontend file pickers
+
+## Bug Fix: iOS Shortcut Multi-File Upload Only Processes One File
+- [x] Investigate why only one file is processed when multiple files are shared via iOS Shortcut
+- [x] Updated instructions to use "Repeat with Each" loop so each shared file is uploaded individually
+- [x] Changed Value from "Shortcut Input" to "Repeat Item" in instructions
+- [x] Added multi-file tip callout explaining why the loop is needed

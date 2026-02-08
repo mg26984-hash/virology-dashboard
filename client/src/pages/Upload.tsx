@@ -842,12 +842,13 @@ sijxJy.png"
                   <div className="space-y-1.5">
                     <p className="text-xs font-medium text-blue-700 dark:text-blue-300">Option B &mdash; iOS Shortcut <span className="text-[10px] text-muted-foreground ml-1">(Share Sheet)</span></p>
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Share photos from your gallery, WhatsApp, or any app using the iOS Share button.
+                      Share photos from your gallery, WhatsApp, or any app using the iOS Share button. Supports multiple files at once.
                     </p>
-                    <ol className="text-xs text-muted-foreground space-y-1 pl-4 list-decimal">
+                    <ol className="text-xs text-muted-foreground space-y-1.5 pl-4 list-decimal">
                       <li>Open the <strong>Shortcuts</strong> app &rarr; tap <strong>+</strong> (new shortcut)</li>
-                      <li>In the search bar at the bottom, type <strong>URL</strong> and add <strong>Get Contents of URL</strong></li>
-                      <li>Tap the pale blue <strong>URL</strong> word inside the action and paste your upload URL:</li>
+                      <li>Search for <strong>Repeat with Each</strong> and add it. It will say &ldquo;Repeat with each item in <em>Shortcut Input</em>&rdquo; &mdash; this loops through all shared files</li>
+                      <li><strong>Inside</strong> the Repeat block, search for <strong>Get Contents of URL</strong> and add it (drag it between &ldquo;Repeat with Each&rdquo; and &ldquo;End Repeat&rdquo;)</li>
+                      <li>Tap the pale blue <strong>URL</strong> word and paste your upload URL:</li>
                     </ol>
                     <div className="rounded-lg border-2 border-amber-400 dark:border-amber-500/50 bg-amber-50 dark:bg-amber-950/20 p-2.5 space-y-1.5">
                       <div className="flex items-center gap-1.5">
@@ -869,13 +870,16 @@ sijxJy.png"
                       </div>
                       <p className="text-[10px] text-amber-600 dark:text-amber-400/70">This URL is different from the Quick Upload page link above. Make sure to use this one in your shortcut.</p>
                     </div>
-                    <ol start={4} className="text-xs text-muted-foreground space-y-1 pl-4 list-decimal">
+                    <ol start={5} className="text-xs text-muted-foreground space-y-1.5 pl-4 list-decimal">
                       <li>Tap the arrow <strong>&rsaquo;</strong> next to the action to expand it. Change <strong>Method</strong> to <strong>POST</strong></li>
-                      <li>Tap <strong>Body</strong> &rarr; choose <strong>Form</strong>. Add a field: Key = <code className="text-emerald-700 dark:text-emerald-400 text-[11px]">images</code>, Type = <code className="text-emerald-700 dark:text-emerald-400 text-[11px]">File</code>, Then tap the Value field and select <code className="text-emerald-700 dark:text-emerald-400 text-[11px]">Shortcut Input</code> (do <strong className="text-red-500">NOT</strong> leave it empty)</li>
+                      <li>Tap <strong>Body</strong> &rarr; choose <strong>Form</strong>. Add a field: Key = <code className="text-emerald-700 dark:text-emerald-400 text-[11px]">images</code>, Type = <code className="text-emerald-700 dark:text-emerald-400 text-[11px]">File</code>, Value = <code className="text-emerald-700 dark:text-emerald-400 text-[11px]">Repeat Item</code> (the current file in the loop)</li>
                       <li>Tap the shortcut name at the top &rarr; rename to <strong>Upload to Virology</strong></li>
                       <li>Tap the <strong>&#x2193;</strong> arrow next to the name &rarr; tap <strong>Details</strong> or <strong>Privacy</strong> &rarr; enable <strong>Show in Share Sheet</strong></li>
-                      <li>Tap <strong>Done</strong>. Now share any photo &rarr; pick <strong>Upload to Virology</strong> from the share menu</li>
+                      <li>Tap <strong>Done</strong>. Now share any photo(s) &rarr; pick <strong>Upload to Virology</strong> from the share menu</li>
                     </ol>
+                    <div className="mt-2 rounded-lg border border-blue-300 dark:border-blue-800/50 bg-blue-50 dark:bg-blue-950/20 p-2">
+                      <p className="text-[10px] text-blue-700 dark:text-blue-400"><strong>Multi-file tip:</strong> The &ldquo;Repeat with Each&rdquo; loop sends each file one at a time, so all selected photos will be uploaded. Without it, only the first file gets sent.</p>
+                    </div>
 
                   </div>
                 </div>
