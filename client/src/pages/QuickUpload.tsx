@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import {
-  Upload, CheckCircle2, AlertCircle, Loader2, Image, X, Plus, Share2,
+  Upload, CheckCircle2, AlertCircle, Loader2, Image, X, Plus, Share2, FileText, FileArchive,
 } from "lucide-react";
 
 /**
@@ -61,8 +61,8 @@ export default function QuickUpload() {
   }
 
   const addFiles = useCallback((newFiles: File[]) => {
-    const allowed = ["image/jpeg", "image/png", "application/pdf"];
-    const valid = newFiles.filter((f) => allowed.includes(f.type));
+    const allowed = ["image/jpeg", "image/png", "application/pdf", "application/zip", "application/x-zip-compressed"];
+    const valid = newFiles.filter((f) => allowed.includes(f.type) || f.name.toLowerCase().endsWith(".zip"));
     if (valid.length === 0) return;
     setFiles((prev) => [...prev, ...valid]);
     setPreviews((prev) => [
@@ -172,14 +172,14 @@ export default function QuickUpload() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/jpeg,image/png,application/pdf"
+                accept="image/jpeg,image/png,application/pdf,.zip,application/zip"
                 multiple
                 className="hidden"
                 onChange={handleFileChange}
               />
               <Upload className="h-8 w-8 mx-auto text-white/30 mb-2" />
-              <p className="text-sm text-white/60">Tap to select photos</p>
-              <p className="text-xs text-white/30 mt-1">JPEG, PNG, or PDF</p>
+              <p className="text-sm text-white/60">Tap to select photos, PDFs, or ZIPs</p>
+              <p className="text-xs text-white/30 mt-1">JPEG, PNG, PDF, or ZIP (max 500 MB for ZIP)</p>
             </div>
 
             {/* File previews */}
@@ -203,6 +203,16 @@ export default function QuickUpload() {
                           alt={f.name}
                           className="w-full aspect-square object-cover rounded-lg"
                         />
+                      ) : f.type === "application/pdf" ? (
+                        <div className="w-full aspect-square rounded-lg bg-red-900/20 border border-red-500/20 flex flex-col items-center justify-center gap-1">
+                          <FileText className="h-5 w-5 text-red-400" />
+                          <span className="text-[9px] text-red-300 font-medium">PDF</span>
+                        </div>
+                      ) : (f.type.includes("zip") || f.name.endsWith(".zip")) ? (
+                        <div className="w-full aspect-square rounded-lg bg-amber-900/20 border border-amber-500/20 flex flex-col items-center justify-center gap-1">
+                          <FileArchive className="h-5 w-5 text-amber-400" />
+                          <span className="text-[9px] text-amber-300 font-medium">ZIP</span>
+                        </div>
                       ) : (
                         <div className="w-full aspect-square rounded-lg bg-white/10 flex items-center justify-center">
                           <Image className="h-5 w-5 text-white/30" />
@@ -304,7 +314,7 @@ export default function QuickUpload() {
       {/* Footer */}
       <footer className="border-t border-white/10 px-4 py-3 text-center">
         <p className="text-xs text-white/30">
-          Files are deduplicated and processed automatically.{" "}
+          Photos, PDFs, and ZIPs are deduplicated and processed automatically.{" "}
           <a href="/upload" className="text-emerald-400 hover:underline">
             Open full dashboard
           </a>

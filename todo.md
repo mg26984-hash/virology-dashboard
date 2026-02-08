@@ -565,3 +565,10 @@
 
 ## Auto Copy-Link Toast on Token Generation
 - [x] Show a toast with the Quick Upload URL and a "Copy" action button when the token is generated
+## Quick Upload PDF Support
+- [x] Ensure Quick Upload frontend accepts PDF files (file input accept attribute, validation)
+- [x] Ensure Quick Upload backend endpoint processes PDF uploads correctly
+- [x] Test PDF upload flow through Quick Upload
+
+- [x] Add ZIP file support to Quick Upload frontend (accept attribute, validation, icon)
+- [x] Add ZIP extraction to Quick Upload backend endpoint

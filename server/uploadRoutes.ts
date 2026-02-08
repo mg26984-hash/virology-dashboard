@@ -418,9 +418,40 @@ router.post("/quick", upload.array("images", 50), async (req: Request, res: Resp
     }
 
     const allowedTypes = ["image/jpeg", "image/png", "application/pdf"];
-    const validFiles = files.filter((f) => allowedTypes.includes(f.mimetype));
-    if (validFiles.length === 0) {
-      res.status(400).json({ error: "No valid image files. Only JPEG, PNG, and PDF are supported." });
+    const zipTypes = ["application/zip", "application/x-zip-compressed"];
+    const allowedExtensions = [".jpg", ".jpeg", ".png", ".pdf"];
+
+    // Separate ZIP files from regular files
+    const regularFiles = files.filter((f) => allowedTypes.includes(f.mimetype));
+    const zipFiles = files.filter((f) => zipTypes.includes(f.mimetype) || f.originalname.toLowerCase().endsWith(".zip"));
+
+    // Extract files from ZIPs
+    const extractedFiles: { buffer: Buffer; originalname: string; mimetype: string; size: number }[] = [];
+    for (const zipFile of zipFiles) {
+      try {
+        const zip = new AdmZip(zipFile.buffer);
+        const entries = zip.getEntries();
+        for (const entry of entries) {
+          if (entry.isDirectory) continue;
+          const fileName = entry.entryName.split("/").pop() || "";
+          if (fileName.startsWith(".") || entry.entryName.includes("__MACOSX")) continue;
+          const ext = fileName.toLowerCase().slice(fileName.lastIndexOf("."));
+          if (!allowedExtensions.includes(ext)) continue;
+          const buffer = entry.getData();
+          let mime = "application/octet-stream";
+          if (ext === ".jpg" || ext === ".jpeg") mime = "image/jpeg";
+          else if (ext === ".png") mime = "image/png";
+          else if (ext === ".pdf") mime = "application/pdf";
+          extractedFiles.push({ buffer, originalname: fileName, mimetype: mime, size: buffer.length });
+        }
+      } catch (e) {
+        console.error("[Quick Upload] Failed to extract ZIP:", zipFile.originalname, e);
+      }
+    }
+
+    const allFiles = [...regularFiles.map((f) => ({ buffer: f.buffer, originalname: f.originalname, mimetype: f.mimetype, size: f.size })), ...extractedFiles];
+    if (allFiles.length === 0) {
+      res.status(400).json({ error: "No valid files. Only JPEG, PNG, PDF, and ZIP archives are supported." });
       return;
     }
 
@@ -428,7 +459,7 @@ router.post("/quick", upload.array("images", 50), async (req: Request, res: Resp
     let newCount = 0;
     let dupCount = 0;
 
-    for (const file of validFiles) {
+    for (const file of allFiles) {
       const fileHash = computeFileHash(file.buffer);
       const { duplicate } = await isDuplicate(fileHash);
 
@@ -459,7 +490,7 @@ router.post("/quick", upload.array("images", 50), async (req: Request, res: Resp
     res.json({
       success: true,
       message: `${newCount} new file(s) uploaded, ${dupCount} duplicate(s) skipped. Processing will begin automatically.`,
-      total: validFiles.length,
+      total: allFiles.length,
       new: newCount,
       duplicates: dupCount,
       results,
