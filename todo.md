@@ -572,3 +572,13 @@
 
 - [x] Add ZIP file support to Quick Upload frontend (accept attribute, validation, icon)
 - [x] Add ZIP extraction to Quick Upload backend endpoint
+
+## Bug Fix: iPhone Shortcut Upload Not Working
+- [x] Fix: User's shortcut URL points to /quick-upload (frontend) instead of /api/upload/quick (API)
+- [x] Update iOS Shortcut instructions to clearly show the API URL (not the frontend page URL)
+- [x] Make the Copy Upload URL button more prominent and clearly labeled as "for iOS Shortcut"
+- [x] Accept any multer field name (not just "images") for iOS Shortcut compatibility
+- [x] Add HEIC/HEIF format support (iPhone default photo format)
+- [x] Add detailed server logging to quick upload endpoint
+- [x] Add server-side POST /quick-upload fallback route (redirects to /api/upload/quick)
+- [x] Add HEIC support to main upload endpoint and frontend file pickers

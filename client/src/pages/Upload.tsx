@@ -183,7 +183,7 @@ export default function Upload() {
 
   // ── Staging helpers ──
   const addFiles = useCallback((fileList: FileList | File[], folderName?: string) => {
-    const allowedExts = [".jpg", ".jpeg", ".png", ".pdf", ".zip"];
+    const allowedExts = [".jpg", ".jpeg", ".png", ".heic", ".heif", ".pdf", ".zip"];
     const next: StagedFile[] = [];
     let skipped = 0;
     for (const file of Array.from(fileList)) {
@@ -632,11 +632,11 @@ sijxJy.png"
               onClick={() => fileInputRef.current?.click()}
               className={"relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200 flex flex-col items-center justify-center " + (isDragging ? "border-primary bg-primary/10" : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50")}
             >
-              <input ref={fileInputRef} type="file" multiple accept="image/jpeg,image/png,application/pdf,.zip" onChange={(e) => e.target.files && addFiles(e.target.files)} className="hidden" />
+              <input ref={fileInputRef} type="file" multiple accept="image/jpeg,image/png,image/heic,image/heif,.heic,.heif,application/pdf,.zip" onChange={(e) => e.target.files && addFiles(e.target.files)} className="hidden" />
               <UploadIcon className={"h-10 w-10 mb-3 transition-colors " + (isDragging ? "text-primary" : "text-muted-foreground")} />
               <p className="text-base font-medium mb-1">{isDragging ? "Drop files or folders here" : "Drag & drop files here"}</p>
               <p className="text-sm text-muted-foreground">or click to browse</p>
-              <p className="text-xs text-muted-foreground mt-2">JPEG, PNG, PDF (max 20 MB) &middot; ZIP (max 500 MB) &middot; Folders</p>
+              <p className="text-xs text-muted-foreground mt-2">JPEG, PNG, HEIC, PDF (max 20 MB) &middot; ZIP (max 500 MB) &middot; Folders</p>
             </div>
 
             {/* Divider */}
@@ -849,27 +849,34 @@ sijxJy.png"
                       <li>In the search bar at the bottom, type <strong>URL</strong> and add <strong>Get Contents of URL</strong></li>
                       <li>Tap the pale blue <strong>URL</strong> word inside the action and paste your upload URL:</li>
                     </ol>
-                    <div className="bg-gray-100 dark:bg-black/30 rounded px-2.5 py-1.5 text-[11px] border border-gray-300 dark:border-white/5 break-all">
-                      <code className="text-emerald-700 dark:text-emerald-400">{window.location.origin}/api/upload/quick?token={uploadToken || "YOUR_TOKEN"}</code>
+                    <div className="rounded-lg border-2 border-amber-400 dark:border-amber-500/50 bg-amber-50 dark:bg-amber-950/20 p-2.5 space-y-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide">Shortcut URL (paste this in the shortcut)</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <code className="text-[11px] bg-white dark:bg-black/30 border border-amber-200 dark:border-amber-800/30 px-2 py-1.5 rounded font-mono flex-1 break-all text-amber-800 dark:text-amber-300 select-all">
+                          {window.location.origin}/api/upload/quick?token={uploadToken || "YOUR_TOKEN"}
+                        </code>
+                        {uploadToken && (
+                          <Button size="sm" className="shrink-0 bg-amber-600 hover:bg-amber-700 text-white" onClick={() => {
+                            const url = window.location.origin + "/api/upload/quick?token=" + uploadToken;
+                            navigator.clipboard.writeText(url);
+                            toast.success("Shortcut URL copied! Paste it in the iOS Shortcut.");
+                          }}>
+                            <Copy className="h-3.5 w-3.5 mr-1.5" />Copy
+                          </Button>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-amber-600 dark:text-amber-400/70">This URL is different from the Quick Upload page link above. Make sure to use this one in your shortcut.</p>
                     </div>
                     <ol start={4} className="text-xs text-muted-foreground space-y-1 pl-4 list-decimal">
                       <li>Tap the arrow <strong>&rsaquo;</strong> next to the action to expand it. Change <strong>Method</strong> to <strong>POST</strong></li>
-                      <li>Tap <strong>Body</strong> &rarr; choose <strong>Form</strong>. Add a field: Key = <code className="text-emerald-700 dark:text-emerald-400 text-[11px]">images</code>, Type = <code className="text-emerald-700 dark:text-emerald-400 text-[11px]">File</code>, Value = <code className="text-emerald-700 dark:text-emerald-400 text-[11px]">Shortcut Input</code></li>
+                      <li>Tap <strong>Body</strong> &rarr; choose <strong>Form</strong>. Add a field: Key = <code className="text-emerald-700 dark:text-emerald-400 text-[11px]">images</code>, Type = <code className="text-emerald-700 dark:text-emerald-400 text-[11px]">File</code>, Then tap the Value field and select <code className="text-emerald-700 dark:text-emerald-400 text-[11px]">Shortcut Input</code> (do <strong className="text-red-500">NOT</strong> leave it empty)</li>
                       <li>Tap the shortcut name at the top &rarr; rename to <strong>Upload to Virology</strong></li>
                       <li>Tap the <strong>&#x2193;</strong> arrow next to the name &rarr; tap <strong>Details</strong> or <strong>Privacy</strong> &rarr; enable <strong>Show in Share Sheet</strong></li>
                       <li>Tap <strong>Done</strong>. Now share any photo &rarr; pick <strong>Upload to Virology</strong> from the share menu</li>
                     </ol>
-                    <div className="flex flex-wrap gap-2 mt-1">
-                      {uploadToken && (
-                        <Button size="sm" variant="outline" onClick={() => {
-                          const url = window.location.origin + "/api/upload/quick?token=" + uploadToken;
-                          navigator.clipboard.writeText(url);
-                          toast.success("Upload URL copied! Paste it in the Shortcut.");
-                        }}>
-                          <Copy className="h-3 w-3 mr-1.5" />Copy Upload URL
-                        </Button>
-                      )}
-                    </div>
+
                   </div>
                 </div>
 

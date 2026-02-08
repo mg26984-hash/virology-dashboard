@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import multer from "multer";
 import AdmZip from "adm-zip";
+import sharp from "sharp";
 import { nanoid } from "nanoid";
 import crypto from "crypto";
 import { sdk } from "./_core/sdk";
@@ -93,11 +94,27 @@ router.post("/files", upload.array("files", 500), async (req: Request, res: Resp
 
     const batchId = nanoid();
     const allowedTypes = ["image/jpeg", "image/png", "application/pdf"];
+    const heicTypes = ["image/heic", "image/heif", "image/heic-sequence", "image/heif-sequence"];
 
-    // Filter valid files
+    // Convert HEIC files to JPEG before processing
+    const heicFiles = files.filter((f) => heicTypes.includes(f.mimetype) || /\.hei[cf]$/i.test(f.originalname));
+    for (const heicFile of heicFiles) {
+      try {
+        const converted = await convertHeicToJpeg(heicFile.buffer, heicFile.originalname);
+        heicFile.buffer = converted.buffer;
+        heicFile.originalname = converted.originalname;
+        heicFile.mimetype = converted.mimetype;
+        heicFile.size = converted.size;
+        console.log(`[Upload] Converted HEIC: ${heicFile.originalname} (${converted.size} bytes)`);
+      } catch (e) {
+        console.error("[Upload] HEIC conversion failed:", heicFile.originalname, e);
+      }
+    }
+
+    // Filter valid files (including now-converted HEIC files)
     const validFiles = files.filter((f) => allowedTypes.includes(f.mimetype));
     if (validFiles.length === 0) {
-      res.status(400).json({ error: "No valid files. Only JPEG, PNG, and PDF are supported." });
+      res.status(400).json({ error: "No valid files. Supported: JPEG, PNG, HEIC, and PDF." });
       return;
     }
 
@@ -394,11 +411,21 @@ async function processZipBatch(batchId: string, entries: AdmZip.IZipEntry[], use
  * Accepts multipart files with an upload token (no cookie needed).
  * Token is passed as a query param or Authorization header.
  */
-router.post("/quick", upload.array("images", 50), async (req: Request, res: Response) => {
+// Helper: convert HEIC/HEIF to JPEG using sharp
+async function convertHeicToJpeg(buffer: Buffer, originalName: string): Promise<{ buffer: Buffer; originalname: string; mimetype: string; size: number }> {
+  const jpegBuffer = await sharp(buffer).jpeg({ quality: 90 }).toBuffer();
+  const newName = originalName.replace(/\.hei[cf]$/i, ".jpg");
+  return { buffer: jpegBuffer, originalname: newName, mimetype: "image/jpeg", size: jpegBuffer.length };
+}
+
+router.post("/quick", upload.any(), async (req: Request, res: Response) => {
   try {
     // Get token from query param, header, or form field
     const token = (req.query.token as string) || req.headers["x-upload-token"] as string || (req.body && req.body.token);
+    console.log("[Quick Upload] Request received. Token present:", !!token, "Content-Type:", req.headers["content-type"]);
+
     if (!token) {
+      console.log("[Quick Upload] No token found in query, header, or body");
       res.status(401).json({ error: "Upload token required. Generate one from the dashboard." });
       return;
     }
@@ -407,23 +434,39 @@ router.post("/quick", upload.array("images", 50), async (req: Request, res: Resp
     const { validateUploadToken } = await import("./db");
     const { valid, userId } = await validateUploadToken(token);
     if (!valid || !userId) {
+      console.log("[Quick Upload] Invalid token:", token.substring(0, 8) + "...");
       res.status(401).json({ error: "Invalid or expired upload token. Please generate a new one." });
       return;
     }
 
     const files = req.files as Express.Multer.File[];
+    console.log("[Quick Upload] Files received:", files?.length || 0, "Field names:", files?.map(f => f.fieldname).join(", ") || "none");
+    if (files?.length) {
+      files.forEach((f, i) => console.log(`[Quick Upload] File ${i}: name=${f.originalname}, mime=${f.mimetype}, size=${f.size}, field=${f.fieldname}`));
+    }
+
     if (!files || files.length === 0) {
-      res.status(400).json({ error: "No files provided" });
+      console.log("[Quick Upload] No files in request. Body keys:", Object.keys(req.body || {}));
+      res.status(400).json({ error: "No files provided. Make sure the form field type is set to File." });
       return;
     }
 
     const allowedTypes = ["image/jpeg", "image/png", "application/pdf"];
+    const heicTypes = ["image/heic", "image/heif", "image/heic-sequence", "image/heif-sequence"];
     const zipTypes = ["application/zip", "application/x-zip-compressed"];
     const allowedExtensions = [".jpg", ".jpeg", ".png", ".pdf"];
 
-    // Separate ZIP files from regular files
+    // Separate files by type
     const regularFiles = files.filter((f) => allowedTypes.includes(f.mimetype));
+    const heicFiles = files.filter((f) => heicTypes.includes(f.mimetype) || /\.hei[cf]$/i.test(f.originalname));
     const zipFiles = files.filter((f) => zipTypes.includes(f.mimetype) || f.originalname.toLowerCase().endsWith(".zip"));
+    // Accept files with unknown MIME but image-like extensions (iOS sometimes sends application/octet-stream)
+    const unknownButImage = files.filter((f) => 
+      !allowedTypes.includes(f.mimetype) && !heicTypes.includes(f.mimetype) && !zipTypes.includes(f.mimetype) &&
+      /\.(jpg|jpeg|png|pdf)$/i.test(f.originalname)
+    );
+
+    console.log(`[Quick Upload] Regular: ${regularFiles.length}, HEIC: ${heicFiles.length}, ZIP: ${zipFiles.length}, Unknown-but-image: ${unknownButImage.length}`);
 
     // Extract files from ZIPs
     const extractedFiles: { buffer: Buffer; originalname: string; mimetype: string; size: number }[] = [];
@@ -449,9 +492,37 @@ router.post("/quick", upload.array("images", 50), async (req: Request, res: Resp
       }
     }
 
-    const allFiles = [...regularFiles.map((f) => ({ buffer: f.buffer, originalname: f.originalname, mimetype: f.mimetype, size: f.size })), ...extractedFiles];
+    // Convert HEIC files to JPEG
+    const convertedHeic: { buffer: Buffer; originalname: string; mimetype: string; size: number }[] = [];
+    for (const heicFile of heicFiles) {
+      try {
+        const converted = await convertHeicToJpeg(heicFile.buffer, heicFile.originalname);
+        console.log(`[Quick Upload] Converted HEIC: ${heicFile.originalname} -> ${converted.originalname} (${converted.size} bytes)`);
+        convertedHeic.push(converted);
+      } catch (e) {
+        console.error("[Quick Upload] HEIC conversion failed:", heicFile.originalname, e);
+      }
+    }
+
+    // Map unknown-but-image files with corrected MIME types
+    const correctedUnknown = unknownButImage.map((f) => {
+      const ext = f.originalname.toLowerCase().slice(f.originalname.lastIndexOf("."));
+      let mime = f.mimetype;
+      if (ext === ".jpg" || ext === ".jpeg") mime = "image/jpeg";
+      else if (ext === ".png") mime = "image/png";
+      else if (ext === ".pdf") mime = "application/pdf";
+      return { buffer: f.buffer, originalname: f.originalname, mimetype: mime, size: f.size };
+    });
+
+    const allFiles = [
+      ...regularFiles.map((f) => ({ buffer: f.buffer, originalname: f.originalname, mimetype: f.mimetype, size: f.size })),
+      ...convertedHeic,
+      ...correctedUnknown,
+      ...extractedFiles,
+    ];
+    console.log(`[Quick Upload] Total processable files: ${allFiles.length}`);
     if (allFiles.length === 0) {
-      res.status(400).json({ error: "No valid files. Only JPEG, PNG, PDF, and ZIP archives are supported." });
+      res.status(400).json({ error: "No valid files. Supported: JPEG, PNG, HEIC, PDF, and ZIP archives." });
       return;
     }
 
@@ -487,6 +558,7 @@ router.post("/quick", upload.array("images", 50), async (req: Request, res: Resp
       results.push({ fileName: file.originalname, status: "uploaded", documentId: document.id });
     }
 
+    console.log(`[Quick Upload] Done. New: ${newCount}, Duplicates: ${dupCount}, Total: ${allFiles.length}`);
     res.json({
       success: true,
       message: `${newCount} new file(s) uploaded, ${dupCount} duplicate(s) skipped. Processing will begin automatically.`,
@@ -500,5 +572,13 @@ router.post("/quick", upload.array("images", 50), async (req: Request, res: Resp
     res.status(500).json({ error: error instanceof Error ? error.message : "Upload failed" });
   }
 });
+
+/**
+ * POST /api/upload/quick-upload-redirect
+ * Fallback: if someone POSTs to /quick-upload (the frontend page URL) instead of /api/upload/quick,
+ * we handle it here by forwarding to the quick upload handler.
+ * This is mounted at /api/upload, so the path is /quick-upload-redirect,
+ * but we also add a top-level route in index.ts.
+ */
 
 export default router;

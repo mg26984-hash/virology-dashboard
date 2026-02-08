@@ -61,8 +61,8 @@ export default function QuickUpload() {
   }
 
   const addFiles = useCallback((newFiles: File[]) => {
-    const allowed = ["image/jpeg", "image/png", "application/pdf", "application/zip", "application/x-zip-compressed"];
-    const valid = newFiles.filter((f) => allowed.includes(f.type) || f.name.toLowerCase().endsWith(".zip"));
+    const allowed = ["image/jpeg", "image/png", "image/heic", "image/heif", "application/pdf", "application/zip", "application/x-zip-compressed"];
+    const valid = newFiles.filter((f) => allowed.includes(f.type) || /\.(zip|heic|heif)$/i.test(f.name));
     if (valid.length === 0) return;
     setFiles((prev) => [...prev, ...valid]);
     setPreviews((prev) => [
@@ -172,14 +172,14 @@ export default function QuickUpload() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/jpeg,image/png,application/pdf,.zip,application/zip"
+                accept="image/jpeg,image/png,image/heic,image/heif,.heic,.heif,application/pdf,.zip,application/zip"
                 multiple
                 className="hidden"
                 onChange={handleFileChange}
               />
               <Upload className="h-8 w-8 mx-auto text-white/30 mb-2" />
               <p className="text-sm text-white/60">Tap to select photos, PDFs, or ZIPs</p>
-              <p className="text-xs text-white/30 mt-1">JPEG, PNG, PDF, or ZIP (max 500 MB for ZIP)</p>
+              <p className="text-xs text-white/30 mt-1">JPEG, PNG, HEIC, PDF, or ZIP (max 500 MB for ZIP)</p>
             </div>
 
             {/* File previews */}

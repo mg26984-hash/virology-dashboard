@@ -35,6 +35,16 @@ async function startServer() {
   // Multipart file upload routes MUST be registered BEFORE body parsers
   // because express.raw/json would consume the request body before multer can parse it
   app.use("/api/upload", uploadRoutes);
+  // Fallback: iOS Shortcuts may POST to /quick-upload (the frontend page URL)
+  // instead of /api/upload/quick. Rewrite the URL so it hits the correct handler.
+  app.use("/quick-upload", (req, res, next) => {
+    if (req.method === "POST") {
+      console.log("[Quick Upload Redirect] Rewriting POST /quick-upload -> /api/upload/quick");
+      req.url = "/quick" + (req.originalUrl.includes("?") ? req.originalUrl.substring(req.originalUrl.indexOf("?")) : "");
+      return uploadRoutes(req, res, next);
+    }
+    next();
+  });
   // Configure body parser with larger size limit
   app.use(express.json({ limit: "200mb" }));
   app.use(express.urlencoded({ limit: "200mb", extended: true }));
