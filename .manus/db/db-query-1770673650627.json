@@ -1,0 +1,18 @@
+{
+  "query": "SELECT processingStatus, COUNT(*) as cnt FROM documents GROUP BY processingStatus",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute SELECT processingStatus, COUNT(*) as cnt FROM documents GROUP BY processingStatus",
+  "rows": [
+    {
+      "processingStatus": "completed",
+      "cnt": "1650"
+    },
+    {
+      "processingStatus": "discarded",
+      "cnt": "8208"
+    }
+  ],
+  "messages": [],
+  "stdout": "processingStatus\tcnt\ncompleted\t1650\ndiscarded\t8208\n",
+  "stderr": "",
+  "execution_time_ms": 1517
+}

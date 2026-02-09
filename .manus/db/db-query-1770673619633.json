@@ -1,0 +1,55 @@
+{
+  "query": "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'documents' AND TABLE_SCHEMA = DATABASE()",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'documents' AND TABLE_SCHEMA = DATABASE()",
+  "rows": [
+    {
+      "COLUMN_NAME": "id"
+    },
+    {
+      "COLUMN_NAME": "uploadedBy"
+    },
+    {
+      "COLUMN_NAME": "fileName"
+    },
+    {
+      "COLUMN_NAME": "fileKey"
+    },
+    {
+      "COLUMN_NAME": "fileUrl"
+    },
+    {
+      "COLUMN_NAME": "mimeType"
+    },
+    {
+      "COLUMN_NAME": "fileSize"
+    },
+    {
+      "COLUMN_NAME": "processingStatus"
+    },
+    {
+      "COLUMN_NAME": "processingError"
+    },
+    {
+      "COLUMN_NAME": "extractedData"
+    },
+    {
+      "COLUMN_NAME": "createdAt"
+    },
+    {
+      "COLUMN_NAME": "updatedAt"
+    },
+    {
+      "COLUMN_NAME": "fileHash"
+    },
+    {
+      "COLUMN_NAME": "retryCount"
+    },
+    {
+      "COLUMN_NAME": "batchId"
+    }
+  ],
+  "messages": [],
+  "stdout": "COLUMN_NAME\nid\nuploadedBy\nfileName\nfileKey\nfileUrl\nmimeType\nfileSize\nprocessingStatus\nprocessingError\nextractedData\ncreatedAt\nupdatedAt\nfileHash\nretryCount\nbatchId\n",
+  "stderr": "",
+  "execution_time_ms": 1527
+}

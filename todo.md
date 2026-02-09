@@ -730,8 +730,8 @@
 - [x] Fix: "Not Detected" now uses 0.5 floor value, domain max set to 'auto', tooltip shows 'ND' for values < 1
 
 ## Missed Files Analysis & Prevention Strategy
-- [ ] Complete bulk upload of 4603 files from EmamExport(1).zip (in progress: 2840/4603)
-- [ ] Analyze which files were missed/failed and determine root causes
+- [x] Complete bulk upload of 4603 files from EmamExport(1).zip (100% coverage, 0 failures)
+- [x] Analyzed: 1,650 completed, 8,208 discarded (duplicates), 0 failed, 0 pending — 812 patients, 4,913 tests
 - [x] Implement upload reconciliation: compare ZIP manifest vs DB records (reconcileBatch admin endpoint)
 - [x] Add automatic retry logic for failed documents (backgroundWorker retryAllFailed, MAX_RETRIES=3)
 - [x] Add retryCount column to documents table for tracking retry attempts
