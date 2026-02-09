@@ -363,11 +363,11 @@ function renderPatientContent(
 
       drawKeyValueTable(doc, testRows, pageWidth);
 
-      // Add separator between tests (not after the last one)
+      // Add solid separator line between tests (not after the last one)
       if (i < sortedTests.length - 1) {
-        doc.moveDown(0.3);
-        drawDottedHR(doc, pageWidth);
-        doc.moveDown(0.3);
+        doc.moveDown(0.4);
+        drawSeparatorHR(doc, pageWidth);
+        doc.moveDown(0.4);
       }
     }
   }
@@ -406,8 +406,7 @@ function renderFooters(doc: PDFKit.PDFDocument, pageWidth: number) {
   for (let i = 0; i < pages.count; i++) {
     doc.switchToPage(i);
 
-    const savedY = doc.y;
-
+    // Draw footer line
     doc
       .save()
       .moveTo(doc.page.margins.left, doc.page.height - 35)
@@ -417,6 +416,8 @@ function renderFooters(doc: PDFKit.PDFDocument, pageWidth: number) {
       .stroke()
       .restore();
 
+    // CRITICAL: lineBreak: false prevents PDFKit from auto-adding pages
+    // when rendering text near the bottom of buffered pages
     doc
       .fontSize(7)
       .font("Helvetica")
@@ -425,7 +426,7 @@ function renderFooters(doc: PDFKit.PDFDocument, pageWidth: number) {
         "CONFIDENTIAL - This document contains protected health information.",
         doc.page.margins.left,
         doc.page.height - 30,
-        { width: pageWidth * 0.7, align: "left" }
+        { width: pageWidth * 0.7, align: "left", lineBreak: false }
       );
 
     doc
@@ -434,10 +435,8 @@ function renderFooters(doc: PDFKit.PDFDocument, pageWidth: number) {
         `Page ${i + 1} of ${pages.count}`,
         doc.page.margins.left,
         doc.page.height - 30,
-        { width: pageWidth, align: "right" }
+        { width: pageWidth, align: "right", lineBreak: false }
       );
-
-    doc.y = savedY;
   }
 }
 
@@ -466,6 +465,19 @@ function drawDottedHR(doc: PDFKit.PDFDocument, width: number) {
     .dash(3, { space: 3 })
     .stroke()
     .undash()
+    .restore();
+}
+
+/** Solid gray separator line between test entries */
+function drawSeparatorHR(doc: PDFKit.PDFDocument, width: number) {
+  const x = doc.page.margins.left;
+  doc
+    .save()
+    .moveTo(x, doc.y)
+    .lineTo(x + width, doc.y)
+    .strokeColor("#999999")
+    .lineWidth(0.75)
+    .stroke()
     .restore();
 }
 
@@ -504,9 +516,11 @@ function drawKeyValueTable(
     // Move back up to same line for value
     doc.moveUp();
 
+    // Use bold italic for the "Result" row value
+    const isResultRow = label === "Result";
     doc
       .fontSize(9)
-      .font("Helvetica")
+      .font(isResultRow ? "Helvetica-BoldOblique" : "Helvetica")
       .fillColor("#000000")
       .text(value, x + labelWidth + rowPadding, doc.y, {
         width: valueWidth - rowPadding * 2,
@@ -593,9 +607,10 @@ function drawTestSummaryTable(
     const values = [dateStr, test.testType, test.result];
     let colX = x;
     for (let c = 0; c < values.length; c++) {
+      // Result column (c === 2) uses bold italic
       doc
         .fontSize(8)
-        .font(c === 2 ? "Helvetica-Bold" : "Helvetica")
+        .font(c === 2 ? "Helvetica-BoldOblique" : "Helvetica")
         .fillColor("#000000")
         .text(values[c], colX + padding, doc.y, {
           width: colWidths[c] - padding * 2,

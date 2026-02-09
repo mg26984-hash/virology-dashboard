@@ -702,3 +702,14 @@
 - [x] Table columns: Test Date, Test Name, Result with dark header row
 - [x] Chronological order (ascending), alternating row backgrounds, page-break aware
 - [x] All 170 tests passing across 12 test files
+
+## PDF Export Fix: Extra Blank Pages (Round 2)
+- [x] Root cause: renderFooters() doc.text() calls near page bottom trigger PDFKit auto-page creation in buffered mode
+- [x] Fix: added lineBreak: false to all footer text() calls to prevent phantom page creation
+- [x] Verified: 170 tests passing, TypeScript compiles with 0 errors
+
+## PDF Styling: Bold Italic Results + Separator Lines
+- [x] Make test result values bold italic in detailed test results section (Helvetica-BoldOblique)
+- [x] Make result column bold italic in the summary table (Helvetica-BoldOblique)
+- [x] Add visible solid separator lines between different tests in detailed results (drawSeparatorHR)
+- [x] Fix blank pages: added lineBreak: false in renderFooters to prevent PDFKit auto-page creation
