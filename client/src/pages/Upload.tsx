@@ -42,6 +42,24 @@ interface ServerBatchProgress {
   documentIds: number[];
 }
 
+interface LargeZipProgress {
+  jobId: string;
+  fileName: string;
+  status: "extracting" | "processing" | "complete" | "error";
+  totalEntries: number;
+  processedEntries: number;
+  uploadedToS3: number;
+  skippedDuplicates: number;
+  failed: number;
+  documentIds: number[];
+  errors: string[];
+  startedAt: number;
+  completedAt?: number;
+}
+
+// Threshold: ZIPs above this size are uploaded as-is to the server for disk-based processing
+const LARGE_ZIP_THRESHOLD_MB = 200;
+
 async function readEntriesRecursively(entry: FileSystemEntry): Promise<File[]> {
   if (entry.isFile) {
     return new Promise<File[]>((resolve) => {
@@ -91,6 +109,8 @@ export default function Upload() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [cameraPhotos, setCameraPhotos] = useState<{ file: File; preview: string }[]>([]);
   const [editingPhoto, setEditingPhoto] = useState<{ src: string; fileName: string; type: "camera" | "staged"; index: number } | null>(null);
+  const [largeZipProgress, setLargeZipProgress] = useState<LargeZipProgress | null>(null);
+  const largeZipPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [now, setNow] = useState(Date.now());
   const [whatsappGuideOpen, setWhatsappGuideOpen] = useState(() => {
@@ -133,7 +153,10 @@ export default function Upload() {
   }, [tracked.length, batchProgress]);
 
   useEffect(() => {
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      if (largeZipPollRef.current) clearInterval(largeZipPollRef.current);
+    };
   }, []);
 
   const reprocessMutation = trpc.documents.reprocess.useMutation();
@@ -189,7 +212,7 @@ export default function Upload() {
     for (const file of Array.from(fileList)) {
       const ext = file.name.toLowerCase().slice(file.name.lastIndexOf("."));
       const isZip = file.type === "application/zip" || file.type === "application/x-zip-compressed" || ext === ".zip";
-      const maxMB = isZip ? 500 : 20;
+      const maxMB = isZip ? 1500 : 20;
       if (!allowedExts.includes(ext)) { skipped++; continue; }
       if (file.size > maxMB * 1024 * 1024) { toast.error(file.name + ": exceeds " + maxMB + " MB limit"); continue; }
       let mime = file.type;
@@ -251,6 +274,73 @@ export default function Upload() {
     }, 1500);
   }, [utils]);
 
+  // ── Large ZIP upload helper (sends raw ZIP to server for disk-based processing) ──
+  const uploadLargeZip = async (zipFile: File) => {
+    const sizeMB = Math.round(zipFile.size / 1024 / 1024);
+    toast.info(`Uploading large ZIP (${sizeMB}MB) to server for processing...`);
+    
+    const formData = new FormData();
+    formData.append("file", zipFile);
+
+    try {
+      const res = await fetch("/api/upload/zip/large", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Upload failed" }));
+        throw new Error(err.error || "Upload failed with status " + res.status);
+      }
+
+      const result = await res.json();
+      toast.success(`ZIP uploaded (${result.fileSizeMB}MB). Server is extracting and processing files...`);
+
+      // Start polling for large ZIP progress
+      startLargeZipPolling(result.jobId);
+    } catch (err) {
+      toast.error("Large ZIP upload failed: " + (err instanceof Error ? err.message : "unknown error"));
+      setIsUploading(false);
+    }
+  };
+
+  // ── Poll large ZIP processing progress ──
+  const startLargeZipPolling = useCallback((jobId: string) => {
+    if (largeZipPollRef.current) clearInterval(largeZipPollRef.current);
+    
+    largeZipPollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch("/api/upload/zip/large/progress/" + jobId);
+        if (!res.ok) return;
+        const data: LargeZipProgress = await res.json();
+        setLargeZipProgress(data);
+
+        if (data.status === "complete" || data.status === "error") {
+          if (largeZipPollRef.current) { clearInterval(largeZipPollRef.current); largeZipPollRef.current = null; }
+          
+          if (data.status === "complete") {
+            toast.success(
+              `ZIP processing complete: ${data.uploadedToS3} files uploaded, ` +
+              `${data.skippedDuplicates} duplicates skipped` +
+              (data.failed > 0 ? `, ${data.failed} failed` : "")
+            );
+          } else {
+            toast.error("ZIP processing encountered errors: " + (data.errors?.[0] || "Unknown error"));
+          }
+
+          // Clear progress after a delay
+          setTimeout(() => setLargeZipProgress(null), 5000);
+          setIsUploading(false);
+          utils.documents.recent.invalidate();
+          utils.dashboard.stats.invalidate();
+        }
+      } catch (e) {
+        // Silently retry on next interval
+      }
+    }, 2000);
+  }, [utils]);
+
   // ── Client-side ZIP extraction helper ──
   const extractZipFiles = async (zipFile: File): Promise<File[]> => {
     const allowedExtensions = [".jpg", ".jpeg", ".png", ".pdf"];
@@ -290,9 +380,18 @@ export default function Upload() {
     setStaged([]);
 
     try {
-      // ── ZIP files: extract client-side and merge into regular files ──
+      // ── ZIP files: large ZIPs go to server, small ones extract client-side ──
+      const largeZips = zips.filter((z) => z.file.size > LARGE_ZIP_THRESHOLD_MB * 1024 * 1024);
+      const smallZips = zips.filter((z) => z.file.size <= LARGE_ZIP_THRESHOLD_MB * 1024 * 1024);
+
+      // Upload large ZIPs directly to server for disk-based processing
+      for (const z of largeZips) {
+        await uploadLargeZip(z.file);
+      }
+
+      // Extract small ZIPs client-side and merge into regular files
       const allFiles: File[] = regular.map((s) => s.file);
-      for (const z of zips) {
+      for (const z of smallZips) {
         try {
           toast.info("Extracting " + z.file.name + "...");
           const extracted = await extractZipFiles(z.file);
@@ -354,7 +453,7 @@ export default function Upload() {
         }
       }
 
-      if (allFiles.length === 0) {
+      if (allFiles.length === 0 && largeZips.length === 0) {
         setIsUploading(false);
       }
     } catch (err) {
@@ -636,7 +735,7 @@ sijxJy.png"
               <UploadIcon className={"h-10 w-10 mb-3 transition-colors " + (isDragging ? "text-primary" : "text-muted-foreground")} />
               <p className="text-base font-medium mb-1">{isDragging ? "Drop files or folders here" : "Drag & drop files here"}</p>
               <p className="text-sm text-muted-foreground">or click to browse</p>
-              <p className="text-xs text-muted-foreground mt-2">JPEG, PNG, HEIC, PDF (max 20 MB) &middot; ZIP (max 500 MB) &middot; Folders</p>
+              <p className="text-xs text-muted-foreground mt-2">JPEG, PNG, HEIC, PDF (max 20 MB) &middot; ZIP (max 1.5 GB) &middot; Folders</p>
             </div>
 
             {/* Divider */}
@@ -1026,6 +1125,74 @@ sijxJy.png"
         </Card>
       )}
 
+      {/* Large ZIP server-side processing progress */}
+      {largeZipProgress && (
+        <Card className="border-amber-500/30">
+          <CardContent className="py-5">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {largeZipProgress.status === "complete" ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  ) : largeZipProgress.status === "error" ? (
+                    <AlertCircle className="h-4 w-4 text-destructive" />
+                  ) : (
+                    <Loader2 className="h-4 w-4 animate-spin text-amber-400" />
+                  )}
+                  <span className="font-medium">
+                    {largeZipProgress.status === "extracting" ? "Server extracting ZIP..." :
+                     largeZipProgress.status === "processing" ? "Server processing ZIP entries..." :
+                     largeZipProgress.status === "complete" ? "Large ZIP processing complete!" : "Error processing ZIP"}
+                  </span>
+                </div>
+                <span className="text-sm font-mono text-muted-foreground">
+                  {largeZipProgress.processedEntries} / {largeZipProgress.totalEntries || "?"}
+                </span>
+              </div>
+              <Progress
+                value={largeZipProgress.totalEntries > 0 ? (largeZipProgress.processedEntries / largeZipProgress.totalEntries) * 100 : 0}
+                className="h-3"
+              />
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <div className="flex items-center gap-3">
+                  <span className="flex items-center gap-1">
+                    <FileArchive className="h-3 w-3" />
+                    {largeZipProgress.fileName}
+                  </span>
+                  <span className="text-blue-400">{largeZipProgress.uploadedToS3} uploaded</span>
+                  {largeZipProgress.skippedDuplicates > 0 && <span className="text-yellow-400">{largeZipProgress.skippedDuplicates} duplicates</span>}
+                  {largeZipProgress.failed > 0 && <span className="text-destructive">{largeZipProgress.failed} failed</span>}
+                </div>
+                <span>
+                  {(() => {
+                    if (largeZipProgress.status === "complete" && largeZipProgress.completedAt) {
+                      const duration = (largeZipProgress.completedAt - largeZipProgress.startedAt) / 1000;
+                      return duration < 60 ? Math.round(duration) + "s total" : Math.round(duration / 60) + "m total";
+                    }
+                    const elapsed = (Date.now() - largeZipProgress.startedAt) / 1000;
+                    const done = largeZipProgress.processedEntries;
+                    if (done === 0 || largeZipProgress.totalEntries === 0) return "Estimating...";
+                    const rate = done / elapsed;
+                    const remaining = (largeZipProgress.totalEntries - done) / rate;
+                    if (remaining < 60) return "~" + Math.ceil(remaining) + "s remaining";
+                    return "~" + Math.ceil(remaining / 60) + "m remaining";
+                  })()}
+                </span>
+              </div>
+              {largeZipProgress.errors.length > 0 && (
+                <div className="mt-2 text-xs text-destructive max-h-20 overflow-y-auto">
+                  {largeZipProgress.errors.slice(0, 5).map((e, i) => <p key={i}>{e}</p>)}
+                  {largeZipProgress.errors.length > 5 && <p>...and {largeZipProgress.errors.length - 5} more errors</p>}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Large ZIP files are processed on the server. You can close this page — processing continues in the background.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Tracked documents (backend is processing) */}
       {resolvedDocs.length > 0 && (
         <Card>
@@ -1130,7 +1297,7 @@ sijxJy.png"
                 <li>&bull; JPEG images (.jpg, .jpeg)</li>
                 <li>&bull; PNG images (.png)</li>
                 <li>&bull; PDF documents (.pdf)</li>
-                <li>&bull; ZIP archives (.zip) up to 500 MB</li>
+                <li>&bull; ZIP archives (.zip) up to 1.5 GB</li>
                 <li>&bull; Folders (drag &amp; drop entire folders)</li>
               </ul>
             </div>

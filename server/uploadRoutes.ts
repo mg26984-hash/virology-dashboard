@@ -4,12 +4,16 @@ import AdmZip from "adm-zip";
 import sharp from "sharp";
 import { nanoid } from "nanoid";
 import crypto from "crypto";
+import path from "path";
+import os from "os";
+import fs from "fs";
 import { sdk } from "./_core/sdk";
 import { storagePut } from "./storage";
 import { createDocument, getDocumentById, getDb } from "./db";
 import { processUploadedDocument } from "./documentProcessor";
 import { documents } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
+import { processLargeZipFromDisk, getLargeZipProgress } from "./largeZipProcessor";
 
 // Compute SHA-256 hash of file content for deduplication
 function computeFileHash(buffer: Buffer): string {
@@ -30,11 +34,45 @@ async function isDuplicate(fileHash: string): Promise<{ duplicate: boolean; exis
   return { duplicate: false };
 }
 
-// In-memory storage for multer — files up to 250MB
-const storage = multer.memoryStorage();
+// ── Multer configurations ──
+
+// In-memory storage for regular uploads (images/PDFs up to 250MB)
+const memoryStorage = multer.memoryStorage();
 const upload = multer({
-  storage,
+  storage: memoryStorage,
   limits: { fileSize: 250 * 1024 * 1024 }, // 250MB
+});
+
+// Disk storage for large ZIP files (up to 1.5GB)
+const LARGE_ZIP_TEMP_DIR = path.join(os.tmpdir(), "virology-large-zip-uploads");
+if (!fs.existsSync(LARGE_ZIP_TEMP_DIR)) {
+  fs.mkdirSync(LARGE_ZIP_TEMP_DIR, { recursive: true });
+}
+
+const diskStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, LARGE_ZIP_TEMP_DIR);
+  },
+  filename: (_req, file, cb) => {
+    const uniqueName = `${nanoid()}-${file.originalname}`;
+    cb(null, uniqueName);
+  },
+});
+
+const uploadLargeZip = multer({
+  storage: diskStorage,
+  limits: { fileSize: 1.5 * 1024 * 1024 * 1024 }, // 1.5GB
+  fileFilter: (_req, file, cb) => {
+    // Only accept ZIP files
+    const isZip = file.mimetype === "application/zip" ||
+      file.mimetype === "application/x-zip-compressed" ||
+      file.originalname.toLowerCase().endsWith(".zip");
+    if (!isZip) {
+      cb(new Error("Only ZIP files are accepted on this endpoint"));
+      return;
+    }
+    cb(null, true);
+  },
 });
 
 // Track batch processing progress in memory
@@ -241,6 +279,95 @@ router.post("/zip", upload.single("file"), async (req: Request, res: Response) =
   } catch (error) {
     console.error("[Upload] ZIP error:", error);
     res.status(500).json({ error: error instanceof Error ? error.message : "ZIP upload failed" });
+  }
+});
+
+/**
+ * POST /api/upload/zip/large
+ * Large ZIP file upload endpoint.
+ * Uses disk storage (multer writes directly to temp file) to handle ZIPs up to 1.5GB.
+ * Processes entries sequentially from disk without loading the entire ZIP into memory.
+ * Returns a jobId for polling progress via /api/upload/zip/large/progress/:jobId
+ */
+router.post("/zip/large", uploadLargeZip.single("file"), async (req: Request, res: Response) => {
+  try {
+    // Authenticate: support both session (cookie) and token (query param)
+    let userId: number | undefined;
+
+    // Try token auth first (for Quick Upload / iOS Shortcut)
+    const token = (req.query.token as string) || req.headers["x-upload-token"] as string;
+    if (token) {
+      const { validateUploadToken } = await import("./db");
+      const { valid, userId: tokenUserId } = await validateUploadToken(token);
+      if (valid && tokenUserId) {
+        userId = tokenUserId;
+      }
+    }
+
+    // Fall back to session auth
+    if (!userId) {
+      try {
+        const user = await sdk.authenticateRequest(req);
+        if (user && user.status === "approved") {
+          userId = user.id;
+        }
+      } catch (authErr) {
+        // Ignore auth errors if token was also invalid
+      }
+    }
+
+    if (!userId) {
+      // Clean up the uploaded temp file
+      if (req.file?.path) {
+        try { fs.unlinkSync(req.file.path); } catch (e) { /* ignore */ }
+      }
+      res.status(403).json({ error: "Unauthorized - please log in or provide a valid upload token" });
+      return;
+    }
+
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({ error: "No file provided. Send a ZIP file in the 'file' field." });
+      return;
+    }
+
+    console.log(`[Upload] Large ZIP received: ${file.originalname}, size: ${(file.size / 1024 / 1024).toFixed(1)}MB, path: ${file.path}`);
+
+    // Start processing from disk (background)
+    const jobId = await processLargeZipFromDisk(file.path, file.originalname, userId);
+
+    res.json({
+      success: true,
+      jobId,
+      fileName: file.originalname,
+      fileSize: file.size,
+      fileSizeMB: Math.round(file.size / 1024 / 1024),
+      message: `Large ZIP received (${Math.round(file.size / 1024 / 1024)}MB). Processing entries from disk. Poll /api/upload/zip/large/progress/${jobId} for status.`,
+    });
+  } catch (error) {
+    // Clean up temp file on error
+    if (req.file?.path) {
+      try { fs.unlinkSync(req.file.path); } catch (e) { /* ignore */ }
+    }
+    console.error("[Upload] Large ZIP error:", error);
+    res.status(500).json({ error: error instanceof Error ? error.message : "Large ZIP upload failed" });
+  }
+});
+
+/**
+ * GET /api/upload/zip/large/progress/:jobId
+ * Poll the progress of a large ZIP processing job.
+ */
+router.get("/zip/large/progress/:jobId", async (req: Request, res: Response) => {
+  try {
+    const progress = getLargeZipProgress(req.params.jobId);
+    if (!progress) {
+      res.status(404).json({ error: "Job not found" });
+      return;
+    }
+    res.json(progress);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to get progress" });
   }
 });
 

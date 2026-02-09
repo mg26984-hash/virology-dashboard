@@ -588,3 +588,16 @@
 - [x] Updated instructions to use "Repeat with Each" loop so each shared file is uploaded individually
 - [x] Changed Value from "Shortcut Input" to "Repeat Item" in instructions
 - [x] Added multi-file tip callout explaining why the loop is needed
+
+## Large ZIP File Splitting on Server
+- [x] Increase multer file size limit to allow large ZIP uploads (up to 1.5GB) — disk-based multer storage
+- [x] Add server-side disk-based ZIP processing (largeZipProcessor.ts) — processes entries one at a time from disk
+- [x] Process each entry sequentially using existing upload pipeline (S3 + document creation)
+- [x] Core ZIP extraction code preserved — existing /api/upload/zip endpoint unchanged
+- [x] Add progress feedback for large ZIP processing — polling endpoint with real-time status
+- [x] Handle memory efficiently — ZIP written to temp file, entries extracted one at a time, temp file cleaned up
+- [x] New /api/upload/zip/large endpoint with disk storage for ZIPs up to 1.5GB
+- [x] Client auto-routes: ZIPs > 200MB → server disk processing, smaller ZIPs → client-side extraction
+- [x] Large ZIP progress UI card with real-time status, ETA, and error display
+- [x] Updated ZIP size limit from 500MB to 1.5GB in UI
+- [x] 10 new tests for large ZIP processor and API endpoints — all passing
