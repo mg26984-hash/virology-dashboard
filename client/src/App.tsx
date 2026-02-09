@@ -4,6 +4,8 @@ import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { UploadManagerProvider } from "./contexts/UploadManagerContext";
+import GlobalUploadIndicator from "./components/GlobalUploadIndicator";
 import Home from "./pages/Home";
 import Upload from "./pages/Upload";
 import Patients from "./pages/Patients";
@@ -43,14 +45,17 @@ function App() {
     <ErrorBoundary>
       <ThemeProvider defaultTheme="dark" switchable={true}>
         <TooltipProvider>
-          <Toaster />
-          <Switch>
-            {/* QuickUpload is outside DashboardLayout - works with token auth, no login needed */}
-            <Route path="/quick-upload" component={QuickUpload} />
-            <Route>
-              <Router />
-            </Route>
-          </Switch>
+          <UploadManagerProvider>
+            <Toaster />
+            <GlobalUploadIndicator />
+            <Switch>
+              {/* QuickUpload is outside DashboardLayout - works with token auth, no login needed */}
+              <Route path="/quick-upload" component={QuickUpload} />
+              <Route>
+                <Router />
+              </Route>
+            </Switch>
+          </UploadManagerProvider>
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>

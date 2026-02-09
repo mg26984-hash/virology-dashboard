@@ -90,7 +90,7 @@ function ChartTooltip({ active, payload, label }: any) {
             />
             <span className="text-muted-foreground truncate">{abbreviateTestType(entry.name)}:</span>
             <span className="font-mono whitespace-nowrap">
-              {entry.value === 0 
+              {entry.value != null && entry.value < 1
                 ? 'ND' 
                 : entry.value >= 50000000 
                   ? '>50M' 
@@ -197,11 +197,13 @@ function ViralLoadTrendCard({ chartData }: { chartData: { data: Record<string, a
               />
               <YAxis 
                 scale="log"
-                domain={[1, 100000000]}
+                domain={[0.5, 'auto']}
+                allowDataOverflow={false}
                 tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
                 tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
                 width={45}
                 tickFormatter={(value) => {
+                  if (value < 1) return 'ND';
                   if (value >= 1000000) return `${value / 1000000}M`;
                   if (value >= 1000) return `${value / 1000}K`;
                   return value.toString();
@@ -231,7 +233,7 @@ function ViralLoadTrendCard({ chartData }: { chartData: { data: Record<string, a
           </ResponsiveContainer>
         </div>
         <p className="text-xs text-muted-foreground text-center">
-          "Not Detected" = 0. Values above 50M = above max detection. Tap legend to toggle.
+          "ND" = Not Detected. Values above 50M = above max detection. Tap legend to toggle.
         </p>
       </CardContent>
     </Card>
@@ -369,6 +371,7 @@ export default function PatientDetail() {
       const entry = dataMap.get(dateKey)!;
       
       // Parse viral load
+      // Note: log scale cannot display 0, so "Not Detected" uses 0.5 as a floor value
       let viralLoadValue: number | null = null;
       if (test.viralLoad) {
         const cleanValue = test.viralLoad.replace(/[^0-9.>]/g, '');
@@ -376,11 +379,13 @@ export default function PatientDetail() {
           // Above max detection - use a high value
           viralLoadValue = parseFloat(cleanValue) || 50000000;
         } else {
-          viralLoadValue = parseFloat(cleanValue) || null;
+          const parsed = parseFloat(cleanValue);
+          viralLoadValue = parsed > 0 ? parsed : null;
         }
       } else if (test.result.toLowerCase().includes('not detected') || 
                  test.result.toLowerCase().includes('negative')) {
-        viralLoadValue = 0;
+        // Use 0.5 as floor for log scale (displayed as "ND" in tooltip)
+        viralLoadValue = 0.5;
       }
       
       entry[test.testType] = viralLoadValue;
@@ -401,8 +406,8 @@ export default function PatientDetail() {
     return chartData.testTypes.some(testType => {
       const dataPoints = chartData.data.filter(d => d[testType] !== undefined && d[testType] !== null);
       if (dataPoints.length < 2) return false;
-      // At least one data point must have a real quantitative value > 0
-      return dataPoints.some(d => typeof d[testType] === 'number' && d[testType] > 0);
+      // At least one data point must have a real quantitative value > 0.5 (0.5 = ND floor)
+      return dataPoints.some(d => typeof d[testType] === 'number' && (d[testType] as number) > 0.5);
     });
   }, [chartData]);
 

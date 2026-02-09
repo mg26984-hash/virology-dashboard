@@ -14,6 +14,7 @@ import PhotoEditor from "@/components/PhotoEditor";
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import JSZip from "jszip";
+import { useUploadManager, type LargeZipProgress, type ServerBatchProgress, type TrackedDocument } from "@/contexts/UploadManagerContext";
 
 interface StagedFile {
   file: File;
@@ -22,49 +23,7 @@ interface StagedFile {
   folderName?: string;
 }
 
-interface TrackedDocument {
-  documentId: number;
-  fileName: string;
-  trackedAt: number;
-}
-
-interface ServerBatchProgress {
-  batchId: string;
-  total: number;
-  uploaded: number;
-  processing: number;
-  processed: number;
-  failed: number;
-  skippedDuplicates: number;
-  status: "uploading" | "processing" | "complete" | "error";
-  errors: string[];
-  startedAt: number;
-  documentIds: number[];
-}
-
-interface LargeZipProgress {
-  jobId: string;
-  fileName: string;
-  status: "uploading" | "extracting" | "processing" | "complete" | "error";
-  totalEntries: number;
-  processedEntries: number;
-  uploadedToS3: number;
-  skippedDuplicates: number;
-  failed: number;
-  documentIds: number[];
-  errors: string[];
-  startedAt: number;
-  completedAt?: number;
-  // Chunked upload fields (client-side only)
-  chunksTotal?: number;
-  chunksSent?: number;
-  uploadPhase?: "chunking" | "reassembling" | "server-processing";
-  // Speed tracking fields
-  bytesSent?: number;
-  totalBytes?: number;
-  speedMBps?: number;
-  etaSeconds?: number;
-}
+// LargeZipProgress, ServerBatchProgress, TrackedDocument now come from UploadManagerContext
 
 // Threshold: ZIPs above this size are uploaded as-is to the server for disk-based processing
 const LARGE_ZIP_THRESHOLD_MB = 200;
@@ -108,19 +67,26 @@ function formatETA(ms: number): string {
 
 export default function Upload() {
   const { user } = useAuth();
+  // Upload state from global context (persists across navigation)
+  const {
+    largeZipProgress,
+    uploadLargeZip,
+    batchProgress,
+    startBatchPolling,
+    tracked,
+    addTracked,
+    clearFinished: clearFinishedCtx,
+    isUploading,
+    setIsUploading,
+  } = useUploadManager();
+
   const [staged, setStaged] = useState<StagedFile[]>([]);
-  const [tracked, setTracked] = useState<TrackedDocument[]>([]);
   const [isDragging, setIsDragging] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
   const [extractionProgress, setExtractionProgress] = useState<{ current: number; total: number; fileName: string } | null>(null);
-  const [batchProgress, setBatchProgress] = useState<ServerBatchProgress | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [cameraPhotos, setCameraPhotos] = useState<{ file: File; preview: string }[]>([]);
   const [editingPhoto, setEditingPhoto] = useState<{ src: string; fileName: string; type: "camera" | "staged"; index: number } | null>(null);
-  const [largeZipProgress, setLargeZipProgress] = useState<LargeZipProgress | null>(null);
-  const largeZipPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [now, setNow] = useState(Date.now());
   const [whatsappGuideOpen, setWhatsappGuideOpen] = useState(() => {
     try { return localStorage.getItem("whatsapp-guide-collapsed") !== "true"; } catch { return true; }
@@ -161,41 +127,9 @@ export default function Upload() {
     return () => clearInterval(id);
   }, [tracked.length, batchProgress]);
 
-  useEffect(() => {
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-      if (largeZipPollRef.current) clearInterval(largeZipPollRef.current);
-    };
-  }, []);
+  // Poll cleanup and activeBatches restore are now handled by UploadManagerContext
 
-  // Restore active large ZIP jobs from DB on page load (survives refresh)
-  const { data: activeBatches } = trpc.documents.activeBatches.useQuery(undefined, {
-    enabled: !!user,
-    refetchOnWindowFocus: false,
-  });
-
-  useEffect(() => {
-    if (!activeBatches || activeBatches.length === 0) return;
-    // Resume polling for any active batch jobs found in the database
-    const batch = activeBatches[0]; // Take the most recent active job
-    if (!largeZipProgress && !largeZipPollRef.current) {
-      setLargeZipProgress({
-        jobId: batch.jobId,
-        fileName: batch.fileName,
-        status: batch.status as LargeZipProgress["status"],
-        totalEntries: batch.totalEntries,
-        processedEntries: batch.processedEntries,
-        uploadedToS3: batch.uploadedToS3,
-        skippedDuplicates: batch.skippedDuplicates,
-        failed: batch.failed,
-        documentIds: [],
-        errors: batch.errors ? JSON.parse(batch.errors) : [],
-        startedAt: batch.startedAt,
-        completedAt: batch.completedAt ?? undefined,
-      });
-      startLargeZipPolling(batch.jobId);
-    }
-  }, [activeBatches]);
+  // Poll cleanup and activeBatches restore are now handled by UploadManagerContext
 
   const reprocessMutation = trpc.documents.reprocess.useMutation();
   const cancelMutation = trpc.documents.cancelProcessing.useMutation();
@@ -274,266 +208,10 @@ export default function Upload() {
     setStaged((prev) => { const copy = [...prev]; if (copy[idx].preview) URL.revokeObjectURL(copy[idx].preview!); copy.splice(idx, 1); return copy; });
   };
 
-  // ── Poll server-side batch progress ──
-  const startPolling = useCallback((batchId: string, startedAt: number) => {
-    if (pollRef.current) clearInterval(pollRef.current);
-    pollRef.current = setInterval(async () => {
-      try {
-        const res = await fetch("/api/upload/progress/" + batchId, { credentials: "include" });
-        if (!res.ok) return;
-        const data = await res.json();
-        const progress: ServerBatchProgress = { batchId, startedAt, ...data };
-        setBatchProgress(progress);
+  // startPolling now delegates to context's startBatchPolling
+  const startPolling = startBatchPolling;
 
-        if (data.status === "complete" || data.status === "error") {
-          if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
-          // Add all document IDs to tracked
-          if (data.documentIds && data.documentIds.length > 0) {
-            const newTracked: TrackedDocument[] = data.documentIds.map((id: number) => ({
-              documentId: id, fileName: "File #" + id, trackedAt: Date.now(),
-            }));
-            setTracked((prev) => [...prev, ...newTracked]);
-          }
-          if (data.status === "complete") {
-            toast.success("Batch complete: " + data.processed + "/" + data.total + " files processed");
-            if (data.failed > 0) toast.error(data.failed + " files failed");
-          } else {
-            toast.error("Batch processing encountered errors");
-          }
-          // Clear progress after a short delay so user sees the final state
-          setTimeout(() => setBatchProgress(null), 3000);
-          setIsUploading(false);
-          utils.documents.recent.invalidate();
-          utils.dashboard.stats.invalidate();
-        }
-      } catch (e) {
-        // Silently retry on next interval
-      }
-    }, 1500);
-  }, [utils]);
-
-  // ── Large ZIP upload helper (splits ZIP into ~50MB chunks to bypass proxy limits) ──
-  const uploadLargeZip = async (zipFile: File) => {
-    const sizeMB = Math.round(zipFile.size / 1024 / 1024);
-    const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB per chunk (small enough to pass proxy limits)
-    const totalChunks = Math.ceil(zipFile.size / CHUNK_SIZE);
-
-    toast.info(`Uploading large ZIP (${sizeMB}MB) in ${totalChunks} chunks...`);
-
-    // Show initial chunked upload progress
-    const uploadStartTime = Date.now();
-    setLargeZipProgress({
-      jobId: "",
-      fileName: zipFile.name,
-      status: "uploading",
-      totalEntries: 0,
-      processedEntries: 0,
-      uploadedToS3: 0,
-      skippedDuplicates: 0,
-      failed: 0,
-      documentIds: [],
-      errors: [],
-      startedAt: uploadStartTime,
-      chunksTotal: totalChunks,
-      chunksSent: 0,
-      uploadPhase: "chunking",
-      bytesSent: 0,
-      totalBytes: zipFile.size,
-      speedMBps: 0,
-      etaSeconds: 0,
-    });
-
-    try {
-      // Step 1: Initialize chunked upload session
-      const initRes = await fetch("/api/upload/zip/chunked/init", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          fileName: zipFile.name,
-          totalSize: zipFile.size,
-          totalChunks,
-        }),
-      });
-
-      if (!initRes.ok) {
-        const errText = await initRes.text().catch(() => "");
-        let errorMsg = `HTTP ${initRes.status}`;
-        try {
-          const parsed = JSON.parse(errText);
-          errorMsg = parsed.error || errorMsg;
-        } catch {
-          errorMsg = errText.length < 200 ? `HTTP ${initRes.status}: ${errText.substring(0, 100)}` : `HTTP ${initRes.status}`;
-        }
-        console.error("[ChunkUpload] Init failed:", errorMsg);
-        throw new Error(errorMsg || "Failed to initialize chunked upload");
-      }
-
-      const { uploadId } = await initRes.json();
-
-      // Step 2: Upload each chunk with retry logic
-      const MAX_RETRIES = 5;
-      for (let i = 0; i < totalChunks; i++) {
-        const start = i * CHUNK_SIZE;
-        const end = Math.min(start + CHUNK_SIZE, zipFile.size);
-        const chunkBlob = zipFile.slice(start, end);
-
-        let lastError = "";
-        let success = false;
-
-        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-          try {
-            if (attempt > 1) {
-              // Show retry in progress UI
-              setLargeZipProgress((prev) => prev ? {
-                ...prev,
-                errors: [`Retrying chunk ${i + 1}/${totalChunks} (attempt ${attempt}/${MAX_RETRIES})...`],
-              } : prev);
-              toast.info(`Retrying chunk ${i + 1}/${totalChunks} (attempt ${attempt}/${MAX_RETRIES})...`);
-              // Wait before retry with exponential backoff (2s, 4s, 6s, 8s)
-              await new Promise((r) => setTimeout(r, 2000 * attempt));
-            }
-
-            const chunkForm = new FormData();
-            chunkForm.append("chunk", chunkBlob, `chunk-${i}`);
-
-            const chunkRes = await fetch(
-              `/api/upload/zip/chunked/chunk?uploadId=${uploadId}&chunkIndex=${i}`,
-              {
-                method: "POST",
-                body: chunkForm,
-                credentials: "include",
-              }
-            );
-
-            if (!chunkRes.ok) {
-              const statusText = `HTTP ${chunkRes.status}`;
-              const err = await chunkRes.text().catch(() => "");
-              let errorMsg = "";
-              try {
-                const parsed = JSON.parse(err);
-                errorMsg = parsed.error || statusText;
-              } catch {
-                errorMsg = err.length < 200 ? `${statusText}: ${err.substring(0, 100)}` : statusText;
-              }
-              lastError = errorMsg || `Chunk ${i + 1}/${totalChunks} failed (${statusText})`;
-              console.error(`[ChunkUpload] Chunk ${i+1}/${totalChunks} attempt ${attempt} failed:`, lastError);
-              continue; // retry
-            }
-
-            success = true;
-            break; // chunk uploaded successfully
-          } catch (e) {
-            lastError = e instanceof Error ? e.message : "Network error";
-            console.error(`[ChunkUpload] Chunk ${i+1}/${totalChunks} attempt ${attempt} network error:`, lastError);
-            // continue to retry
-          }
-        }
-
-        if (!success) {
-          throw new Error(`Chunk ${i + 1}/${totalChunks} failed after ${MAX_RETRIES} attempts: ${lastError}`);
-        }
-
-        // Update progress with speed estimation — clear any retry error messages
-        const bytesSentSoFar = end; // total bytes sent up to this chunk
-        const elapsedSec = (Date.now() - uploadStartTime) / 1000;
-        const speedMBps = elapsedSec > 0 ? (bytesSentSoFar / 1024 / 1024) / elapsedSec : 0;
-        const remainingBytes = zipFile.size - bytesSentSoFar;
-        const etaSeconds = speedMBps > 0 ? (remainingBytes / 1024 / 1024) / speedMBps : 0;
-
-        setLargeZipProgress((prev) => prev ? {
-          ...prev,
-          chunksSent: i + 1,
-          errors: [],
-          bytesSent: bytesSentSoFar,
-          speedMBps: Math.round(speedMBps * 100) / 100,
-          etaSeconds: Math.round(etaSeconds),
-        } : prev);
-      }
-
-      // Step 3: Finalize — reassemble and start processing
-      setLargeZipProgress((prev) => prev ? {
-        ...prev,
-        uploadPhase: "reassembling",
-      } : prev);
-
-      toast.info("All chunks uploaded. Reassembling ZIP on server...");
-
-      const finalizeRes = await fetch("/api/upload/zip/chunked/finalize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ uploadId }),
-      });
-
-      if (!finalizeRes.ok) {
-        const err = await finalizeRes.json().catch(() => ({ error: "Finalize failed" }));
-        throw new Error(err.error || "Failed to finalize chunked upload");
-      }
-
-      const result = await finalizeRes.json();
-      const sizeMsg = result.fileSizeMB ? ` (${result.fileSizeMB}MB)` : "";
-      toast.success(`All chunks received${sizeMsg}. Server is downloading, reassembling, and processing in background...`);
-
-      // Switch to server-side processing progress
-      setLargeZipProgress((prev) => prev ? {
-        ...prev,
-        jobId: result.jobId,
-        uploadPhase: "server-processing",
-        status: "extracting",
-      } : prev);
-
-      // Start polling for server-side extraction/processing progress
-      startLargeZipPolling(result.jobId);
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "unknown error";
-      toast.error("Large ZIP upload failed: " + errorMsg);
-      setLargeZipProgress((prev) => prev ? {
-        ...prev,
-        status: "error",
-        errors: [errorMsg],
-      } : prev);
-      // Clear error after 5 seconds
-      setTimeout(() => setLargeZipProgress(null), 5000);
-      setIsUploading(false);
-    }
-  };
-
-  // ── Poll large ZIP processing progress ──
-  const startLargeZipPolling = useCallback((jobId: string) => {
-    if (largeZipPollRef.current) clearInterval(largeZipPollRef.current);
-    
-    largeZipPollRef.current = setInterval(async () => {
-      try {
-        const res = await fetch("/api/upload/zip/large/progress/" + jobId);
-        if (!res.ok) return;
-        const data: LargeZipProgress = await res.json();
-        setLargeZipProgress(data);
-
-        if (data.status === "complete" || data.status === "error") {
-          if (largeZipPollRef.current) { clearInterval(largeZipPollRef.current); largeZipPollRef.current = null; }
-          
-          if (data.status === "complete") {
-            toast.success(
-              `ZIP processing complete: ${data.uploadedToS3} files uploaded, ` +
-              `${data.skippedDuplicates} duplicates skipped` +
-              (data.failed > 0 ? `, ${data.failed} failed` : "")
-            );
-          } else {
-            toast.error("ZIP processing encountered errors: " + (data.errors?.[0] || "Unknown error"));
-          }
-
-          // Clear progress after a delay
-          setTimeout(() => setLargeZipProgress(null), 5000);
-          setIsUploading(false);
-          utils.documents.recent.invalidate();
-          utils.dashboard.stats.invalidate();
-        }
-      } catch (e) {
-        // Silently retry on next interval
-      }
-    }, 2000);
-  }, [utils]);
+  // uploadLargeZip and startLargeZipPolling are now in UploadManagerContext
 
   // ── Client-side ZIP extraction helper ──
   const extractZipFiles = async (zipFile: File): Promise<File[]> => {
@@ -613,11 +291,7 @@ export default function Upload() {
             }
 
             const startedAt = Date.now();
-            setBatchProgress({
-              batchId: "files-uploading", total: allFiles.length, uploaded: i,
-              processing: 0, processed: 0, failed: 0, skippedDuplicates: 0, status: "uploading",
-              errors: [], startedAt, documentIds: [],
-            });
+            // batch progress is tracked by context
 
             const res = await fetch("/api/upload/files", {
               method: "POST",
@@ -643,7 +317,7 @@ export default function Upload() {
         } catch (err) {
           toast.error("Bulk upload failed: " + (err instanceof Error ? err.message : "unknown error"));
           setIsUploading(false);
-          setBatchProgress(null);
+          // batch progress cleared by context
         }
       }
 
@@ -652,7 +326,6 @@ export default function Upload() {
       }
     } catch (err) {
       setIsUploading(false);
-      setBatchProgress(null);
     }
   };
 
@@ -667,7 +340,7 @@ export default function Upload() {
   const completedDocs = resolvedDocs.filter((d) => d.backendStatus === "completed");
   const failedDocs = resolvedDocs.filter((d) => d.backendStatus === "failed");
   const discardedDocs = resolvedDocs.filter((d) => d.backendStatus === "discarded");
-  const clearFinished = () => setTracked((prev) => prev.filter((t) => !terminalIds.has(t.documentId)));
+  const clearFinished = () => clearFinishedCtx(terminalIds);
 
   // ── Drag & drop ──
   const onDrop = useCallback(async (e: React.DragEvent) => {
@@ -1504,7 +1177,7 @@ sijxJy.png"
                       )}
                       {(d.backendStatus === "failed" || d.backendStatus === "discarded") && (
                         <Button variant="outline" size="sm" disabled={reprocessMutation.isPending}
-                          onClick={() => reprocessMutation.mutate({ documentId: d.documentId }, { onSuccess: () => { setTracked((prev) => prev.map((t) => t.documentId === d.documentId ? { ...t, trackedAt: Date.now() } : t)); toast.success("Queued for reprocessing"); }, onError: (err) => toast.error(err.message) })}>
+                          onClick={() => reprocessMutation.mutate({ documentId: d.documentId }, { onSuccess: () => { addTracked([{ documentId: d.documentId, fileName: d.fileName, trackedAt: Date.now() }]); toast.success("Queued for reprocessing"); }, onError: (err) => toast.error(err.message) })}>
                           <RefreshCw className="h-3 w-3 mr-1" />Retry
                         </Button>
                       )}

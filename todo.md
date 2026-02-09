@@ -715,3 +715,16 @@
 - [x] Make result column bold italic in the summary table (Helvetica-BoldOblique)
 - [x] Add visible solid separator lines between different tests in detailed results (drawSeparatorHR)
 - [x] Fix blank pages: added lineBreak: false in renderFooters to prevent PDFKit auto-page creation
+
+## Background Upload: Persist Across Page Navigation
+- [x] Created UploadManagerContext at App level to hold upload state
+- [x] Moved chunked upload logic (uploadLargeZip, startLargeZipPolling) from Upload.tsx to context
+- [x] Moved batch polling (startBatchPolling) from Upload.tsx to context
+- [x] Added floating GlobalUploadIndicator component visible from any page (bottom-right)
+- [x] Refactored Upload.tsx to consume context instead of local state (0 TS errors)
+- [x] Active batch jobs restored from DB on context mount (survives page refresh)
+- [x] All 170 tests passing across 12 test files
+
+## Viral Load Chart: Curves Not Showing for High Values
+- [x] Root cause: log scale cannot display 0 (log(0)=-infinity), and domain max was hardcoded at 100M
+- [x] Fix: "Not Detected" now uses 0.5 floor value, domain max set to 'auto', tooltip shows 'ND' for values < 1
