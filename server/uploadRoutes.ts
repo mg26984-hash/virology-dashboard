@@ -14,6 +14,7 @@ import { processUploadedDocument } from "./documentProcessor";
 import { documents } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
 import { processLargeZipFromDisk, getLargeZipProgress, getLargeZipProgressFromDb } from "./largeZipProcessor";
+import { chunkedZipRouter } from "./chunkedZipUpload";
 
 // Compute SHA-256 hash of file content for deduplication
 function computeFileHash(buffer: Buffer): string {
@@ -708,5 +709,8 @@ router.post("/quick", upload.any(), async (req: Request, res: Response) => {
  * This is mounted at /api/upload, so the path is /quick-upload-redirect,
  * but we also add a top-level route in index.ts.
  */
+
+// Mount chunked ZIP upload sub-router
+router.use("/zip/chunked", chunkedZipRouter);
 
 export default router;

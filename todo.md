@@ -611,3 +611,12 @@
 - [x] Update Processing History frontend with ZipBatchCard component showing batch jobs
 - [x] Update Upload page to restore active large ZIP progress from database on page refresh
 - [x] Write 7 new tests for batch persistence and history retrieval (149 total tests passing)
+
+## Bug Fix: Large ZIP Splitting/Extraction Progress Not Visible on Upload Page
+- [x] Investigated: ZIPs >200MB sent to /api/upload/zip/large but proxy body limit (~250MB) blocks the upload silently
+- [x] Add server endpoints for chunked ZIP upload: init, chunk, finalize (chunkedZipUpload.ts)
+- [x] Update client uploadLargeZip to split ZIP file into ~50MB chunks before sending
+- [x] Show chunk upload progress (uploading chunk X of Y) with 4-step phase indicator in the UI
+- [x] After all chunks uploaded, trigger server-side processing and show extraction progress
+- [x] Existing ZIP upload logic for ZIPs under 200MB is completely unchanged
+- [x] 8 new tests for chunked ZIP logic — all 157 tests passing

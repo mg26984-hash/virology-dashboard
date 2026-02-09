@@ -45,7 +45,7 @@ interface ServerBatchProgress {
 interface LargeZipProgress {
   jobId: string;
   fileName: string;
-  status: "extracting" | "processing" | "complete" | "error";
+  status: "uploading" | "extracting" | "processing" | "complete" | "error";
   totalEntries: number;
   processedEntries: number;
   uploadedToS3: number;
@@ -55,6 +55,10 @@ interface LargeZipProgress {
   errors: string[];
   startedAt: number;
   completedAt?: number;
+  // Chunked upload fields (client-side only)
+  chunksTotal?: number;
+  chunksSent?: number;
+  uploadPhase?: "chunking" | "reassembling" | "server-processing";
 }
 
 // Threshold: ZIPs above this size are uploaded as-is to the server for disk-based processing
@@ -303,33 +307,125 @@ export default function Upload() {
     }, 1500);
   }, [utils]);
 
-  // ── Large ZIP upload helper (sends raw ZIP to server for disk-based processing) ──
+  // ── Large ZIP upload helper (splits ZIP into ~50MB chunks to bypass proxy limits) ──
   const uploadLargeZip = async (zipFile: File) => {
     const sizeMB = Math.round(zipFile.size / 1024 / 1024);
-    toast.info(`Uploading large ZIP (${sizeMB}MB) to server for processing...`);
-    
-    const formData = new FormData();
-    formData.append("file", zipFile);
+    const CHUNK_SIZE = 50 * 1024 * 1024; // 50MB per chunk
+    const totalChunks = Math.ceil(zipFile.size / CHUNK_SIZE);
+
+    toast.info(`Uploading large ZIP (${sizeMB}MB) in ${totalChunks} chunks...`);
+
+    // Show initial chunked upload progress
+    setLargeZipProgress({
+      jobId: "",
+      fileName: zipFile.name,
+      status: "uploading",
+      totalEntries: 0,
+      processedEntries: 0,
+      uploadedToS3: 0,
+      skippedDuplicates: 0,
+      failed: 0,
+      documentIds: [],
+      errors: [],
+      startedAt: Date.now(),
+      chunksTotal: totalChunks,
+      chunksSent: 0,
+      uploadPhase: "chunking",
+    });
 
     try {
-      const res = await fetch("/api/upload/zip/large", {
+      // Step 1: Initialize chunked upload session
+      const initRes = await fetch("/api/upload/zip/chunked/init", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
+        body: JSON.stringify({
+          fileName: zipFile.name,
+          totalSize: zipFile.size,
+          totalChunks,
+        }),
       });
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Upload failed" }));
-        throw new Error(err.error || "Upload failed with status " + res.status);
+      if (!initRes.ok) {
+        const err = await initRes.json().catch(() => ({ error: "Init failed" }));
+        throw new Error(err.error || "Failed to initialize chunked upload");
       }
 
-      const result = await res.json();
-      toast.success(`ZIP uploaded (${result.fileSizeMB}MB). Server is extracting and processing files...`);
+      const { uploadId } = await initRes.json();
 
-      // Start polling for large ZIP progress
+      // Step 2: Upload each chunk
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, zipFile.size);
+        const chunkBlob = zipFile.slice(start, end);
+
+        const chunkForm = new FormData();
+        chunkForm.append("chunk", chunkBlob, `chunk-${i}`);
+
+        const chunkRes = await fetch(
+          `/api/upload/zip/chunked/chunk?uploadId=${uploadId}&chunkIndex=${i}`,
+          {
+            method: "POST",
+            body: chunkForm,
+            credentials: "include",
+          }
+        );
+
+        if (!chunkRes.ok) {
+          const err = await chunkRes.json().catch(() => ({ error: "Chunk upload failed" }));
+          throw new Error(err.error || `Chunk ${i + 1}/${totalChunks} failed`);
+        }
+
+        // Update progress
+        setLargeZipProgress((prev) => prev ? {
+          ...prev,
+          chunksSent: i + 1,
+        } : prev);
+      }
+
+      // Step 3: Finalize — reassemble and start processing
+      setLargeZipProgress((prev) => prev ? {
+        ...prev,
+        uploadPhase: "reassembling",
+      } : prev);
+
+      toast.info("All chunks uploaded. Reassembling ZIP on server...");
+
+      const finalizeRes = await fetch("/api/upload/zip/chunked/finalize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ uploadId }),
+      });
+
+      if (!finalizeRes.ok) {
+        const err = await finalizeRes.json().catch(() => ({ error: "Finalize failed" }));
+        throw new Error(err.error || "Failed to finalize chunked upload");
+      }
+
+      const result = await finalizeRes.json();
+      toast.success(`ZIP reassembled (${result.fileSizeMB}MB). Server is extracting and processing files...`);
+
+      // Switch to server-side processing progress
+      setLargeZipProgress((prev) => prev ? {
+        ...prev,
+        jobId: result.jobId,
+        uploadPhase: "server-processing",
+        status: "extracting",
+      } : prev);
+
+      // Start polling for server-side extraction/processing progress
       startLargeZipPolling(result.jobId);
     } catch (err) {
-      toast.error("Large ZIP upload failed: " + (err instanceof Error ? err.message : "unknown error"));
+      const errorMsg = err instanceof Error ? err.message : "unknown error";
+      toast.error("Large ZIP upload failed: " + errorMsg);
+      setLargeZipProgress((prev) => prev ? {
+        ...prev,
+        status: "error",
+        errors: [errorMsg],
+      } : prev);
+      // Clear error after 5 seconds
+      setTimeout(() => setLargeZipProgress(null), 5000);
       setIsUploading(false);
     }
   };
@@ -1154,7 +1250,7 @@ sijxJy.png"
         </Card>
       )}
 
-      {/* Large ZIP server-side processing progress */}
+      {/* Large ZIP chunked upload + server-side processing progress */}
       {largeZipProgress && (
         <Card className="border-amber-500/30">
           <CardContent className="py-5">
@@ -1169,34 +1265,88 @@ sijxJy.png"
                     <Loader2 className="h-4 w-4 animate-spin text-amber-400" />
                   )}
                   <span className="font-medium">
-                    {largeZipProgress.status === "extracting" ? "Server extracting ZIP..." :
-                     largeZipProgress.status === "processing" ? "Server processing ZIP entries..." :
-                     largeZipProgress.status === "complete" ? "Large ZIP processing complete!" : "Error processing ZIP"}
+                    {largeZipProgress.status === "uploading" && largeZipProgress.uploadPhase === "chunking"
+                      ? `Uploading ZIP in chunks (${largeZipProgress.chunksSent || 0}/${largeZipProgress.chunksTotal || "?"})...`
+                      : largeZipProgress.status === "uploading" && largeZipProgress.uploadPhase === "reassembling"
+                      ? "Reassembling ZIP on server..."
+                      : largeZipProgress.status === "extracting" ? "Server extracting ZIP..."
+                      : largeZipProgress.status === "processing" ? "Server processing ZIP entries..."
+                      : largeZipProgress.status === "complete" ? "Large ZIP processing complete!"
+                      : largeZipProgress.status === "error" ? "Error processing ZIP"
+                      : "Uploading ZIP..."}
                   </span>
                 </div>
                 <span className="text-sm font-mono text-muted-foreground">
-                  {largeZipProgress.processedEntries} / {largeZipProgress.totalEntries || "?"}
+                  {largeZipProgress.status === "uploading" && largeZipProgress.chunksTotal
+                    ? `${largeZipProgress.chunksSent || 0} / ${largeZipProgress.chunksTotal} chunks`
+                    : `${largeZipProgress.processedEntries} / ${largeZipProgress.totalEntries || "?"}`}
                 </span>
               </div>
               <Progress
-                value={largeZipProgress.totalEntries > 0 ? (largeZipProgress.processedEntries / largeZipProgress.totalEntries) * 100 : 0}
+                value={(() => {
+                  if (largeZipProgress.status === "uploading" && largeZipProgress.chunksTotal) {
+                    return ((largeZipProgress.chunksSent || 0) / largeZipProgress.chunksTotal) * 100;
+                  }
+                  if (largeZipProgress.totalEntries > 0) {
+                    return (largeZipProgress.processedEntries / largeZipProgress.totalEntries) * 100;
+                  }
+                  return 0;
+                })()}
                 className="h-3"
               />
+
+              {/* Phase indicator steps */}
+              {largeZipProgress.status === "uploading" && (
+                <div className="flex items-center gap-2 text-xs">
+                  <span className={largeZipProgress.uploadPhase === "chunking" ? "text-amber-400 font-medium" : "text-muted-foreground"}>1. Splitting &amp; Uploading</span>
+                  <span className="text-muted-foreground">→</span>
+                  <span className={largeZipProgress.uploadPhase === "reassembling" ? "text-amber-400 font-medium" : "text-muted-foreground"}>2. Reassembling</span>
+                  <span className="text-muted-foreground">→</span>
+                  <span className="text-muted-foreground">3. Extracting</span>
+                  <span className="text-muted-foreground">→</span>
+                  <span className="text-muted-foreground">4. Processing</span>
+                </div>
+              )}
+              {(largeZipProgress.status === "extracting" || largeZipProgress.status === "processing") && (
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-green-400">✓ Uploaded</span>
+                  <span className="text-muted-foreground">→</span>
+                  <span className="text-green-400">✓ Reassembled</span>
+                  <span className="text-muted-foreground">→</span>
+                  <span className={largeZipProgress.status === "extracting" ? "text-amber-400 font-medium" : "text-green-400"}>{largeZipProgress.status === "extracting" ? "3. Extracting" : "✓ Extracted"}</span>
+                  <span className="text-muted-foreground">→</span>
+                  <span className={largeZipProgress.status === "processing" ? "text-amber-400 font-medium" : "text-muted-foreground"}>4. Processing</span>
+                </div>
+              )}
+
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <div className="flex items-center gap-3">
                   <span className="flex items-center gap-1">
                     <FileArchive className="h-3 w-3" />
                     {largeZipProgress.fileName}
                   </span>
-                  <span className="text-blue-400">{largeZipProgress.uploadedToS3} uploaded</span>
-                  {largeZipProgress.skippedDuplicates > 0 && <span className="text-yellow-400">{largeZipProgress.skippedDuplicates} duplicates</span>}
-                  {largeZipProgress.failed > 0 && <span className="text-destructive">{largeZipProgress.failed} failed</span>}
+                  {largeZipProgress.status !== "uploading" && (
+                    <>
+                      <span className="text-blue-400">{largeZipProgress.uploadedToS3} uploaded</span>
+                      {largeZipProgress.skippedDuplicates > 0 && <span className="text-yellow-400">{largeZipProgress.skippedDuplicates} duplicates</span>}
+                      {largeZipProgress.failed > 0 && <span className="text-destructive">{largeZipProgress.failed} failed</span>}
+                    </>
+                  )}
                 </div>
                 <span>
                   {(() => {
                     if (largeZipProgress.status === "complete" && largeZipProgress.completedAt) {
                       const duration = (largeZipProgress.completedAt - largeZipProgress.startedAt) / 1000;
                       return duration < 60 ? Math.round(duration) + "s total" : Math.round(duration / 60) + "m total";
+                    }
+                    if (largeZipProgress.status === "uploading" && largeZipProgress.chunksTotal) {
+                      const sent = largeZipProgress.chunksSent || 0;
+                      if (sent === 0) return "Starting upload...";
+                      const elapsed = (Date.now() - largeZipProgress.startedAt) / 1000;
+                      const rate = sent / elapsed;
+                      const remaining = (largeZipProgress.chunksTotal - sent) / rate;
+                      if (remaining < 60) return "~" + Math.ceil(remaining) + "s remaining";
+                      return "~" + Math.ceil(remaining / 60) + "m remaining";
                     }
                     const elapsed = (Date.now() - largeZipProgress.startedAt) / 1000;
                     const done = largeZipProgress.processedEntries;
@@ -1215,7 +1365,9 @@ sijxJy.png"
                 </div>
               )}
               <p className="text-xs text-muted-foreground">
-                Large ZIP files are processed on the server. You can close this page — processing continues in the background.
+                {largeZipProgress.status === "uploading"
+                  ? "Splitting large ZIP into chunks and uploading to server. Please keep this page open during upload."
+                  : "Server is processing the ZIP. You can close this page — processing continues in the background."}
               </p>
             </div>
           </CardContent>
