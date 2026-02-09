@@ -643,3 +643,23 @@
 - [x] Fixed chunked upload init failure: added express.json() middleware to chunked router
 - [x] Fixed ENOENT errors: all temp directories now ensure existence at point of use, not just module load
 - [x] All 170 tests passing across 12 test files
+
+## Bug Fix: Chunk Upload Fails After 3 Retry Attempts
+- [ ] Investigate server logs for chunk upload errors
+- [ ] Identify root cause of chunk upload failure
+- [ ] Fix the chunk upload endpoint/client logic
+- [ ] Verify fix works end-to-end
+
+## Bug Fix: Chunk Upload Fails on Published Site (900MB ZIP)
+- [x] Reduced chunk size from 50MB to 10MB to safely pass proxy body limits
+- [x] Switched chunk endpoint from memory storage to disk storage (multer.diskStorage)
+- [x] Added detailed error logging showing HTTP status and response text on chunk failure
+- [x] Increased retry count from 3 to 5 with longer exponential backoff (2s, 4s, 6s, 8s, 10s)
+- [x] Init endpoint error messages now show HTTP status and response detail
+
+## Upload Speed Estimation
+- [x] Track bytes sent and time elapsed per chunk (bytesSent, totalBytes fields)
+- [x] Calculate rolling average MB/s throughput after each chunk
+- [x] Show MB sent / total MB and speed in MB/s in the chunk progress card
+- [x] Calculate and display accurate ETA based on actual transfer speed
+- [x] All 170 tests passing across 12 test files

@@ -59,11 +59,22 @@ setInterval(() => {
   }
 }, 30 * 60 * 1000);
 
-// Multer for receiving individual chunks (up to 55MB each)
-const chunkStorage = multer.memoryStorage();
+// Multer for receiving individual chunks (up to 15MB each)
+// Use disk storage to avoid memory pressure from large chunks
+const chunkDiskStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    if (!fs.existsSync(CHUNKED_TEMP_DIR)) {
+      fs.mkdirSync(CHUNKED_TEMP_DIR, { recursive: true });
+    }
+    cb(null, CHUNKED_TEMP_DIR);
+  },
+  filename: (_req, _file, cb) => {
+    cb(null, `incoming-chunk-${nanoid()}`);
+  },
+});
 const chunkUpload = multer({
-  storage: chunkStorage,
-  limits: { fileSize: 55 * 1024 * 1024 }, // 55MB per chunk
+  storage: chunkDiskStorage,
+  limits: { fileSize: 15 * 1024 * 1024 }, // 15MB per chunk
 });
 
 /**
@@ -194,15 +205,17 @@ chunkedZipRouter.post("/chunk", chunkUpload.single("chunk"), async (req: Request
       return;
     }
 
-    // Write chunk to disk
+    // Move chunk from multer temp location to session directory
     const chunkPath = path.join(session.sessionDir, `chunk-${String(chunkIndex).padStart(5, "0")}`);
-    fs.writeFileSync(chunkPath, file.buffer);
+    // Disk storage: file.path is the temp location, move it to the session dir
+    fs.renameSync(file.path, chunkPath);
     session.receivedChunks.add(chunkIndex);
 
+    const chunkSize = file.size;
     const received = session.receivedChunks.size;
     const total = session.totalChunks;
 
-    console.log(`[ChunkedZip] Session ${uploadId}: chunk ${chunkIndex + 1}/${total} received (${(file.buffer.length / 1024 / 1024).toFixed(1)}MB)`);
+    console.log(`[ChunkedZip] Session ${uploadId}: chunk ${chunkIndex + 1}/${total} received (${(chunkSize / 1024 / 1024).toFixed(1)}MB)`);
 
     res.json({
       received,

@@ -59,6 +59,11 @@ interface LargeZipProgress {
   chunksTotal?: number;
   chunksSent?: number;
   uploadPhase?: "chunking" | "reassembling" | "server-processing";
+  // Speed tracking fields
+  bytesSent?: number;
+  totalBytes?: number;
+  speedMBps?: number;
+  etaSeconds?: number;
 }
 
 // Threshold: ZIPs above this size are uploaded as-is to the server for disk-based processing
@@ -310,12 +315,13 @@ export default function Upload() {
   // ── Large ZIP upload helper (splits ZIP into ~50MB chunks to bypass proxy limits) ──
   const uploadLargeZip = async (zipFile: File) => {
     const sizeMB = Math.round(zipFile.size / 1024 / 1024);
-    const CHUNK_SIZE = 50 * 1024 * 1024; // 50MB per chunk
+    const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB per chunk (small enough to pass proxy limits)
     const totalChunks = Math.ceil(zipFile.size / CHUNK_SIZE);
 
     toast.info(`Uploading large ZIP (${sizeMB}MB) in ${totalChunks} chunks...`);
 
     // Show initial chunked upload progress
+    const uploadStartTime = Date.now();
     setLargeZipProgress({
       jobId: "",
       fileName: zipFile.name,
@@ -327,10 +333,14 @@ export default function Upload() {
       failed: 0,
       documentIds: [],
       errors: [],
-      startedAt: Date.now(),
+      startedAt: uploadStartTime,
       chunksTotal: totalChunks,
       chunksSent: 0,
       uploadPhase: "chunking",
+      bytesSent: 0,
+      totalBytes: zipFile.size,
+      speedMBps: 0,
+      etaSeconds: 0,
     });
 
     try {
@@ -347,14 +357,22 @@ export default function Upload() {
       });
 
       if (!initRes.ok) {
-        const err = await initRes.json().catch(() => ({ error: "Init failed" }));
-        throw new Error(err.error || "Failed to initialize chunked upload");
+        const errText = await initRes.text().catch(() => "");
+        let errorMsg = `HTTP ${initRes.status}`;
+        try {
+          const parsed = JSON.parse(errText);
+          errorMsg = parsed.error || errorMsg;
+        } catch {
+          errorMsg = errText.length < 200 ? `HTTP ${initRes.status}: ${errText.substring(0, 100)}` : `HTTP ${initRes.status}`;
+        }
+        console.error("[ChunkUpload] Init failed:", errorMsg);
+        throw new Error(errorMsg || "Failed to initialize chunked upload");
       }
 
       const { uploadId } = await initRes.json();
 
       // Step 2: Upload each chunk with retry logic
-      const MAX_RETRIES = 3;
+      const MAX_RETRIES = 5;
       for (let i = 0; i < totalChunks; i++) {
         const start = i * CHUNK_SIZE;
         const end = Math.min(start + CHUNK_SIZE, zipFile.size);
@@ -372,8 +390,8 @@ export default function Upload() {
                 errors: [`Retrying chunk ${i + 1}/${totalChunks} (attempt ${attempt}/${MAX_RETRIES})...`],
               } : prev);
               toast.info(`Retrying chunk ${i + 1}/${totalChunks} (attempt ${attempt}/${MAX_RETRIES})...`);
-              // Wait before retry with exponential backoff
-              await new Promise((r) => setTimeout(r, 1000 * attempt));
+              // Wait before retry with exponential backoff (2s, 4s, 6s, 8s)
+              await new Promise((r) => setTimeout(r, 2000 * attempt));
             }
 
             const chunkForm = new FormData();
@@ -389,8 +407,17 @@ export default function Upload() {
             );
 
             if (!chunkRes.ok) {
-              const err = await chunkRes.json().catch(() => ({ error: "Chunk upload failed" }));
-              lastError = err.error || `Chunk ${i + 1}/${totalChunks} failed`;
+              const statusText = `HTTP ${chunkRes.status}`;
+              const err = await chunkRes.text().catch(() => "");
+              let errorMsg = "";
+              try {
+                const parsed = JSON.parse(err);
+                errorMsg = parsed.error || statusText;
+              } catch {
+                errorMsg = err.length < 200 ? `${statusText}: ${err.substring(0, 100)}` : statusText;
+              }
+              lastError = errorMsg || `Chunk ${i + 1}/${totalChunks} failed (${statusText})`;
+              console.error(`[ChunkUpload] Chunk ${i+1}/${totalChunks} attempt ${attempt} failed:`, lastError);
               continue; // retry
             }
 
@@ -398,6 +425,7 @@ export default function Upload() {
             break; // chunk uploaded successfully
           } catch (e) {
             lastError = e instanceof Error ? e.message : "Network error";
+            console.error(`[ChunkUpload] Chunk ${i+1}/${totalChunks} attempt ${attempt} network error:`, lastError);
             // continue to retry
           }
         }
@@ -406,11 +434,20 @@ export default function Upload() {
           throw new Error(`Chunk ${i + 1}/${totalChunks} failed after ${MAX_RETRIES} attempts: ${lastError}`);
         }
 
-        // Update progress — clear any retry error messages
+        // Update progress with speed estimation — clear any retry error messages
+        const bytesSentSoFar = end; // total bytes sent up to this chunk
+        const elapsedSec = (Date.now() - uploadStartTime) / 1000;
+        const speedMBps = elapsedSec > 0 ? (bytesSentSoFar / 1024 / 1024) / elapsedSec : 0;
+        const remainingBytes = zipFile.size - bytesSentSoFar;
+        const etaSeconds = speedMBps > 0 ? (remainingBytes / 1024 / 1024) / speedMBps : 0;
+
         setLargeZipProgress((prev) => prev ? {
           ...prev,
           chunksSent: i + 1,
           errors: [],
+          bytesSent: bytesSentSoFar,
+          speedMBps: Math.round(speedMBps * 100) / 100,
+          etaSeconds: Math.round(etaSeconds),
         } : prev);
       }
 
@@ -1308,7 +1345,9 @@ sijxJy.png"
                   </span>
                 </div>
                 <span className="text-sm font-mono text-muted-foreground">
-                  {largeZipProgress.status === "uploading" && largeZipProgress.chunksTotal
+                  {largeZipProgress.status === "uploading" && largeZipProgress.totalBytes
+                    ? `${Math.round((largeZipProgress.bytesSent || 0) / 1024 / 1024)}MB / ${Math.round(largeZipProgress.totalBytes / 1024 / 1024)}MB`
+                    : largeZipProgress.status === "uploading" && largeZipProgress.chunksTotal
                     ? `${largeZipProgress.chunksSent || 0} / ${largeZipProgress.chunksTotal} chunks`
                     : `${largeZipProgress.processedEntries} / ${largeZipProgress.totalEntries || "?"}`}
                 </span>
@@ -1373,11 +1412,14 @@ sijxJy.png"
                     if (largeZipProgress.status === "uploading" && largeZipProgress.chunksTotal) {
                       const sent = largeZipProgress.chunksSent || 0;
                       if (sent === 0) return "Starting upload...";
-                      const elapsed = (Date.now() - largeZipProgress.startedAt) / 1000;
-                      const rate = sent / elapsed;
-                      const remaining = (largeZipProgress.chunksTotal - sent) / rate;
-                      if (remaining < 60) return "~" + Math.ceil(remaining) + "s remaining";
-                      return "~" + Math.ceil(remaining / 60) + "m remaining";
+                      const speed = largeZipProgress.speedMBps || 0;
+                      const speedStr = speed > 0 ? `${speed.toFixed(1)} MB/s` : "";
+                      const eta = largeZipProgress.etaSeconds || 0;
+                      let etaStr = "";
+                      if (eta > 0) {
+                        etaStr = eta < 60 ? `~${Math.ceil(eta)}s left` : `~${Math.ceil(eta / 60)}m left`;
+                      }
+                      return [speedStr, etaStr].filter(Boolean).join(" · ") || "Uploading...";
                     }
                     const elapsed = (Date.now() - largeZipProgress.startedAt) / 1000;
                     const done = largeZipProgress.processedEntries;
