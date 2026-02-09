@@ -5,6 +5,9 @@ import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { storagePut } from "./storage";
+import { getDb } from "./db";
+import { documents } from "../drizzle/schema";
+import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import AdmZip from "adm-zip";
 import {
@@ -58,7 +61,7 @@ import ExcelJS from "exceljs";
 import { processUploadedDocument } from "./documentProcessor";
 import { generatePatientPDF, generateBulkPatientPDF } from "./pdfReport";
 import { generateDashboardPDF } from "./dashboardPdfReport";
-import { triggerProcessAllPending } from "./backgroundWorker";
+import { triggerProcessAllPending, retryAllFailed as retryAllFailedDocs } from "./backgroundWorker";
 
 // Middleware to check if user is approved
 const approvedProcedure = protectedProcedure.use(async ({ ctx, next }) => {
@@ -775,33 +778,14 @@ export const appRouter = router({
       }),
 
     // Retry all failed documents (any approved user)
+    // Uses the background worker's auto-retry which resets retryCount and processes via the worker loop
     retryAllFailed: approvedProcedure
       .mutation(async () => {
-        const docs = await getDocumentsByStatus(['failed'], 200);
-        if (docs.length === 0) {
+        const count = await retryAllFailedDocs();
+        if (count === 0) {
           return { success: true, message: 'No failed documents to retry', queued: 0 };
         }
-        let queued = 0;
-        for (const doc of docs) {
-          await updateDocumentStatus(doc.id, 'pending');
-          queued++;
-        }
-        // Process them in background
-        for (const doc of docs) {
-          const docId = doc.id;
-          const docUrl = doc.fileUrl;
-          const docMimeType = doc.mimeType || 'image/jpeg';
-          setImmediate(async () => {
-            try {
-              await updateDocumentStatus(docId, 'processing');
-              const result = await processUploadedDocument(docId, docUrl, docMimeType);
-              console.log(`[RetryAllFailed] Completed ${docId}:`, JSON.stringify(result));
-            } catch (error) {
-              console.error(`[RetryAllFailed] Failed ${docId}:`, error);
-            }
-          });
-        }
-        return { success: true, message: `Queued ${queued} failed documents for retry`, queued };
+        return { success: true, message: `Reset ${count} failed documents for retry`, queued: count };
       }),
 
     // Batch reprocess documents (admin only)
@@ -903,6 +887,56 @@ export const appRouter = router({
       .query(async ({ input }) => {
         const { getUploadBatchByJobId } = await import("./uploadBatchDb");
         return getUploadBatchByJobId(input.jobId);
+      }),
+
+    // Reconcile a batch: compare manifest against actual documents in DB
+    reconcileBatch: adminProcedure
+      .input(z.object({ jobId: z.string() }))
+      .mutation(async ({ input, ctx }) => {
+        const { getUploadBatchByJobId } = await import("./uploadBatchDb");
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Database not available' });
+
+        const batch = await getUploadBatchByJobId(input.jobId);
+        if (!batch) throw new TRPCError({ code: 'NOT_FOUND', message: 'Batch not found' });
+
+        // Get manifest
+        let manifestFiles: string[] = [];
+        if (batch.manifest) {
+          try { manifestFiles = JSON.parse(batch.manifest); } catch { /* ignore */ }
+        }
+
+        // Get all documents linked to this batch
+        const batchDocs = await db
+          .select({ id: documents.id, fileName: documents.fileName, processingStatus: documents.processingStatus })
+          .from(documents)
+          .where(eq(documents.batchId, input.jobId));
+
+        const uploadedFileNames = new Set(batchDocs.map(d => d.fileName));
+        const missingFiles = manifestFiles.filter(f => !uploadedFileNames.has(f));
+
+        // Count statuses
+        const statusCounts = { pending: 0, processing: 0, completed: 0, failed: 0, discarded: 0 };
+        for (const doc of batchDocs) {
+          const s = doc.processingStatus as keyof typeof statusCounts;
+          if (s in statusCounts) statusCounts[s]++;
+        }
+
+        // Log the reconciliation
+        await createAuditLog({
+          action: 'reconcile_batch',
+          userId: ctx.user!.id,
+          reason: `Reconciled batch ${input.jobId}: ${manifestFiles.length} in manifest, ${batchDocs.length} in DB, ${missingFiles.length} missing`,
+        });
+
+        return {
+          jobId: input.jobId,
+          fileName: batch.fileName,
+          manifestCount: manifestFiles.length,
+          documentsInDb: batchDocs.length,
+          missingFiles,
+          statusCounts,
+        };
       }),
   }),
 

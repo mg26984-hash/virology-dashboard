@@ -22,6 +22,7 @@ export async function updateUploadBatch(
     skippedDuplicates: number;
     failed: number;
     errors: string | null;
+    manifest: string | null;
     completedAt: number | null;
   }>
 ) {

@@ -728,3 +728,14 @@
 ## Viral Load Chart: Curves Not Showing for High Values
 - [x] Root cause: log scale cannot display 0 (log(0)=-infinity), and domain max was hardcoded at 100M
 - [x] Fix: "Not Detected" now uses 0.5 floor value, domain max set to 'auto', tooltip shows 'ND' for values < 1
+
+## Missed Files Analysis & Prevention Strategy
+- [ ] Complete bulk upload of 4603 files from EmamExport(1).zip (in progress: 2840/4603)
+- [ ] Analyze which files were missed/failed and determine root causes
+- [x] Implement upload reconciliation: compare ZIP manifest vs DB records (reconcileBatch admin endpoint)
+- [x] Add automatic retry logic for failed documents (backgroundWorker retryAllFailed, MAX_RETRIES=3)
+- [x] Add retryCount column to documents table for tracking retry attempts
+- [x] Add batchId column to documents table to link documents to their upload batch
+- [x] Add manifest column to uploadBatches table (JSON array of filenames)
+- [x] Store manifest during ZIP processing for reconciliation
+- [x] All 170 tests passing

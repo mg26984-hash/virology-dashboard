@@ -77,6 +77,8 @@ export const documents = mysqlTable("documents", {
   processingStatus: mysqlEnum("processingStatus", ["pending", "processing", "completed", "failed", "discarded"]).default("pending").notNull(),
   processingError: text("processingError"),
   extractedData: text("extractedData"),
+  retryCount: int("retryCount").default(0).notNull(),
+  batchId: varchar("batchId", { length: 64 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -130,6 +132,8 @@ export const uploadBatches = mysqlTable("uploadBatches", {
   skippedDuplicates: int("skippedDuplicates").default(0).notNull(),
   failed: int("failed").default(0).notNull(),
   errors: text("errors"),
+  /** JSON array of filenames in the ZIP - used for reconciliation */
+  manifest: text("manifest"),
   startedAt: bigint("startedAt", { mode: "number" }).notNull(),
   completedAt: bigint("completedAt", { mode: "number" }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

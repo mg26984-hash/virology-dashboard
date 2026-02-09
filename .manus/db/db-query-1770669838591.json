@@ -1,0 +1,22 @@
+{
+  "query": "SELECT processingStatus, COUNT(*) as count FROM documents GROUP BY processingStatus;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute SELECT processingStatus, COUNT(*) as count FROM documents GROUP BY processingStatus;",
+  "rows": [
+    {
+      "processingStatus": "completed",
+      "count": "1478"
+    },
+    {
+      "processingStatus": "discarded",
+      "count": "7443"
+    },
+    {
+      "processingStatus": "processing",
+      "count": "1"
+    }
+  ],
+  "messages": [],
+  "stdout": "processingStatus\tcount\ncompleted\t1478\ndiscarded\t7443\nprocessing\t1\n",
+  "stderr": "",
+  "execution_time_ms": 1532
+}

@@ -317,6 +317,17 @@ async function processZipFromDisk(
       `[LargeZip] Job ${jobId}: Found ${validEntries.length} valid entries out of ${allEntries.length} total`
     );
 
+    // Store the manifest (list of filenames) for reconciliation
+    const manifestFileNames = validEntries.map((e) => e.entryName.split("/").pop() || e.entryName);
+    try {
+      await updateUploadBatch(jobId, {
+        manifest: JSON.stringify(manifestFileNames),
+      });
+      console.log(`[LargeZip] Job ${jobId}: Stored manifest with ${manifestFileNames.length} filenames`);
+    } catch (err) {
+      console.error(`[LargeZip] Job ${jobId}: Failed to store manifest:`, err);
+    }
+
     // Persist the entry count
     await persistProgress(progress);
 
@@ -380,6 +391,7 @@ async function processZipFromDisk(
           fileSize: fileBuffer.length,
           fileHash,
           processingStatus: "pending",
+          batchId: jobId,
         });
 
         progress.documentIds.push(document.id);

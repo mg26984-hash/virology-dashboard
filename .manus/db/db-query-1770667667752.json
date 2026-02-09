@@ -1,0 +1,40 @@
+{
+  "query": "SELECT id, name, role, status FROM users LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute SELECT id, name, role, status FROM users LIMIT 5;",
+  "rows": [
+    {
+      "id": "1",
+      "name": "Mohammed Megahed",
+      "role": "admin",
+      "status": "approved"
+    },
+    {
+      "id": "510025",
+      "name": "mg26984",
+      "role": "user",
+      "status": "banned"
+    },
+    {
+      "id": "661934",
+      "name": "Osama Gheith",
+      "role": "admin",
+      "status": "approved"
+    },
+    {
+      "id": "662454",
+      "name": "Sally Elrashidy",
+      "role": "user",
+      "status": "banned"
+    },
+    {
+      "id": "662476",
+      "name": "ahmed denewar",
+      "role": "admin",
+      "status": "approved"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\trole\tstatus\n1\tMohammed Megahed\tadmin\tapproved\n510025\tmg26984\tuser\tbanned\n661934\tOsama Gheith\tadmin\tapproved\n662454\tSally Elrashidy\tuser\tbanned\n662476\tahmed denewar\tadmin\tapproved\n",
+  "stderr": "",
+  "execution_time_ms": 1680
+}

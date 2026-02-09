@@ -1,15 +1,38 @@
 import { getDb } from "./db";
 import { documents } from "../drizzle/schema";
-import { eq, asc, sql } from "drizzle-orm";
+import { eq, asc, sql, and, lt, or } from "drizzle-orm";
 import { processUploadedDocument } from "./documentProcessor";
+
+const MAX_RETRIES = 3;
 
 let isProcessing = false;
 let workerInterval: ReturnType<typeof setInterval> | null = null;
 
 /**
+ * Reset a failed document back to "pending" for retry, incrementing retryCount.
+ * Returns true if the document was reset, false if max retries exceeded.
+ */
+async function resetFailedForRetry(db: any, docId: number, currentRetryCount: number): Promise<boolean> {
+  if (currentRetryCount >= MAX_RETRIES) {
+    return false;
+  }
+  await db
+    .update(documents)
+    .set({
+      processingStatus: "pending",
+      retryCount: currentRetryCount + 1,
+      processingError: `Auto-retry ${currentRetryCount + 1}/${MAX_RETRIES} scheduled`,
+    })
+    .where(eq(documents.id, docId));
+  return true;
+}
+
+/**
  * Background worker that picks up pending documents and processes them.
  * Runs on a configurable interval (default: every 30 seconds).
  * Processes documents in batches of 3 to avoid overwhelming the LLM API.
+ * 
+ * Also auto-retries failed documents up to MAX_RETRIES times.
  */
 async function processPendingDocuments() {
   if (isProcessing) {
@@ -24,6 +47,32 @@ async function processPendingDocuments() {
     if (!db) {
       console.log("[BackgroundWorker] Database not available, skipping");
       return;
+    }
+
+    // Auto-retry: pick up failed documents that haven't exceeded MAX_RETRIES
+    const failedDocs = await db
+      .select({
+        id: documents.id,
+        retryCount: documents.retryCount,
+        fileName: documents.fileName,
+      })
+      .from(documents)
+      .where(
+        and(
+          eq(documents.processingStatus, "failed"),
+          lt(documents.retryCount, MAX_RETRIES)
+        )
+      )
+      .orderBy(asc(documents.updatedAt))
+      .limit(5);
+
+    for (const doc of failedDocs) {
+      const wasReset = await resetFailedForRetry(db, doc.id, doc.retryCount);
+      if (wasReset) {
+        console.log(
+          `[BackgroundWorker] Auto-retry: reset document #${doc.id} (${doc.fileName}) for retry ${doc.retryCount + 1}/${MAX_RETRIES}`
+        );
+      }
     }
 
     // Fetch up to 3 pending documents (oldest first)
@@ -224,4 +273,27 @@ export async function triggerProcessAllPending(): Promise<{
   }
 
   return summary;
+}
+
+/**
+ * Retry all permanently failed documents (retryCount >= MAX_RETRIES).
+ * Resets them to pending with retryCount = 0 for a fresh start.
+ * Returns the number of documents reset.
+ */
+export async function retryAllFailed(): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+
+  const result = await db
+    .update(documents)
+    .set({
+      processingStatus: "pending",
+      retryCount: 0,
+      processingError: "Manual retry - all counts reset",
+    })
+    .where(eq(documents.processingStatus, "failed"));
+
+  const count = (result as any)?.[0]?.affectedRows || 0;
+  console.log(`[BackgroundWorker] Manual retry: reset ${count} failed document(s) to pending`);
+  return count;
 }
