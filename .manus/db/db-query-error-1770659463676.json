@@ -1,0 +1,8 @@
+{
+  "query": "SELECT id, LEFT(token, 20) as token_prefix, userId, expiresAt, createdAt, NOW() as current_time FROM uploadTokens ORDER BY createdAt DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute SELECT id, LEFT(token, 20) as token_prefix, userId, expiresAt, createdAt, NOW() as current_time FROM uploadTokens ORDER BY createdAt DESC LIMIT 5;",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1064 (42000) at line 1: You have an error in your SQL syntax; check the manual that corresponds to your TiDB version for the right syntax to use line 1 column 95 near \"current_time FROM uploadTokens ORDER BY createdAt DESC LIMIT 5\""
+  ]
+}

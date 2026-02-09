@@ -1,0 +1,45 @@
+{
+  "query": "SELECT id, token, userId, expiresAt, createdAt FROM uploadTokens ORDER BY createdAt DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute SELECT id, token, userId, expiresAt, createdAt FROM uploadTokens ORDER BY createdAt DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "60144",
+      "token": "8a85f99ec50af8b1d20f746811a67ad37c2d019b7ef0e1cdd33041c35fb98d1e",
+      "userId": "1",
+      "expiresAt": "2037-12-31 23:59:59",
+      "createdAt": "2026-02-09 15:33:42"
+    },
+    {
+      "id": "60143",
+      "token": "92958606edf1baaae5e6da0f3fbbe3ebea79f05d9dd24841aa610a18b9ccec2d",
+      "userId": "1",
+      "expiresAt": "2037-12-31 23:59:59",
+      "createdAt": "2026-02-09 15:28:27"
+    },
+    {
+      "id": "60142",
+      "token": "53dc88de0bef904ff1195e202da87d37413692c9333e637a8309f28c0123dfca",
+      "userId": "1",
+      "expiresAt": "2037-12-31 23:59:59",
+      "createdAt": "2026-02-09 15:28:26"
+    },
+    {
+      "id": "60141",
+      "token": "094d0d3e39c40302c4b021dcae4a3d6e74d660156b626f813a42c67ba6f7747f",
+      "userId": "1",
+      "expiresAt": "2037-12-31 23:59:59",
+      "createdAt": "2026-02-09 15:28:25"
+    },
+    {
+      "id": "60140",
+      "token": "027cd26cce7bcc2eabde3108fbc80d1efd7658b27f691c2862e7a97361db6096",
+      "userId": "1",
+      "expiresAt": "2037-12-31 23:59:59",
+      "createdAt": "2026-02-09 15:28:22"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\ttoken\tuserId\texpiresAt\tcreatedAt\n60144\t8a85f99ec50af8b1d20f746811a67ad37c2d019b7ef0e1cdd33041c35fb98d1e\t1\t2037-12-31 23:59:59\t2026-02-09 15:33:42\n60143\t92958606edf1baaae5e6da0f3fbbe3ebea79f05d9dd24841aa610a18b9ccec2d\t1\t2037-12-31 23:59:59\t2026-02-09 15:28:27\n60142\t53dc88de0bef904ff1195e202da87d37413692c9333e637a8309f28c0123dfca\t1\t2037-12-31 23:59:59\t2026-02-09 15:28:26\n60141\t094d0d3e39c40302c4b021dcae4a3d6e74d660156b626f813a42c67ba6f7747f\t1\t2037-12-31 23:59:59\t2026-02-09 15:28:25\n60140\t027cd26cce7bcc2eabde3108fbc80d1efd7658b27f691c2862e7a97361db6096\t1\t2037-12-31 23:59:59\t2026-02-09 15:28:22\n",
+  "stderr": "",
+  "execution_time_ms": 1539
+}

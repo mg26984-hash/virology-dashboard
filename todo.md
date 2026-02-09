@@ -672,3 +672,33 @@
 - [x] Updated finalize endpoint: downloads chunks from S3, reassembles to temp file, processes
 - [x] S3 chunks cleaned up in background after reassembly
 - [x] All 170 tests passing (1 pre-existing unrelated failure in virology.test.ts)
+
+## Bug Fix: Quick Upload (iOS Shortcut) Endpoint Broken
+- [x] Investigated: endpoint was working correctly, tested with valid token on published site (success)
+- [x] Root cause: outdated token in the iOS Shortcut URL, not a code issue
+- [x] Resolved: user regenerated token and updated Shortcut — working fine now
+
+## Bug Fix: Finalize Failed After 90 Chunks Uploaded (900MB ZIP)
+- [x] Investigated: proxy timeout kills the request during synchronous S3 download + reassembly phase
+- [x] Fixed: finalize now returns immediately with jobId, creates uploadBatch DB record, then runs S3 download + reassembly + processing entirely in background
+- [x] processLargeZipFromDisk updated to accept optional existingJobId parameter (skips duplicate DB record creation)
+- [x] Frontend toast updated to handle fileSizeMB gracefully
+- [x] Progress polling works immediately after finalize returns (DB record exists before background work starts)
+- [x] All 170 tests passing (1 pre-existing unrelated failure in virology.test.ts)
+
+## Nationality Normalization Round 2
+- [x] Normalize "Ku" and "Khy" → "Kuwaiti" in database (2 rows updated)
+- [x] Normalize "Non Ku" → "Non-Kuwaiti" in database (1 row updated)
+- [x] Update normalizeNationality() in document processor to handle these new variants
+- [x] Updated test cases with Ku, Khy, Non Ku assertions
+- [x] Verify Tests by Nationality chart shows only Kuwaiti and Non-Kuwaiti (DB now has only Kuwaiti: 543, Non-Kuwaiti: 197, null: 9)
+
+## PDF Export Fix: Extra Blank Pages
+- [x] Fixed: replaced hardcoded page-break threshold (180px) with dynamic ensureSpace() that calculates actual needed height per test entry
+- [x] No layout overlap or text clipping — usableBottom() accounts for footer area
+
+## PDF Export: Summary Table
+- [x] Added "TEST HISTORY TABLE" section at end of each patient report
+- [x] Table columns: Test Date, Test Name, Result with dark header row
+- [x] Chronological order (ascending), alternating row backgrounds, page-break aware
+- [x] All 170 tests passing across 12 test files

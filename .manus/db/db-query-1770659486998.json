@@ -1,0 +1,14 @@
+{
+  "query": "SELECT token, userId FROM uploadTokens LIMIT 1;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute SELECT token, userId FROM uploadTokens LIMIT 1;",
+  "rows": [
+    {
+      "token": "41ec1d7d3f8eecdcd971308098c66f95dd22cca96dc811f77b6dfbbfff427bc4",
+      "userId": "1"
+    }
+  ],
+  "messages": [],
+  "stdout": "token\tuserId\n41ec1d7d3f8eecdcd971308098c66f95dd22cca96dc811f77b6dfbbfff427bc4\t1\n",
+  "stderr": "",
+  "execution_time_ms": 1522
+}

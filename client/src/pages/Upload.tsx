@@ -472,7 +472,8 @@ export default function Upload() {
       }
 
       const result = await finalizeRes.json();
-      toast.success(`ZIP reassembled (${result.fileSizeMB}MB). Server is extracting and processing files...`);
+      const sizeMsg = result.fileSizeMB ? ` (${result.fileSizeMB}MB)` : "";
+      toast.success(`All chunks received${sizeMsg}. Server is downloading, reassembling, and processing in background...`);
 
       // Switch to server-side processing progress
       setLargeZipProgress((prev) => prev ? {

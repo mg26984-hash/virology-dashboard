@@ -8,7 +8,8 @@
  * Flow:
  * 1. Client calls POST /init with file metadata → session created in DB
  * 2. Client sends each chunk via POST /chunk → chunk uploaded to S3
- * 3. Client calls POST /finalize → chunks downloaded from S3, reassembled, processed
+ * 3. Client calls POST /finalize → returns immediately with jobId, background task
+ *    downloads chunks from S3, reassembles ZIP, and processes entries
  * 
  * This does NOT change any existing ZIP upload logic.
  */
@@ -149,6 +150,115 @@ async function updateSessionStatus(uploadId: string, status: "active" | "finaliz
     .where(eq(chunkedUploadSessions.uploadId, uploadId));
 }
 
+// ---- Background reassembly + processing ----
+
+/**
+ * Download all chunks from S3, reassemble into a single ZIP file on disk,
+ * then hand off to the large ZIP processor. Runs entirely in the background.
+ */
+async function reassembleAndProcess(
+  uploadId: string,
+  session: {
+    fileName: string;
+    totalSize: number;
+    totalChunks: number;
+    userId: number;
+  },
+  jobId: string
+): Promise<void> {
+  const assembledPath = path.join(CHUNKED_TEMP_DIR, `assembled-${uploadId}.zip`);
+
+  try {
+    ensureTempDir();
+    console.log(`[ChunkedZip] Job ${jobId}: Starting background reassembly of ${session.totalChunks} chunks from S3...`);
+
+    const writeStream = fs.createWriteStream(assembledPath);
+
+    for (let i = 0; i < session.totalChunks; i++) {
+      const s3Key = chunkS3Key(uploadId, i);
+      
+      // Retry each chunk download up to 3 times
+      let downloaded = false;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const { url } = await storageGet(s3Key);
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(`S3 returned ${response.status}`);
+          }
+          const buffer = Buffer.from(await response.arrayBuffer());
+          writeStream.write(buffer);
+          downloaded = true;
+          break;
+        } catch (err) {
+          console.warn(`[ChunkedZip] Job ${jobId}: Chunk ${i} download attempt ${attempt + 1} failed:`, err);
+          if (attempt < 2) {
+            await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+          }
+        }
+      }
+
+      if (!downloaded) {
+        throw new Error(`Failed to download chunk ${i} from S3 after 3 attempts`);
+      }
+
+      // Log progress every 10 chunks
+      if ((i + 1) % 10 === 0 || i === session.totalChunks - 1) {
+        const pct = Math.round(((i + 1) / session.totalChunks) * 100);
+        console.log(`[ChunkedZip] Job ${jobId}: Downloaded ${i + 1}/${session.totalChunks} chunks (${pct}%)`);
+      }
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      writeStream.end(() => resolve());
+      writeStream.on("error", reject);
+    });
+
+    const assembledSize = fs.statSync(assembledPath).size;
+    console.log(`[ChunkedZip] Job ${jobId}: Reassembled ${(assembledSize / 1024 / 1024).toFixed(1)}MB ZIP from S3 chunks`);
+
+    // Mark session as complete
+    await updateSessionStatus(uploadId, "complete");
+
+    // Clean up S3 chunks in background (don't block processing)
+    (async () => {
+      for (let i = 0; i < session.totalChunks; i++) {
+        try {
+          await storageDelete(chunkS3Key(uploadId, i));
+        } catch (e) { /* ignore cleanup errors */ }
+      }
+      console.log(`[ChunkedZip] Job ${jobId}: S3 chunks cleaned up`);
+    })().catch(() => {});
+
+    // Hand off to the existing large ZIP processor (processes from disk)
+    // processLargeZipFromDisk creates its own jobId internally, but we already
+    // created one. We'll call the internal processZipFromDisk directly via
+    // processLargeZipFromDisk which starts background processing.
+    await processLargeZipFromDisk(assembledPath, session.fileName, session.userId, jobId);
+
+  } catch (err) {
+    console.error(`[ChunkedZip] Job ${jobId}: Reassembly failed:`, err);
+    await updateSessionStatus(uploadId, "expired");
+    
+    // Update the upload batch record with the error
+    try {
+      const { updateUploadBatch } = await import("./uploadBatchDb");
+      await updateUploadBatch(jobId, {
+        status: "error",
+        errors: JSON.stringify([`Reassembly failed: ${err instanceof Error ? err.message : "Unknown error"}`]),
+        completedAt: Date.now(),
+      });
+    } catch (dbErr) {
+      console.error(`[ChunkedZip] Job ${jobId}: Failed to update error in DB:`, dbErr);
+    }
+
+    // Clean up assembled file if it exists
+    try {
+      if (fs.existsSync(assembledPath)) fs.unlinkSync(assembledPath);
+    } catch (e) { /* ignore */ }
+  }
+}
+
 // ---- Router ----
 
 export const chunkedZipRouter = Router();
@@ -282,7 +392,9 @@ chunkedZipRouter.post("/chunk", chunkUpload.single("chunk"), async (req: Request
 
 /**
  * POST /api/upload/zip/chunked/finalize
- * Reassemble chunks from S3 into a single ZIP file and start processing.
+ * Validate all chunks are present, then kick off background reassembly + processing.
+ * Returns IMMEDIATELY with a jobId — the actual download/reassembly/processing
+ * happens in the background so the request doesn't time out.
  * Body: { uploadId }
  */
 chunkedZipRouter.post("/finalize", async (req: Request, res: Response) => {
@@ -332,55 +444,52 @@ chunkedZipRouter.post("/finalize", async (req: Request, res: Response) => {
     // Mark session as finalizing
     await updateSessionStatus(uploadId, "finalizing");
 
-    console.log(`[ChunkedZip] Session ${uploadId}: All ${session.totalChunks} chunks in S3. Downloading and reassembling...`);
+    // Generate a jobId for tracking the background processing
+    const jobId = nanoid();
 
-    // Download chunks from S3 and reassemble into a local file
-    ensureTempDir();
-    const assembledPath = path.join(CHUNKED_TEMP_DIR, `${uploadId}-${session.fileName}`);
-    const writeStream = fs.createWriteStream(assembledPath);
-
-    for (let i = 0; i < session.totalChunks; i++) {
-      const s3Key = chunkS3Key(uploadId, i);
-      const { url } = await storageGet(s3Key);
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Failed to download chunk ${i} from S3: ${response.status}`);
-      }
-      const buffer = Buffer.from(await response.arrayBuffer());
-      writeStream.write(buffer);
+    // Create the uploadBatch DB record NOW (before background work starts)
+    // so the progress polling endpoint can find it immediately
+    const { createUploadBatch } = await import("./uploadBatchDb");
+    try {
+      await createUploadBatch({
+        jobId,
+        userId: session.userId,
+        fileName: session.fileName,
+        status: "extracting",
+        totalEntries: 0,
+        processedEntries: 0,
+        uploadedToS3: 0,
+        skippedDuplicates: 0,
+        failed: 0,
+        errors: null,
+        startedAt: Date.now(),
+        completedAt: null,
+      });
+    } catch (dbErr) {
+      console.error(`[ChunkedZip] Failed to create upload batch record:`, dbErr);
     }
 
-    await new Promise<void>((resolve, reject) => {
-      writeStream.end(() => resolve());
-      writeStream.on("error", reject);
+    const fileSizeMB = Math.round(session.totalSize / 1024 / 1024);
+    console.log(`[ChunkedZip] Session ${uploadId}: All ${session.totalChunks} chunks in S3. Starting background reassembly (jobId: ${jobId}, ${fileSizeMB}MB)...`);
+
+    // Start background reassembly + processing (DO NOT await — return immediately)
+    reassembleAndProcess(uploadId, {
+      fileName: session.fileName,
+      totalSize: session.totalSize,
+      totalChunks: session.totalChunks,
+      userId: session.userId,
+    }, jobId).catch(err => {
+      console.error(`[ChunkedZip] Background reassembly failed for session ${uploadId}:`, err);
     });
 
-    const assembledSize = fs.statSync(assembledPath).size;
-    console.log(`[ChunkedZip] Session ${uploadId}: Reassembled ${(assembledSize / 1024 / 1024).toFixed(1)}MB ZIP from S3 chunks`);
-
-    // Clean up S3 chunks in background (don't block the response)
-    (async () => {
-      for (let i = 0; i < session.totalChunks; i++) {
-        try {
-          await storageDelete(chunkS3Key(uploadId, i));
-        } catch (e) { /* ignore cleanup errors */ }
-      }
-      console.log(`[ChunkedZip] Session ${uploadId}: S3 chunks cleaned up`);
-    })().catch(() => {});
-
-    // Mark session as complete
-    await updateSessionStatus(uploadId, "complete");
-
-    // Hand off to the existing large ZIP processor (processes from disk)
-    const jobId = await processLargeZipFromDisk(assembledPath, session.fileName, session.userId);
-
+    // Return immediately — client will poll for progress via the large ZIP progress endpoint
     res.json({
       success: true,
       jobId,
       fileName: session.fileName,
-      fileSize: assembledSize,
-      fileSizeMB: Math.round(assembledSize / 1024 / 1024),
-      message: `ZIP reassembled (${Math.round(assembledSize / 1024 / 1024)}MB). Processing entries from disk.`,
+      fileSizeMB,
+      totalChunks: session.totalChunks,
+      message: `All ${session.totalChunks} chunks received. Reassembly and processing started in background.`,
     });
   } catch (error) {
     console.error("[ChunkedZip] Finalize error:", error);
@@ -408,5 +517,4 @@ chunkedZipRouter.get("/status/:uploadId", async (req: Request, res: Response) =>
     status: session.status,
     complete: session.receivedChunks === session.totalChunks,
   });
-
 });

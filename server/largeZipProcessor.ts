@@ -453,9 +453,10 @@ async function processZipFromDisk(
 export async function processLargeZipFromDisk(
   diskPath: string,
   originalName: string,
-  userId: number
+  userId: number,
+  existingJobId?: string
 ): Promise<string> {
-  const jobId = nanoid();
+  const jobId = existingJobId || nanoid();
 
   // Initialize progress
   const progress: LargeZipProgress = {
@@ -473,24 +474,26 @@ export async function processLargeZipFromDisk(
   };
   activeJobs.set(jobId, progress);
 
-  // Persist initial record to database
-  try {
-    await createUploadBatch({
-      jobId,
-      userId,
-      fileName: originalName,
-      status: "extracting",
-      totalEntries: 0,
-      processedEntries: 0,
-      uploadedToS3: 0,
-      skippedDuplicates: 0,
-      failed: 0,
-      errors: null,
-      startedAt: Date.now(),
-      completedAt: null,
-    });
-  } catch (err) {
-    console.error(`[LargeZip] Failed to create DB record for job ${jobId}:`, err);
+  // Persist initial record to database (skip if existingJobId was provided — caller already created it)
+  if (!existingJobId) {
+    try {
+      await createUploadBatch({
+        jobId,
+        userId,
+        fileName: originalName,
+        status: "extracting",
+        totalEntries: 0,
+        processedEntries: 0,
+        uploadedToS3: 0,
+        skippedDuplicates: 0,
+        failed: 0,
+        errors: null,
+        startedAt: Date.now(),
+        completedAt: null,
+      });
+    } catch (err) {
+      console.error(`[LargeZip] Failed to create DB record for job ${jobId}:`, err);
+    }
   }
 
   // Start processing in background

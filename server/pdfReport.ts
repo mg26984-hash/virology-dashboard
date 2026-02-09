@@ -159,6 +159,20 @@ export async function generateBulkPatientPDF(
 
 // ── Shared content renderer ──
 
+/** Usable height before the footer area */
+function usableBottom(doc: PDFKit.PDFDocument): number {
+  return doc.page.height - doc.page.margins.bottom - 20; // 20px for footer
+}
+
+/** Check if there's enough room; if not, add a page. Returns true if page was added. */
+function ensureSpace(doc: PDFKit.PDFDocument, needed: number): boolean {
+  if (doc.y + needed > usableBottom(doc)) {
+    doc.addPage();
+    return true;
+  }
+  return false;
+}
+
 function renderPatientContent(
   doc: PDFKit.PDFDocument,
   patient: Patient,
@@ -291,10 +305,13 @@ function renderPatientContent(
     for (let i = 0; i < sortedTests.length; i++) {
       const test = sortedTests[i];
 
-      // Check if we need a new page
-      if (doc.y > doc.page.height - 180) {
-        doc.addPage();
-      }
+      // Estimate space needed for this test entry (~16px per row + header)
+      const rowCount = 2 + (test.viralLoad ? 1 : 0) + (test.sampleNo ? 1 : 0) +
+        (test.accessionNo ? 1 : 0) + (test.departmentNo ? 1 : 0) +
+        (test.location ? 1 : 0) + (test.signedBy ? 1 : 0) + (test.signedAt ? 1 : 0);
+      const estimatedHeight = 20 + rowCount * 16 + 10; // header + rows + spacing
+
+      ensureSpace(doc, estimatedHeight);
 
       // Test number and type
       doc
@@ -353,6 +370,32 @@ function renderPatientContent(
         doc.moveDown(0.3);
       }
     }
+  }
+
+  // ── Summary Table at End ──
+  if (tests.length > 0) {
+    doc.moveDown(0.5);
+    drawHR(doc, pageWidth);
+    doc.moveDown(0.5);
+
+    ensureSpace(doc, 60); // header + at least 1 row
+
+    doc
+      .fontSize(12)
+      .font("Helvetica-Bold")
+      .fillColor("#000000")
+      .text("TEST HISTORY TABLE");
+
+    doc.moveDown(0.4);
+
+    // Sort by date ascending for the table (chronological order)
+    const chronologicalTests = [...tests].sort((a, b) => {
+      const dateA = a.accessionDate ? new Date(a.accessionDate).getTime() : 0;
+      const dateB = b.accessionDate ? new Date(b.accessionDate).getTime() : 0;
+      return dateA - dateB;
+    });
+
+    drawTestSummaryTable(doc, chronologicalTests, pageWidth);
   }
 }
 
@@ -470,5 +513,100 @@ function drawKeyValueTable(
       });
 
     doc.moveDown(0.15);
+  }
+}
+
+/**
+ * Draw a 3-column summary table: Test Date | Test Name | Result
+ * with proper headers, alternating row backgrounds, and page break handling.
+ */
+function drawTestSummaryTable(
+  doc: PDFKit.PDFDocument,
+  tests: VirologyTest[],
+  tableWidth: number
+) {
+  const x = doc.page.margins.left;
+  const colWidths = [110, tableWidth - 110 - 160, 160]; // Date, Test Name, Result
+  const rowHeight = 16;
+  const padding = 4;
+
+  // ── Draw header row ──
+  function drawHeader() {
+    // Header background
+    doc
+      .save()
+      .rect(x, doc.y - 1, tableWidth, rowHeight + 2)
+      .fillColor("#333333")
+      .fill()
+      .restore();
+
+    const headers = ["Test Date", "Test Name", "Result"];
+    let colX = x;
+    for (let c = 0; c < headers.length; c++) {
+      doc
+        .fontSize(8)
+        .font("Helvetica-Bold")
+        .fillColor("#ffffff")
+        .text(headers[c], colX + padding, doc.y, {
+          width: colWidths[c] - padding * 2,
+          height: rowHeight,
+          ellipsis: true,
+        });
+      if (c < headers.length - 1) {
+        doc.moveUp();
+      }
+      colX += colWidths[c];
+    }
+    doc.moveDown(0.2);
+  }
+
+  drawHeader();
+
+  // ── Draw data rows ──
+  for (let i = 0; i < tests.length; i++) {
+    const test = tests[i];
+
+    // Check if we need a new page
+    if (doc.y + rowHeight > usableBottom(doc)) {
+      doc.addPage();
+      drawHeader(); // re-draw header on new page
+    }
+
+    // Alternate row background
+    if (i % 2 === 0) {
+      doc
+        .save()
+        .rect(x, doc.y - 1, tableWidth, rowHeight)
+        .fillColor("#f8f8f8")
+        .fill()
+        .restore();
+    }
+
+    const dateStr = test.accessionDate
+      ? new Date(test.accessionDate).toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        })
+      : "N/A";
+
+    const values = [dateStr, test.testType, test.result];
+    let colX = x;
+    for (let c = 0; c < values.length; c++) {
+      doc
+        .fontSize(8)
+        .font(c === 2 ? "Helvetica-Bold" : "Helvetica")
+        .fillColor("#000000")
+        .text(values[c], colX + padding, doc.y, {
+          width: colWidths[c] - padding * 2,
+          height: rowHeight,
+          ellipsis: true,
+        });
+      if (c < values.length - 1) {
+        doc.moveUp();
+      }
+      colX += colWidths[c];
+    }
+    doc.moveDown(0.1);
   }
 }

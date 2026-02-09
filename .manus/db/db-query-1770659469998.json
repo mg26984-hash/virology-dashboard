@@ -1,0 +1,50 @@
+{
+  "query": "SELECT id, LEFT(token, 20) as token_prefix, userId, expiresAt, createdAt, NOW() as now_time FROM uploadTokens ORDER BY createdAt DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute SELECT id, LEFT(token, 20) as token_prefix, userId, expiresAt, createdAt, NOW() as now_time FROM uploadTokens ORDER BY createdAt DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "60144",
+      "token_prefix": "8a85f99ec50af8b1d20f",
+      "userId": "1",
+      "expiresAt": "2037-12-31 23:59:59",
+      "createdAt": "2026-02-09 15:33:42",
+      "now_time": "2026-02-09 17:51:09"
+    },
+    {
+      "id": "60143",
+      "token_prefix": "92958606edf1baaae5e6",
+      "userId": "1",
+      "expiresAt": "2037-12-31 23:59:59",
+      "createdAt": "2026-02-09 15:28:27",
+      "now_time": "2026-02-09 17:51:09"
+    },
+    {
+      "id": "60142",
+      "token_prefix": "53dc88de0bef904ff119",
+      "userId": "1",
+      "expiresAt": "2037-12-31 23:59:59",
+      "createdAt": "2026-02-09 15:28:26",
+      "now_time": "2026-02-09 17:51:09"
+    },
+    {
+      "id": "60141",
+      "token_prefix": "094d0d3e39c40302c4b0",
+      "userId": "1",
+      "expiresAt": "2037-12-31 23:59:59",
+      "createdAt": "2026-02-09 15:28:25",
+      "now_time": "2026-02-09 17:51:09"
+    },
+    {
+      "id": "60140",
+      "token_prefix": "027cd26cce7bcc2eabde",
+      "userId": "1",
+      "expiresAt": "2037-12-31 23:59:59",
+      "createdAt": "2026-02-09 15:28:22",
+      "now_time": "2026-02-09 17:51:09"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\ttoken_prefix\tuserId\texpiresAt\tcreatedAt\tnow_time\n60144\t8a85f99ec50af8b1d20f\t1\t2037-12-31 23:59:59\t2026-02-09 15:33:42\t2026-02-09 17:51:09\n60143\t92958606edf1baaae5e6\t1\t2037-12-31 23:59:59\t2026-02-09 15:28:27\t2026-02-09 17:51:09\n60142\t53dc88de0bef904ff119\t1\t2037-12-31 23:59:59\t2026-02-09 15:28:26\t2026-02-09 17:51:09\n60141\t094d0d3e39c40302c4b0\t1\t2037-12-31 23:59:59\t2026-02-09 15:28:25\t2026-02-09 17:51:09\n60140\t027cd26cce7bcc2eabde\t1\t2037-12-31 23:59:59\t2026-02-09 15:28:22\t2026-02-09 17:51:09\n",
+  "stderr": "",
+  "execution_time_ms": 1519
+}

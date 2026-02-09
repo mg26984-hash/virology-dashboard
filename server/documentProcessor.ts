@@ -15,12 +15,13 @@ function normalizeNationality(value: string | null): string | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
   const lower = trimmed.toLowerCase().replace(/[^a-z\s]/g, '').trim();
-  // Kuwaiti variants: kuwaiti, kuwait, kuwaitt, etc.
-  if (/^kuwait[i]?[t]?$/i.test(lower)) return 'Kuwaiti';
-  // Non-Kuwaiti variants: non kuwaiti, non kuwait, non-kuwaiti, etc.
-  if (/^non[\s-]*kuwait[i]?[t]?$/i.test(lower)) return 'Non-Kuwaiti';
+  // Non-Kuwaiti variants: non kuwaiti, non kuwait, non-kuwaiti, non ku, etc.
+  // Check "non" prefix FIRST to avoid matching "non ku" as Kuwaiti
+  if (/^non[\s-]*ku(wait[i]?[t]?)?$/i.test(lower)) return 'Non-Kuwaiti';
   // Just "non" likely means Non-Kuwaiti
   if (lower === 'non') return 'Non-Kuwaiti';
+  // Kuwaiti variants: kuwaiti, kuwait, kuwaitt, ku, khy, etc.
+  if (/^ku(wait[i]?[t]?)?$/i.test(lower) || lower === 'khy') return 'Kuwaiti';
   // For any other nationality, title-case it
   return trimmed.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
 }
