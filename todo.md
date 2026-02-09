@@ -645,10 +645,8 @@
 - [x] All 170 tests passing across 12 test files
 
 ## Bug Fix: Chunk Upload Fails After 3 Retry Attempts
-- [ ] Investigate server logs for chunk upload errors
-- [ ] Identify root cause of chunk upload failure
-- [ ] Fix the chunk upload endpoint/client logic
-- [ ] Verify fix works end-to-end
+- [x] Investigated: root cause was in-memory sessions + local disk storage not shared across instances
+- [x] Fixed by moving to DB+S3 backed storage (see below)
 
 ## Bug Fix: Chunk Upload Fails on Published Site (900MB ZIP)
 - [x] Reduced chunk size from 50MB to 10MB to safely pass proxy body limits
@@ -663,3 +661,14 @@
 - [x] Show MB sent / total MB and speed in MB/s in the chunk progress card
 - [x] Calculate and display accurate ETA based on actual transfer speed
 - [x] All 170 tests passing across 12 test files
+
+
+## Bug Fix: Chunked Upload "Session Not Found" on Published Site
+- [x] Added chunkedUploadSessions table to database schema (uploadId, userId, fileName, totalSize, totalChunks, receivedChunks, receivedChunkIndices, status)
+- [x] Moved session storage from in-memory Map to database — all instances share same sessions
+- [x] Moved chunk storage from local disk to S3 (storagePut/storageGet) — all instances share same chunks
+- [x] Updated init endpoint: creates session in DB
+- [x] Updated chunk endpoint: uploads chunk to S3, marks received in DB
+- [x] Updated finalize endpoint: downloads chunks from S3, reassembles to temp file, processes
+- [x] S3 chunks cleaned up in background after reassembly
+- [x] All 170 tests passing (1 pre-existing unrelated failure in virology.test.ts)

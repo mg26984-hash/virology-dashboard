@@ -1,16 +1,14 @@
 /**
- * Chunked ZIP Upload
+ * Chunked ZIP Upload (Database + S3 backed)
  * 
- * Handles large ZIP files by receiving them in chunks (~50MB each)
- * to bypass proxy body size limits. Chunks are written to disk
- * and reassembled into the full ZIP file, then handed off to
- * the existing largeZipProcessor for sequential entry processing.
+ * Handles large ZIP files by receiving them in chunks (~10MB each)
+ * to bypass proxy body size limits. Sessions are stored in the database
+ * and chunks are stored in S3, so this works across multiple server instances.
  * 
  * Flow:
- * 1. Client calls POST /api/upload/zip/chunked/init with file metadata
- * 2. Client sends each chunk via POST /api/upload/zip/chunked/chunk
- * 3. Client calls POST /api/upload/zip/chunked/finalize to trigger processing
- * 4. Server reassembles chunks and delegates to processLargeZipFromDisk
+ * 1. Client calls POST /init with file metadata → session created in DB
+ * 2. Client sends each chunk via POST /chunk → chunk uploaded to S3
+ * 3. Client calls POST /finalize → chunks downloaded from S3, reassembled, processed
  * 
  * This does NOT change any existing ZIP upload logic.
  */
@@ -21,51 +19,35 @@ import os from "os";
 import { nanoid } from "nanoid";
 import { Router, Request, Response } from "express";
 import multer from "multer";
+import express from "express";
 import { sdk } from "./_core/sdk";
 import { processLargeZipFromDisk } from "./largeZipProcessor";
+import { storagePut, storageGet, storageDelete } from "./storage";
+import { getDb } from "./db";
+import { chunkedUploadSessions } from "../drizzle/schema";
+import { eq } from "drizzle-orm";
 
 const CHUNKED_TEMP_DIR = path.join(os.tmpdir(), "virology-chunked-zip");
-if (!fs.existsSync(CHUNKED_TEMP_DIR)) {
-  fs.mkdirSync(CHUNKED_TEMP_DIR, { recursive: true });
-}
 
-// Track active chunked uploads in memory
-interface ChunkedUploadSession {
-  uploadId: string;
-  userId: number;
-  fileName: string;
-  totalSize: number;
-  totalChunks: number;
-  receivedChunks: Set<number>;
-  sessionDir: string;
-  createdAt: number;
-}
-
-const activeSessions = new Map<string, ChunkedUploadSession>();
-
-// Clean up stale sessions after 2 hours
-setInterval(() => {
-  const now = Date.now();
-  for (const [id, session] of Array.from(activeSessions.entries())) {
-    if (now - session.createdAt > 2 * 60 * 60 * 1000) {
-      try {
-        if (fs.existsSync(session.sessionDir)) {
-          fs.rmSync(session.sessionDir, { recursive: true, force: true });
-        }
-      } catch (e) { /* ignore */ }
-      activeSessions.delete(id);
-      console.log(`[ChunkedZip] Cleaned up stale session: ${id}`);
-    }
+function ensureTempDir() {
+  if (!fs.existsSync(CHUNKED_TEMP_DIR)) {
+    fs.mkdirSync(CHUNKED_TEMP_DIR, { recursive: true });
   }
-}, 30 * 60 * 1000);
+}
+ensureTempDir();
+
+// S3 key prefix for chunked uploads
+const S3_CHUNK_PREFIX = "chunked-uploads";
+
+function chunkS3Key(uploadId: string, chunkIndex: number): string {
+  return `${S3_CHUNK_PREFIX}/${uploadId}/chunk-${String(chunkIndex).padStart(5, "0")}`;
+}
 
 // Multer for receiving individual chunks (up to 15MB each)
-// Use disk storage to avoid memory pressure from large chunks
+// Use disk storage to avoid memory pressure
 const chunkDiskStorage = multer.diskStorage({
   destination: (_req, _file, cb) => {
-    if (!fs.existsSync(CHUNKED_TEMP_DIR)) {
-      fs.mkdirSync(CHUNKED_TEMP_DIR, { recursive: true });
-    }
+    ensureTempDir();
     cb(null, CHUNKED_TEMP_DIR);
   },
   filename: (_req, _file, cb) => {
@@ -98,11 +80,80 @@ async function authenticateRequest(req: Request): Promise<number | null> {
   return null;
 }
 
+// ---- Database helpers for chunked sessions ----
+
+async function createSession(data: {
+  uploadId: string;
+  userId: number;
+  fileName: string;
+  totalSize: number;
+  totalChunks: number;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(chunkedUploadSessions).values({
+    uploadId: data.uploadId,
+    userId: data.userId,
+    fileName: data.fileName,
+    totalSize: data.totalSize,
+    totalChunks: data.totalChunks,
+    receivedChunks: 0,
+    receivedChunkIndices: "",
+    status: "active",
+  });
+}
+
+async function getSession(uploadId: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select()
+    .from(chunkedUploadSessions)
+    .where(eq(chunkedUploadSessions.uploadId, uploadId))
+    .limit(1);
+  return rows[0] || null;
+}
+
+async function markChunkReceived(uploadId: string, chunkIndex: number) {
+  const session = await getSession(uploadId);
+  if (!session) return null;
+
+  // Parse existing indices
+  const existing = session.receivedChunkIndices
+    ? session.receivedChunkIndices.split(",").filter(Boolean).map(Number)
+    : [];
+
+  if (!existing.includes(chunkIndex)) {
+    existing.push(chunkIndex);
+  }
+
+  const db = await getDb();
+  if (!db) return null;
+  await db
+    .update(chunkedUploadSessions)
+    .set({
+      receivedChunks: existing.length,
+      receivedChunkIndices: existing.join(","),
+    })
+    .where(eq(chunkedUploadSessions.uploadId, uploadId));
+
+  return { ...session, receivedChunks: existing.length, receivedChunkIndices: existing.join(",") };
+}
+
+async function updateSessionStatus(uploadId: string, status: "active" | "finalizing" | "complete" | "expired") {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .update(chunkedUploadSessions)
+    .set({ status })
+    .where(eq(chunkedUploadSessions.uploadId, uploadId));
+}
+
+// ---- Router ----
+
 export const chunkedZipRouter = Router();
 
 // Parse JSON bodies for init and finalize endpoints
-// (needed because this router is mounted before the global body parser)
-import express from "express";
 chunkedZipRouter.use(express.json({ limit: "1mb" }));
 
 /**
@@ -130,26 +181,16 @@ chunkedZipRouter.post("/init", async (req: Request, res: Response) => {
     }
 
     const uploadId = nanoid();
-    // Ensure parent dir exists (may have been cleaned up)
-    if (!fs.existsSync(CHUNKED_TEMP_DIR)) {
-      fs.mkdirSync(CHUNKED_TEMP_DIR, { recursive: true });
-    }
-    const sessionDir = path.join(CHUNKED_TEMP_DIR, uploadId);
-    fs.mkdirSync(sessionDir, { recursive: true });
 
-    const session: ChunkedUploadSession = {
+    await createSession({
       uploadId,
       userId,
       fileName,
       totalSize,
       totalChunks,
-      receivedChunks: new Set(),
-      sessionDir,
-      createdAt: Date.now(),
-    };
-    activeSessions.set(uploadId, session);
+    });
 
-    console.log(`[ChunkedZip] Init session ${uploadId}: ${fileName}, ${(totalSize / 1024 / 1024).toFixed(1)}MB, ${totalChunks} chunks`);
+    console.log(`[ChunkedZip] Init session ${uploadId}: ${fileName}, ${(totalSize / 1024 / 1024).toFixed(1)}MB, ${totalChunks} chunks (DB+S3 backed)`);
 
     res.json({
       uploadId,
@@ -168,9 +209,11 @@ chunkedZipRouter.post("/init", async (req: Request, res: Response) => {
  * Body: multipart with "chunk" field
  */
 chunkedZipRouter.post("/chunk", chunkUpload.single("chunk"), async (req: Request, res: Response) => {
+  const tempFilePath = req.file?.path;
   try {
     const userId = await authenticateRequest(req);
     if (!userId) {
+      if (tempFilePath) try { fs.unlinkSync(tempFilePath); } catch {}
       res.status(403).json({ error: "Unauthorized" });
       return;
     }
@@ -179,43 +222,50 @@ chunkedZipRouter.post("/chunk", chunkUpload.single("chunk"), async (req: Request
     const chunkIndex = parseInt(req.query.chunkIndex as string, 10);
 
     if (!uploadId || isNaN(chunkIndex)) {
+      if (tempFilePath) try { fs.unlinkSync(tempFilePath); } catch {}
       res.status(400).json({ error: "Missing uploadId or chunkIndex query params" });
       return;
     }
 
-    const session = activeSessions.get(uploadId);
-    if (!session) {
+    const session = await getSession(uploadId);
+    if (!session || session.status !== "active") {
+      if (tempFilePath) try { fs.unlinkSync(tempFilePath); } catch {}
       res.status(404).json({ error: "Upload session not found. It may have expired." });
       return;
     }
 
     if (session.userId !== userId) {
+      if (tempFilePath) try { fs.unlinkSync(tempFilePath); } catch {}
       res.status(403).json({ error: "Unauthorized for this upload session" });
       return;
     }
 
     if (chunkIndex < 0 || chunkIndex >= session.totalChunks) {
+      if (tempFilePath) try { fs.unlinkSync(tempFilePath); } catch {}
       res.status(400).json({ error: `Invalid chunk index. Expected 0-${session.totalChunks - 1}` });
       return;
     }
 
     const file = req.file;
-    if (!file) {
+    if (!file || !tempFilePath) {
       res.status(400).json({ error: "No chunk data provided" });
       return;
     }
 
-    // Move chunk from multer temp location to session directory
-    const chunkPath = path.join(session.sessionDir, `chunk-${String(chunkIndex).padStart(5, "0")}`);
-    // Disk storage: file.path is the temp location, move it to the session dir
-    fs.renameSync(file.path, chunkPath);
-    session.receivedChunks.add(chunkIndex);
+    // Read chunk from disk and upload to S3
+    const chunkData = fs.readFileSync(tempFilePath);
+    const s3Key = chunkS3Key(uploadId, chunkIndex);
+    await storagePut(s3Key, chunkData, "application/octet-stream");
 
-    const chunkSize = file.size;
-    const received = session.receivedChunks.size;
+    // Clean up temp file
+    try { fs.unlinkSync(tempFilePath); } catch {}
+
+    // Mark chunk as received in database
+    const updated = await markChunkReceived(uploadId, chunkIndex);
+    const received = updated?.receivedChunks || 0;
     const total = session.totalChunks;
 
-    console.log(`[ChunkedZip] Session ${uploadId}: chunk ${chunkIndex + 1}/${total} received (${(chunkSize / 1024 / 1024).toFixed(1)}MB)`);
+    console.log(`[ChunkedZip] Session ${uploadId}: chunk ${chunkIndex + 1}/${total} → S3 (${(chunkData.length / 1024 / 1024).toFixed(1)}MB)`);
 
     res.json({
       received,
@@ -223,6 +273,8 @@ chunkedZipRouter.post("/chunk", chunkUpload.single("chunk"), async (req: Request
       complete: received === total,
     });
   } catch (error) {
+    // Clean up temp file on error
+    if (tempFilePath) try { fs.unlinkSync(tempFilePath); } catch {}
     console.error("[ChunkedZip] Chunk error:", error);
     res.status(500).json({ error: "Failed to receive chunk" });
   }
@@ -230,7 +282,7 @@ chunkedZipRouter.post("/chunk", chunkUpload.single("chunk"), async (req: Request
 
 /**
  * POST /api/upload/zip/chunked/finalize
- * Reassemble chunks into a single ZIP file and start processing.
+ * Reassemble chunks from S3 into a single ZIP file and start processing.
  * Body: { uploadId }
  */
 chunkedZipRouter.post("/finalize", async (req: Request, res: Response) => {
@@ -247,7 +299,7 @@ chunkedZipRouter.post("/finalize", async (req: Request, res: Response) => {
       return;
     }
 
-    const session = activeSessions.get(uploadId);
+    const session = await getSession(uploadId);
     if (!session) {
       res.status(404).json({ error: "Upload session not found" });
       return;
@@ -259,29 +311,43 @@ chunkedZipRouter.post("/finalize", async (req: Request, res: Response) => {
     }
 
     // Check all chunks received
-    if (session.receivedChunks.size !== session.totalChunks) {
+    const receivedIndices = session.receivedChunkIndices
+      ? session.receivedChunkIndices.split(",").filter(Boolean).map(Number)
+      : [];
+
+    if (receivedIndices.length !== session.totalChunks) {
+      const receivedSet = new Set(receivedIndices);
       const missing = [];
       for (let i = 0; i < session.totalChunks; i++) {
-        if (!session.receivedChunks.has(i)) missing.push(i);
+        if (!receivedSet.has(i)) missing.push(i);
       }
       res.status(400).json({
         error: `Missing ${missing.length} chunks: ${missing.slice(0, 10).join(", ")}${missing.length > 10 ? "..." : ""}`,
-        received: session.receivedChunks.size,
+        received: receivedIndices.length,
         total: session.totalChunks,
       });
       return;
     }
 
-    console.log(`[ChunkedZip] Session ${uploadId}: All ${session.totalChunks} chunks received. Reassembling...`);
+    // Mark session as finalizing
+    await updateSessionStatus(uploadId, "finalizing");
 
-    // Reassemble chunks into a single file
+    console.log(`[ChunkedZip] Session ${uploadId}: All ${session.totalChunks} chunks in S3. Downloading and reassembling...`);
+
+    // Download chunks from S3 and reassemble into a local file
+    ensureTempDir();
     const assembledPath = path.join(CHUNKED_TEMP_DIR, `${uploadId}-${session.fileName}`);
     const writeStream = fs.createWriteStream(assembledPath);
 
     for (let i = 0; i < session.totalChunks; i++) {
-      const chunkPath = path.join(session.sessionDir, `chunk-${String(i).padStart(5, "0")}`);
-      const chunkData = fs.readFileSync(chunkPath);
-      writeStream.write(chunkData);
+      const s3Key = chunkS3Key(uploadId, i);
+      const { url } = await storageGet(s3Key);
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Failed to download chunk ${i} from S3: ${response.status}`);
+      }
+      const buffer = Buffer.from(await response.arrayBuffer());
+      writeStream.write(buffer);
     }
 
     await new Promise<void>((resolve, reject) => {
@@ -290,18 +356,23 @@ chunkedZipRouter.post("/finalize", async (req: Request, res: Response) => {
     });
 
     const assembledSize = fs.statSync(assembledPath).size;
-    console.log(`[ChunkedZip] Session ${uploadId}: Reassembled ${(assembledSize / 1024 / 1024).toFixed(1)}MB ZIP`);
+    console.log(`[ChunkedZip] Session ${uploadId}: Reassembled ${(assembledSize / 1024 / 1024).toFixed(1)}MB ZIP from S3 chunks`);
 
-    // Clean up chunk directory
-    try {
-      fs.rmSync(session.sessionDir, { recursive: true, force: true });
-    } catch (e) { /* ignore */ }
+    // Clean up S3 chunks in background (don't block the response)
+    (async () => {
+      for (let i = 0; i < session.totalChunks; i++) {
+        try {
+          await storageDelete(chunkS3Key(uploadId, i));
+        } catch (e) { /* ignore cleanup errors */ }
+      }
+      console.log(`[ChunkedZip] Session ${uploadId}: S3 chunks cleaned up`);
+    })().catch(() => {});
 
-    // Remove session from memory
-    activeSessions.delete(uploadId);
+    // Mark session as complete
+    await updateSessionStatus(uploadId, "complete");
 
     // Hand off to the existing large ZIP processor (processes from disk)
-    const jobId = await processLargeZipFromDisk(assembledPath, session.fileName, userId);
+    const jobId = await processLargeZipFromDisk(assembledPath, session.fileName, session.userId);
 
     res.json({
       success: true,
@@ -322,7 +393,7 @@ chunkedZipRouter.post("/finalize", async (req: Request, res: Response) => {
  * Check the status of a chunked upload session.
  */
 chunkedZipRouter.get("/status/:uploadId", async (req: Request, res: Response) => {
-  const session = activeSessions.get(req.params.uploadId);
+  const session = await getSession(req.params.uploadId);
   if (!session) {
     res.status(404).json({ error: "Session not found" });
     return;
@@ -333,7 +404,9 @@ chunkedZipRouter.get("/status/:uploadId", async (req: Request, res: Response) =>
     fileName: session.fileName,
     totalSize: session.totalSize,
     totalChunks: session.totalChunks,
-    receivedChunks: session.receivedChunks.size,
-    complete: session.receivedChunks.size === session.totalChunks,
+    receivedChunks: session.receivedChunks,
+    status: session.status,
+    complete: session.receivedChunks === session.totalChunks,
   });
+
 });

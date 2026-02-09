@@ -138,3 +138,24 @@ export const uploadBatches = mysqlTable("uploadBatches", {
 
 export type UploadBatch = typeof uploadBatches.$inferSelect;
 export type InsertUploadBatch = typeof uploadBatches.$inferInsert;
+
+
+/**
+ * Chunked upload sessions - persisted to DB so they work across multiple server instances
+ */
+export const chunkedUploadSessions = mysqlTable("chunkedUploadSessions", {
+  id: int("id").autoincrement().primaryKey(),
+  uploadId: varchar("uploadId", { length: 64 }).notNull().unique(),
+  userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  fileName: varchar("fileName", { length: 500 }).notNull(),
+  totalSize: bigint("totalSize", { mode: "number" }).notNull(),
+  totalChunks: int("totalChunks").notNull(),
+  receivedChunks: int("receivedChunks").default(0).notNull(),
+  /** Comma-separated list of received chunk indices */
+  receivedChunkIndices: text("receivedChunkIndices"),
+  status: mysqlEnum("status", ["active", "finalizing", "complete", "expired"]).default("active").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type ChunkedUploadSession = typeof chunkedUploadSessions.$inferSelect;
+export type InsertChunkedUploadSession = typeof chunkedUploadSessions.$inferInsert;
