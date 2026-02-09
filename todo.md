@@ -601,3 +601,13 @@
 - [x] Large ZIP progress UI card with real-time status, ETA, and error display
 - [x] Updated ZIP size limit from 500MB to 1.5GB in UI
 - [x] 10 new tests for large ZIP processor and API endpoints — all passing
+
+## Persist Large ZIP Job History to Database
+- [x] Add uploadBatches table to schema (jobId, fileName, status, totalEntries, processed, uploaded, duplicates, failed, errors, userId, timestamps)
+- [x] Migrate database with new table (0004_zippy_lorna_dane.sql)
+- [x] Create uploadBatchDb.ts with CRUD functions (create, update, getByJobId, getRecent, getActive)
+- [x] Update largeZipProcessor to create/update batch records in database (persistProgress on every 10 entries + completion)
+- [x] Add tRPC endpoints: batchHistory, activeBatches, batchProgress
+- [x] Update Processing History frontend with ZipBatchCard component showing batch jobs
+- [x] Update Upload page to restore active large ZIP progress from database on page refresh
+- [x] Write 7 new tests for batch persistence and history retrieval (149 total tests passing)

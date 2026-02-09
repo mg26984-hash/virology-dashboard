@@ -159,6 +159,35 @@ export default function Upload() {
     };
   }, []);
 
+  // Restore active large ZIP jobs from DB on page load (survives refresh)
+  const { data: activeBatches } = trpc.documents.activeBatches.useQuery(undefined, {
+    enabled: !!user,
+    refetchOnWindowFocus: false,
+  });
+
+  useEffect(() => {
+    if (!activeBatches || activeBatches.length === 0) return;
+    // Resume polling for any active batch jobs found in the database
+    const batch = activeBatches[0]; // Take the most recent active job
+    if (!largeZipProgress && !largeZipPollRef.current) {
+      setLargeZipProgress({
+        jobId: batch.jobId,
+        fileName: batch.fileName,
+        status: batch.status as LargeZipProgress["status"],
+        totalEntries: batch.totalEntries,
+        processedEntries: batch.processedEntries,
+        uploadedToS3: batch.uploadedToS3,
+        skippedDuplicates: batch.skippedDuplicates,
+        failed: batch.failed,
+        documentIds: [],
+        errors: batch.errors ? JSON.parse(batch.errors) : [],
+        startedAt: batch.startedAt,
+        completedAt: batch.completedAt ?? undefined,
+      });
+      startLargeZipPolling(batch.jobId);
+    }
+  }, [activeBatches]);
+
   const reprocessMutation = trpc.documents.reprocess.useMutation();
   const cancelMutation = trpc.documents.cancelProcessing.useMutation();
   const cancelBatchMutation = trpc.documents.cancelBatch.useMutation();

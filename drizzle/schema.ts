@@ -114,3 +114,27 @@ export const uploadTokens = mysqlTable("uploadTokens", {
 
 export type UploadToken = typeof uploadTokens.$inferSelect;
 export type InsertUploadToken = typeof uploadTokens.$inferInsert;
+
+/**
+ * Upload batches table - persists large ZIP job progress to survive page refreshes and server restarts
+ */
+export const uploadBatches = mysqlTable("uploadBatches", {
+  id: int("id").autoincrement().primaryKey(),
+  jobId: varchar("jobId", { length: 64 }).notNull().unique(),
+  userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  fileName: varchar("fileName", { length: 500 }).notNull(),
+  status: mysqlEnum("status", ["extracting", "processing", "complete", "error"]).default("extracting").notNull(),
+  totalEntries: int("totalEntries").default(0).notNull(),
+  processedEntries: int("processedEntries").default(0).notNull(),
+  uploadedToS3: int("uploadedToS3").default(0).notNull(),
+  skippedDuplicates: int("skippedDuplicates").default(0).notNull(),
+  failed: int("failed").default(0).notNull(),
+  errors: text("errors"),
+  startedAt: bigint("startedAt", { mode: "number" }).notNull(),
+  completedAt: bigint("completedAt", { mode: "number" }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type UploadBatch = typeof uploadBatches.$inferSelect;
+export type InsertUploadBatch = typeof uploadBatches.$inferInsert;

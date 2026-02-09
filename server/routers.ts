@@ -879,6 +879,31 @@ export const appRouter = router({
       .query(async ({ input }) => {
         return getUploadHistory(input?.limit || 20, input?.offset || 0);
       }),
+
+    // Large ZIP batch history (persisted to DB)
+    batchHistory: approvedProcedure
+      .input(z.object({
+        limit: z.number().optional(),
+      }).optional())
+      .query(async ({ input }) => {
+        const { getRecentUploadBatches } = await import("./uploadBatchDb");
+        return getRecentUploadBatches(undefined, input?.limit || 20);
+      }),
+
+    // Active large ZIP jobs for the current user (for restoring progress on page refresh)
+    activeBatches: protectedProcedure
+      .query(async ({ ctx }) => {
+        const { getActiveUploadBatches } = await import("./uploadBatchDb");
+        return getActiveUploadBatches(ctx.user.id);
+      }),
+
+    // Get a specific batch job by jobId
+    batchProgress: approvedProcedure
+      .input(z.object({ jobId: z.string() }))
+      .query(async ({ input }) => {
+        const { getUploadBatchByJobId } = await import("./uploadBatchDb");
+        return getUploadBatchByJobId(input.jobId);
+      }),
   }),
 
   // Patient search and management

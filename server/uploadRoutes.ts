@@ -13,7 +13,7 @@ import { createDocument, getDocumentById, getDb } from "./db";
 import { processUploadedDocument } from "./documentProcessor";
 import { documents } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
-import { processLargeZipFromDisk, getLargeZipProgress } from "./largeZipProcessor";
+import { processLargeZipFromDisk, getLargeZipProgress, getLargeZipProgressFromDb } from "./largeZipProcessor";
 
 // Compute SHA-256 hash of file content for deduplication
 function computeFileHash(buffer: Buffer): string {
@@ -360,7 +360,8 @@ router.post("/zip/large", uploadLargeZip.single("file"), async (req: Request, re
  */
 router.get("/zip/large/progress/:jobId", async (req: Request, res: Response) => {
   try {
-    const progress = getLargeZipProgress(req.params.jobId);
+    // Try in-memory first (most up-to-date during active processing), then fall back to DB
+    const progress = await getLargeZipProgressFromDb(req.params.jobId);
     if (!progress) {
       res.status(404).json({ error: "Job not found" });
       return;
