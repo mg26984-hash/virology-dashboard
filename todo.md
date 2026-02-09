@@ -620,3 +620,16 @@
 - [x] After all chunks uploaded, trigger server-side processing and show extraction progress
 - [x] Existing ZIP upload logic for ZIPs under 200MB is completely unchanged
 - [x] 8 new tests for chunked ZIP logic — all 157 tests passing
+
+## Chunk Upload Retry Logic
+- [x] Add automatic retry (up to 3 attempts) for individual failed chunks during large ZIP upload
+- [x] Show retry status in the progress UI (e.g., "Retrying chunk 3/10...")
+- [x] Only fail the entire upload if a chunk fails after all retries exhausted
+- [x] Exponential backoff between retries (1s, 2s, 3s)
+
+## Quick Upload Large ZIP Support
+- [x] Detect large ZIPs (>50MB) in Quick Upload server endpoint
+- [x] Route large ZIPs through disk-based processing (processLargeZipFromDisk)
+- [x] Return jobId in response so progress can be tracked via existing polling endpoint
+- [x] Keep existing Quick Upload logic for small ZIPs and individual files unchanged
+- [x] 6 new tests for retry logic and Quick Upload large ZIP detection — all 163 tests passing

@@ -353,33 +353,64 @@ export default function Upload() {
 
       const { uploadId } = await initRes.json();
 
-      // Step 2: Upload each chunk
+      // Step 2: Upload each chunk with retry logic
+      const MAX_RETRIES = 3;
       for (let i = 0; i < totalChunks; i++) {
         const start = i * CHUNK_SIZE;
         const end = Math.min(start + CHUNK_SIZE, zipFile.size);
         const chunkBlob = zipFile.slice(start, end);
 
-        const chunkForm = new FormData();
-        chunkForm.append("chunk", chunkBlob, `chunk-${i}`);
+        let lastError = "";
+        let success = false;
 
-        const chunkRes = await fetch(
-          `/api/upload/zip/chunked/chunk?uploadId=${uploadId}&chunkIndex=${i}`,
-          {
-            method: "POST",
-            body: chunkForm,
-            credentials: "include",
+        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+          try {
+            if (attempt > 1) {
+              // Show retry in progress UI
+              setLargeZipProgress((prev) => prev ? {
+                ...prev,
+                errors: [`Retrying chunk ${i + 1}/${totalChunks} (attempt ${attempt}/${MAX_RETRIES})...`],
+              } : prev);
+              toast.info(`Retrying chunk ${i + 1}/${totalChunks} (attempt ${attempt}/${MAX_RETRIES})...`);
+              // Wait before retry with exponential backoff
+              await new Promise((r) => setTimeout(r, 1000 * attempt));
+            }
+
+            const chunkForm = new FormData();
+            chunkForm.append("chunk", chunkBlob, `chunk-${i}`);
+
+            const chunkRes = await fetch(
+              `/api/upload/zip/chunked/chunk?uploadId=${uploadId}&chunkIndex=${i}`,
+              {
+                method: "POST",
+                body: chunkForm,
+                credentials: "include",
+              }
+            );
+
+            if (!chunkRes.ok) {
+              const err = await chunkRes.json().catch(() => ({ error: "Chunk upload failed" }));
+              lastError = err.error || `Chunk ${i + 1}/${totalChunks} failed`;
+              continue; // retry
+            }
+
+            success = true;
+            break; // chunk uploaded successfully
+          } catch (e) {
+            lastError = e instanceof Error ? e.message : "Network error";
+            // continue to retry
           }
-        );
-
-        if (!chunkRes.ok) {
-          const err = await chunkRes.json().catch(() => ({ error: "Chunk upload failed" }));
-          throw new Error(err.error || `Chunk ${i + 1}/${totalChunks} failed`);
         }
 
-        // Update progress
+        if (!success) {
+          throw new Error(`Chunk ${i + 1}/${totalChunks} failed after ${MAX_RETRIES} attempts: ${lastError}`);
+        }
+
+        // Update progress — clear any retry error messages
         setLargeZipProgress((prev) => prev ? {
           ...prev,
           chunksSent: i + 1,
+          errors: [],
         } : prev);
       }
 

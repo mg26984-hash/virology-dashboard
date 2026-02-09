@@ -597,9 +597,28 @@ router.post("/quick", upload.any(), async (req: Request, res: Response) => {
 
     console.log(`[Quick Upload] Regular: ${regularFiles.length}, HEIC: ${heicFiles.length}, ZIP: ${zipFiles.length}, Unknown-but-image: ${unknownButImage.length}`);
 
-    // Extract files from ZIPs
+    // Extract files from ZIPs — large ZIPs go to disk-based processing
+    const LARGE_ZIP_THRESHOLD = 50 * 1024 * 1024; // 50MB
+    const smallZipFiles = zipFiles.filter((f) => f.size <= LARGE_ZIP_THRESHOLD);
+    const largeZipFiles = zipFiles.filter((f) => f.size > LARGE_ZIP_THRESHOLD);
+    const largeZipJobs: { fileName: string; jobId: string }[] = [];
+
+    // Route large ZIPs through disk-based processing
+    for (const zipFile of largeZipFiles) {
+      try {
+        const tmpPath = path.join(os.tmpdir(), `quick-large-${nanoid()}-${zipFile.originalname}`);
+        fs.writeFileSync(tmpPath, zipFile.buffer);
+        console.log(`[Quick Upload] Large ZIP detected: ${zipFile.originalname} (${(zipFile.size / 1024 / 1024).toFixed(1)}MB) → disk processing`);
+        const jobId = await processLargeZipFromDisk(tmpPath, zipFile.originalname, userId);
+        largeZipJobs.push({ fileName: zipFile.originalname, jobId });
+      } catch (e) {
+        console.error("[Quick Upload] Failed to process large ZIP:", zipFile.originalname, e);
+      }
+    }
+
+    // Extract small ZIPs in-memory (existing logic)
     const extractedFiles: { buffer: Buffer; originalname: string; mimetype: string; size: number }[] = [];
-    for (const zipFile of zipFiles) {
+    for (const zipFile of smallZipFiles) {
       try {
         const zip = new AdmZip(zipFile.buffer);
         const entries = zip.getEntries();
@@ -687,13 +706,20 @@ router.post("/quick", upload.any(), async (req: Request, res: Response) => {
       results.push({ fileName: file.originalname, status: "uploaded", documentId: document.id });
     }
 
-    console.log(`[Quick Upload] Done. New: ${newCount}, Duplicates: ${dupCount}, Total: ${allFiles.length}`);
+    // Include large ZIP jobs in the response
+    for (const job of largeZipJobs) {
+      results.push({ fileName: job.fileName, status: "large-zip-processing", documentId: undefined });
+    }
+
+    const largeZipMsg = largeZipJobs.length > 0 ? ` ${largeZipJobs.length} large ZIP(s) sent to background processing.` : "";
+    console.log(`[Quick Upload] Done. New: ${newCount}, Duplicates: ${dupCount}, Large ZIPs: ${largeZipJobs.length}, Total: ${allFiles.length}`);
     res.json({
       success: true,
-      message: `${newCount} new file(s) uploaded, ${dupCount} duplicate(s) skipped. Processing will begin automatically.`,
-      total: allFiles.length,
+      message: `${newCount} new file(s) uploaded, ${dupCount} duplicate(s) skipped.${largeZipMsg} Processing will begin automatically.`,
+      total: allFiles.length + largeZipJobs.length,
       new: newCount,
       duplicates: dupCount,
+      largeZipJobs: largeZipJobs.length > 0 ? largeZipJobs : undefined,
       results,
     });
   } catch (error) {

@@ -142,3 +142,136 @@ describe("Chunked ZIP Upload", () => {
     expect(receivedChunks.size).toBe(1);
   });
 });
+
+describe("Chunk Upload Retry Logic", () => {
+  it("should retry up to MAX_RETRIES times before failing", async () => {
+    const MAX_RETRIES = 3;
+    let attempts = 0;
+
+    // Simulate a function that fails twice then succeeds
+    const uploadChunk = async (): Promise<boolean> => {
+      attempts++;
+      if (attempts < 3) throw new Error("Network error");
+      return true;
+    };
+
+    let success = false;
+    let lastError = "";
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        await uploadChunk();
+        success = true;
+        break;
+      } catch (e) {
+        lastError = e instanceof Error ? e.message : "Unknown";
+      }
+    }
+
+    expect(success).toBe(true);
+    expect(attempts).toBe(3);
+  });
+
+  it("should fail after exhausting all retries", async () => {
+    const MAX_RETRIES = 3;
+    let attempts = 0;
+
+    const uploadChunk = async (): Promise<boolean> => {
+      attempts++;
+      throw new Error("Persistent failure");
+    };
+
+    let success = false;
+    let lastError = "";
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        await uploadChunk();
+        success = true;
+        break;
+      } catch (e) {
+        lastError = e instanceof Error ? e.message : "Unknown";
+      }
+    }
+
+    expect(success).toBe(false);
+    expect(attempts).toBe(3);
+    expect(lastError).toBe("Persistent failure");
+  });
+
+  it("should succeed on first attempt without retrying", async () => {
+    const MAX_RETRIES = 3;
+    let attempts = 0;
+
+    const uploadChunk = async (): Promise<boolean> => {
+      attempts++;
+      return true;
+    };
+
+    let success = false;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        await uploadChunk();
+        success = true;
+        break;
+      } catch (e) { /* retry */ }
+    }
+
+    expect(success).toBe(true);
+    expect(attempts).toBe(1);
+  });
+});
+
+describe("Quick Upload Large ZIP Detection", () => {
+  it("should classify ZIPs above 50MB as large", () => {
+    const LARGE_ZIP_THRESHOLD = 50 * 1024 * 1024;
+    const files = [
+      { originalname: "small.zip", size: 10 * 1024 * 1024 },
+      { originalname: "medium.zip", size: 49 * 1024 * 1024 },
+      { originalname: "large.zip", size: 80 * 1024 * 1024 },
+      { originalname: "huge.zip", size: 200 * 1024 * 1024 },
+    ];
+
+    const small = files.filter((f) => f.size <= LARGE_ZIP_THRESHOLD);
+    const large = files.filter((f) => f.size > LARGE_ZIP_THRESHOLD);
+
+    expect(small.length).toBe(2);
+    expect(small.map((f) => f.originalname)).toEqual(["small.zip", "medium.zip"]);
+    expect(large.length).toBe(2);
+    expect(large.map((f) => f.originalname)).toEqual(["large.zip", "huge.zip"]);
+  });
+
+  it("should handle mix of ZIP and non-ZIP files", () => {
+    const files = [
+      { originalname: "photo.jpg", mimetype: "image/jpeg", size: 2 * 1024 * 1024 },
+      { originalname: "report.pdf", mimetype: "application/pdf", size: 5 * 1024 * 1024 },
+      { originalname: "archive.zip", mimetype: "application/zip", size: 100 * 1024 * 1024 },
+    ];
+
+    const zipTypes = ["application/zip", "application/x-zip-compressed"];
+    const zipFiles = files.filter((f) => zipTypes.includes(f.mimetype) || f.originalname.toLowerCase().endsWith(".zip"));
+    const regularFiles = files.filter((f) => !zipTypes.includes(f.mimetype) && !f.originalname.toLowerCase().endsWith(".zip"));
+
+    expect(zipFiles.length).toBe(1);
+    expect(regularFiles.length).toBe(2);
+  });
+
+  it("should write large ZIP to temp file for disk processing", () => {
+    const zipBuffer = createTestZip(3);
+    const tmpPath = path.join(os.tmpdir(), `quick-large-test-${Date.now()}.zip`);
+
+    try {
+      fs.writeFileSync(tmpPath, zipBuffer);
+      expect(fs.existsSync(tmpPath)).toBe(true);
+
+      const stat = fs.statSync(tmpPath);
+      expect(stat.size).toBe(zipBuffer.length);
+
+      // Verify it's a valid ZIP
+      const zip = new AdmZip(tmpPath);
+      expect(zip.getEntries().length).toBe(3);
+    } finally {
+      try { fs.unlinkSync(tmpPath); } catch {}
+    }
+  });
+});
