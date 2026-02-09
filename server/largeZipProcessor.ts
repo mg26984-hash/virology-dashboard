@@ -157,6 +157,10 @@ export async function getLargeZipProgressFromDb(
  * Write a buffer to a temp file on disk
  */
 function writeTempFile(buffer: Buffer, fileName: string): string {
+  // Ensure temp dir exists (may have been cleaned up)
+  if (!fs.existsSync(TEMP_DIR)) {
+    fs.mkdirSync(TEMP_DIR, { recursive: true });
+  }
   const tempFileName = `${nanoid()}-${fileName}`;
   const tempFilePath = path.join(TEMP_DIR, tempFileName);
   fs.writeFileSync(tempFilePath, buffer);

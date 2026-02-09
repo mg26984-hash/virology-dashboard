@@ -89,6 +89,11 @@ async function authenticateRequest(req: Request): Promise<number | null> {
 
 export const chunkedZipRouter = Router();
 
+// Parse JSON bodies for init and finalize endpoints
+// (needed because this router is mounted before the global body parser)
+import express from "express";
+chunkedZipRouter.use(express.json({ limit: "1mb" }));
+
 /**
  * POST /api/upload/zip/chunked/init
  * Initialize a chunked ZIP upload session.
@@ -114,6 +119,10 @@ chunkedZipRouter.post("/init", async (req: Request, res: Response) => {
     }
 
     const uploadId = nanoid();
+    // Ensure parent dir exists (may have been cleaned up)
+    if (!fs.existsSync(CHUNKED_TEMP_DIR)) {
+      fs.mkdirSync(CHUNKED_TEMP_DIR, { recursive: true });
+    }
     const sessionDir = path.join(CHUNKED_TEMP_DIR, uploadId);
     fs.mkdirSync(sessionDir, { recursive: true });
 

@@ -633,3 +633,13 @@
 - [x] Return jobId in response so progress can be tracked via existing polling endpoint
 - [x] Keep existing Quick Upload logic for small ZIPs and individual files unchanged
 - [x] 6 new tests for retry logic and Quick Upload large ZIP detection — all 163 tests passing
+
+## Auto-Cleanup Orphaned Temp Files
+- [x] Create tempCleanup.ts module that scans /tmp for orphaned chunk dirs and large ZIP temp files
+- [x] Clean up files matching patterns: virology-chunked-zip/*, virology-zip-uploads/*, virology-large-zip-uploads/*, quick-large-* older than 24 hours
+- [x] Schedule cleanup to run every 6 hours via setInterval on server startup
+- [x] Log cleanup activity (files removed, space freed, formatBytes helper)
+- [x] Write 7 tests for cleanup logic — all passing
+- [x] Fixed chunked upload init failure: added express.json() middleware to chunked router
+- [x] Fixed ENOENT errors: all temp directories now ensure existence at point of use, not just module load
+- [x] All 170 tests passing across 12 test files

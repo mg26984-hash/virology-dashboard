@@ -52,6 +52,10 @@ if (!fs.existsSync(LARGE_ZIP_TEMP_DIR)) {
 
 const diskStorage = multer.diskStorage({
   destination: (_req, _file, cb) => {
+    // Ensure directory exists on every upload (may have been cleaned up)
+    if (!fs.existsSync(LARGE_ZIP_TEMP_DIR)) {
+      fs.mkdirSync(LARGE_ZIP_TEMP_DIR, { recursive: true });
+    }
     cb(null, LARGE_ZIP_TEMP_DIR);
   },
   filename: (_req, file, cb) => {

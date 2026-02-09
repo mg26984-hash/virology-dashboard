@@ -9,6 +9,7 @@ import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import uploadRoutes from "../uploadRoutes";
 import { startBackgroundWorker } from "../backgroundWorker";
+import { startTempCleanupScheduler } from "../tempCleanup";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -76,6 +77,8 @@ async function startServer() {
     console.log(`Server running on http://localhost:${port}/`);
     // Start background worker to process pending documents
     startBackgroundWorker(30000); // Check every 30 seconds
+    // Start periodic temp file cleanup (every 6 hours)
+    startTempCleanupScheduler();
   });
 }
 
