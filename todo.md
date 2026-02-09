@@ -704,9 +704,11 @@
 - [x] All 170 tests passing across 12 test files
 
 ## PDF Export Fix: Extra Blank Pages (Round 2)
-- [x] Root cause: renderFooters() doc.text() calls near page bottom trigger PDFKit auto-page creation in buffered mode
-- [x] Fix: added lineBreak: false to all footer text() calls to prevent phantom page creation
-- [x] Verified: 170 tests passing, TypeScript compiles with 0 errors
+- [x] Root cause: renderFooters() doc.text() at y=pageHeight-30 exceeds (pageHeight - bottomMargin=50), triggering PDFKit auto-pagination
+- [x] lineBreak: false alone was NOT sufficient
+- [x] Fix: temporarily set doc.page.margins.bottom = 0 during footer rendering, then restore
+- [x] Verified with reproduction script: 3-page doc stays 3 pages (without fix: 3 becomes 9)
+- [x] All 170 tests passing
 
 ## PDF Styling: Bold Italic Results + Separator Lines
 - [x] Make test result values bold italic in detailed test results section (Helvetica-BoldOblique)

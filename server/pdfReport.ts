@@ -406,6 +406,13 @@ function renderFooters(doc: PDFKit.PDFDocument, pageWidth: number) {
   for (let i = 0; i < pages.count; i++) {
     doc.switchToPage(i);
 
+    // Temporarily set bottom margin to 0 so PDFKit doesn't think
+    // footer text at y = pageHeight - 30 exceeds the printable area.
+    // Without this, each doc.text() call triggers auto-pagination
+    // because (y + lineHeight) > (pageHeight - bottomMargin).
+    const savedBottomMargin = doc.page.margins.bottom;
+    doc.page.margins.bottom = 0;
+
     // Draw footer line
     doc
       .save()
@@ -416,8 +423,6 @@ function renderFooters(doc: PDFKit.PDFDocument, pageWidth: number) {
       .stroke()
       .restore();
 
-    // CRITICAL: lineBreak: false prevents PDFKit from auto-adding pages
-    // when rendering text near the bottom of buffered pages
     doc
       .fontSize(7)
       .font("Helvetica")
@@ -437,6 +442,9 @@ function renderFooters(doc: PDFKit.PDFDocument, pageWidth: number) {
         doc.page.height - 30,
         { width: pageWidth, align: "right", lineBreak: false }
       );
+
+    // Restore original bottom margin
+    doc.page.margins.bottom = savedBottomMargin;
   }
 }
 
