@@ -14,6 +14,7 @@ import { processUploadedDocument } from "./documentProcessor";
 import { documents } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
 import { processLargeZipFromDisk, getLargeZipProgress, getLargeZipProgressFromDb } from "./largeZipProcessor";
+import { notifyOwner } from "./_core/notification";
 import { chunkedZipRouter } from "./chunkedZipUpload";
 
 // Compute SHA-256 hash of file content for deduplication
@@ -433,7 +434,8 @@ async function processFileBatch(batchId: string, files: Express.Multer.File[], u
           }
 
           progress.processing++;
-          const fileKey = `virology-reports/${userId}/${nanoid()}-${file.originalname}`;
+          const sanitizedName1 = file.originalname.replace(/[&?#%+\s]/g, '_');
+          const fileKey = `virology-reports/${userId}/${nanoid()}-${sanitizedName1}`;
           const { url } = await storagePut(fileKey, file.buffer, file.mimetype);
           progress.uploaded++;
 
@@ -502,7 +504,8 @@ async function processZipBatch(batchId: string, entries: AdmZip.IZipEntry[], use
           else if (ext === ".png") mimeType = "image/png";
           else if (ext === ".pdf") mimeType = "application/pdf";
 
-          const fileKey = `virology-reports/${userId}/${nanoid()}-${fileName}`;
+          const sanitizedZipName = fileName.replace(/[&?#%+\s]/g, '_');
+          const fileKey = `virology-reports/${userId}/${nanoid()}-${sanitizedZipName}`;
           const { url } = await storagePut(fileKey, fileBuffer, mimeType);
           progress.uploaded++;
 
@@ -692,7 +695,9 @@ router.post("/quick", upload.any(), async (req: Request, res: Response) => {
         continue;
       }
 
-      const fileKey = `virology-reports/${userId}/${nanoid()}-${file.originalname}`;
+      // Sanitize filename: remove special chars that break S3 URLs (& ? # % + spaces)
+      const sanitizedName = file.originalname.replace(/[&?#%+\s]/g, '_');
+      const fileKey = `virology-reports/${userId}/${nanoid()}-${sanitizedName}`;
       const { url } = await storagePut(fileKey, file.buffer, file.mimetype);
 
       const document = await createDocument({
@@ -716,11 +721,25 @@ router.post("/quick", upload.any(), async (req: Request, res: Response) => {
     }
 
     const largeZipMsg = largeZipJobs.length > 0 ? ` ${largeZipJobs.length} large ZIP(s) sent to background processing.` : "";
+    const totalProcessable = allFiles.length + largeZipJobs.length;
+    const successMsg = `${newCount} new file(s) uploaded, ${dupCount} duplicate(s) skipped.${largeZipMsg} Processing will begin automatically.`;
     console.log(`[Quick Upload] Done. New: ${newCount}, Duplicates: ${dupCount}, Large ZIPs: ${largeZipJobs.length}, Total: ${allFiles.length}`);
+
+    // Send notification to owner about the quick upload result
+    const fileNames = results.map(r => r.fileName).join(", ");
+    notifyOwner({
+      title: `Quick Upload: ${newCount} new file(s)`,
+      content: `${successMsg}\nFiles: ${fileNames}`,
+    }).catch(() => {}); // fire-and-forget
+
     res.json({
       success: true,
-      message: `${newCount} new file(s) uploaded, ${dupCount} duplicate(s) skipped.${largeZipMsg} Processing will begin automatically.`,
-      total: allFiles.length + largeZipJobs.length,
+      message: successMsg,
+      // Short summary for iOS Shortcuts "Show Alert" action
+      shortMessage: newCount > 0
+        ? `✅ ${newCount} uploaded${dupCount > 0 ? `, ${dupCount} duplicate(s)` : ""}`
+        : dupCount > 0 ? `⚠️ All ${dupCount} file(s) were duplicates` : "No files processed",
+      total: totalProcessable,
       new: newCount,
       duplicates: dupCount,
       largeZipJobs: largeZipJobs.length > 0 ? largeZipJobs : undefined,
@@ -728,7 +747,19 @@ router.post("/quick", upload.any(), async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("[Quick Upload] Error:", error);
-    res.status(500).json({ error: error instanceof Error ? error.message : "Upload failed" });
+    const errMsg = error instanceof Error ? error.message : "Upload failed";
+
+    // Notify owner about the failure
+    notifyOwner({
+      title: "Quick Upload Failed",
+      content: `Error: ${errMsg}`,
+    }).catch(() => {});
+
+    res.status(500).json({
+      success: false,
+      error: errMsg,
+      shortMessage: `❌ Upload failed: ${errMsg}`,
+    });
   }
 });
 

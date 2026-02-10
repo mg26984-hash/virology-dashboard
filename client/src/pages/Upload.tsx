@@ -866,7 +866,16 @@ export default function Upload() {
                       <li>Tap the <strong>&#x2193;</strong> arrow next to the name &rarr; tap <strong>Details</strong> or <strong>Privacy</strong> &rarr; enable <strong>Show in Share Sheet</strong></li>
                       <li>Tap <strong>Done</strong>. Now share any photo(s) &rarr; pick <strong>Upload to Virology</strong> from the share menu</li>
                     </ol>
-                    <div className="mt-2 rounded-lg border border-blue-300 dark:border-blue-800/50 bg-blue-50 dark:bg-blue-950/20 p-2">
+                    <div className="mt-2 rounded-lg border border-emerald-300 dark:border-emerald-800/50 bg-emerald-50 dark:bg-emerald-950/20 p-2.5 space-y-1.5">
+                      <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">Add Upload Feedback (Recommended)</p>
+                      <p className="text-[10px] text-emerald-700 dark:text-emerald-400">To see whether each upload succeeded or failed, add these steps <strong>after</strong> the &ldquo;Get Contents of URL&rdquo; action (still inside the Repeat block):</p>
+                      <ol className="text-[10px] text-emerald-700 dark:text-emerald-400 space-y-1 pl-3 list-decimal">
+                        <li>Search for <strong>Get Dictionary Value</strong> and add it. Set <strong>Key</strong> to <code className="text-emerald-800 dark:text-emerald-300">shortMessage</code> and <strong>Input</strong> to <code className="text-emerald-800 dark:text-emerald-300">Contents of URL</code></li>
+                        <li>Search for <strong>Show Alert</strong> and add it. Set the message to <code className="text-emerald-800 dark:text-emerald-300">Dictionary Value</code> (the result from step above)</li>
+                      </ol>
+                      <p className="text-[10px] text-emerald-600 dark:text-emerald-500">You&rsquo;ll see alerts like &ldquo;\u2705 1 uploaded&rdquo; or &ldquo;\u274c Upload failed: ...&rdquo; after each file.</p>
+                    </div>
+                    <div className="mt-1.5 rounded-lg border border-blue-300 dark:border-blue-800/50 bg-blue-50 dark:bg-blue-950/20 p-2">
                       <p className="text-[10px] text-blue-700 dark:text-blue-400"><strong>Multi-file tip:</strong> The &ldquo;Repeat with Each&rdquo; loop sends each file one at a time, so all selected photos will be uploaded. Without it, only the first file gets sent.</p>
                     </div>
 

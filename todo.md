@@ -786,3 +786,11 @@
 - [x] Upload compressed WebP + JPG fallbacks to S3 CDN
 - [x] Update Upload.tsx with <picture> elements (WebP primary, JPG fallback) + lazy loading + explicit dimensions
 - [x] All 171 tests passing
+
+## Fix iOS Shortcut (Quick Upload) for PDFs + Add Feedback
+- [x] Investigated: & in filename breaks S3 URL → LLM gets "Invalid image data" error
+- [x] Sanitized filenames in all 3 fileKey locations in uploadRoutes.ts (Quick Upload, batch ZIP, regular ZIP)
+- [x] Added shortMessage field to JSON response for iOS Shortcut "Show Alert" action (✅/⚠️/❌ prefixed)
+- [x] Added owner notification on quick upload success/failure (fire-and-forget)
+- [x] Updated iOS Shortcut guide with "Add Upload Feedback" section (Get Dictionary Value → Show Alert)
+- [x] All 171 tests passing
