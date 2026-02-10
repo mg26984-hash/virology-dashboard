@@ -229,7 +229,8 @@ export interface SearchPatientsParams {
 }
 
 /**
- * Lightweight autocomplete search — returns top 10 matches by Civil ID or name.
+ * Smart autocomplete search — returns top 15 matches ranked by relevance.
+ * Priority: exact first-name start > first-name contains > last-name start > name contains > civil ID.
  * Only returns id, civilId, name, and nationality for fast dropdown rendering.
  */
 export async function autocompletePatients(query: string): Promise<{ id: number; civilId: string | null; name: string | null; nationality: string | null }[]> {
@@ -237,7 +238,9 @@ export async function autocompletePatients(query: string): Promise<{ id: number;
   if (!db || !query || query.trim().length < 2) return [];
 
   const trimmed = query.trim();
-  const results = await db.select({
+
+  // Fetch a broader set of candidates (up to 50) then rank in JS for smarter ordering
+  const candidates = await db.select({
     id: patients.id,
     civilId: patients.civilId,
     name: patients.name,
@@ -250,10 +253,60 @@ export async function autocompletePatients(query: string): Promise<{ id: number;
         like(patients.name, `%${trimmed}%`)
       )
     )
-    .orderBy(desc(patients.updatedAt))
-    .limit(10);
+    .limit(50);
 
-  return results;
+  const q = trimmed.toLowerCase();
+
+  // Score each candidate for relevance ranking
+  const scored = candidates.map(p => {
+    const name = (p.name || '').toLowerCase();
+    const civilId = (p.civilId || '').toLowerCase();
+    const nameParts = name.split(/\s+/);
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+
+    let score = 0;
+
+    // Highest priority: first name starts with query
+    if (firstName.startsWith(q)) {
+      score = 100 - firstName.length; // shorter first names rank higher for exact prefix
+    }
+    // Second: any name part starts with query (middle names, etc.)
+    else if (nameParts.some(part => part.startsWith(q))) {
+      score = 70;
+    }
+    // Third: last name starts with query
+    else if (lastName.startsWith(q)) {
+      score = 60;
+    }
+    // Fourth: name contains query anywhere
+    else if (name.includes(q)) {
+      score = 40;
+    }
+    // Fifth: civil ID starts with query
+    else if (civilId.startsWith(q)) {
+      score = 30;
+    }
+    // Sixth: civil ID contains query
+    else if (civilId.includes(q)) {
+      score = 20;
+    }
+    // Fallback
+    else {
+      score = 10;
+    }
+
+    return { ...p, _score: score };
+  });
+
+  // Sort by score descending, then alphabetically by name for ties
+  scored.sort((a, b) => {
+    if (b._score !== a._score) return b._score - a._score;
+    return (a.name || '').localeCompare(b.name || '');
+  });
+
+  // Return top 10 without the internal score field
+  return scored.slice(0, 10).map(({ _score, ...rest }) => rest);
 }
 
 export async function searchPatients(params: SearchPatientsParams) {
@@ -1017,10 +1070,11 @@ export async function getDistinctTestValues(): Promise<{ testTypes: string[]; te
 // ============ ANALYTICS / CHART DATA ============
 
 /**
- * Test volume by month – returns test counts grouped by month.
- * When no date range is provided, returns all-time data.
+ * Test volume trend – returns test counts grouped by year or month.
+ * groupBy='year' (default): groups by year, all-time since 2016.
+ * groupBy='month': groups by month (YYYY-MM), useful for drill-down into a specific year.
  */
-export async function getTestVolumeByMonth(from?: string, to?: string): Promise<{ month: string; count: number }[]> {
+export async function getTestVolumeByMonth(from?: string, to?: string, groupBy: 'year' | 'month' = 'year'): Promise<{ month: string; count: number }[]> {
   const db = await getDb();
   if (!db) return [];
 
@@ -1031,24 +1085,27 @@ export async function getTestVolumeByMonth(from?: string, to?: string): Promise<
   if (to) {
     conditions.push(sql`${virologyTests.accessionDate} <= ${to}`);
   }
+  // Default: show all data since 2016 when no range specified
   if (!from && !to) {
-    conditions.push(sql`${virologyTests.accessionDate} >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)`);
+    conditions.push(sql`${virologyTests.accessionDate} >= '2016-01-01'`);
   }
 
   const whereClause = sql.join(conditions, sql` AND `);
 
+  const dateFormat = groupBy === 'month' ? '%Y-%m' : '%Y';
+
   const results = await db.execute(sql`
     SELECT 
-      DATE_FORMAT(${virologyTests.accessionDate}, '%Y-%m') AS month,
+      DATE_FORMAT(${virologyTests.accessionDate}, ${dateFormat}) AS period,
       COUNT(*) AS count
     FROM ${virologyTests}
     WHERE ${whereClause}
-    GROUP BY month
-    ORDER BY month ASC
+    GROUP BY period
+    ORDER BY period ASC
   `);
 
   return (results as any)[0]?.map((r: any) => ({
-    month: r.month as string,
+    month: r.period as string,
     count: Number(r.count),
   })) ?? [];
 }

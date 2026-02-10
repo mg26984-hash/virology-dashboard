@@ -857,7 +857,7 @@ describe("Audit Logging", () => {
 // ============ DASHBOARD ANALYTICS TESTS ============
 
 describe("Dashboard Analytics Endpoints", () => {
-  it("testVolumeByMonth returns array of month/count objects", async () => {
+  it("testVolumeByMonth returns yearly data by default", async () => {
     const user = createMockUser({ status: "approved" });
     const ctx = createMockContext(user);
     const caller = appRouter.createCaller(ctx);
@@ -870,7 +870,27 @@ describe("Dashboard Analytics Endpoints", () => {
       expect(result[0]).toHaveProperty("count");
       expect(typeof result[0].month).toBe("string");
       expect(typeof result[0].count).toBe("number");
-      // Month should be in YYYY-MM format
+      // Default groupBy='year' should return YYYY format
+      expect(result[0].month).toMatch(/^\d{4}$/);
+    }
+  });
+
+  it("testVolumeByMonth supports monthly drill-down with groupBy=month", async () => {
+    const user = createMockUser({ status: "approved" });
+    const ctx = createMockContext(user);
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.dashboard.testVolumeByMonth({
+      from: "2024-01-01",
+      to: "2024-12-31",
+      groupBy: "month",
+    });
+
+    expect(Array.isArray(result)).toBe(true);
+    if (result.length > 0) {
+      expect(result[0]).toHaveProperty("month");
+      expect(result[0]).toHaveProperty("count");
+      // Monthly groupBy should return YYYY-MM format
       expect(result[0].month).toMatch(/^\d{4}-\d{2}$/);
     }
   });

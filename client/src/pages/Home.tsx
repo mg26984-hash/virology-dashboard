@@ -26,6 +26,7 @@ import {
   ArrowLeftRight,
   Trophy,
   Flame,
+  ArrowLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDateTime, relativeTime } from "@/lib/dateUtils";
@@ -47,6 +48,7 @@ import {
   Cell,
   BarChart,
   Bar,
+  LabelList,
 } from "recharts";
 
 // Chart color palette matching the theme
@@ -276,6 +278,7 @@ export default function Home() {
   const [compareDateRange, setCompareDateRange] = useState<DateRange | undefined>(undefined);
   const [compareCalendarOpen, setCompareCalendarOpen] = useState(false);
   const [comparePreset, setComparePreset] = useState("");
+  const [drillDownYear, setDrillDownYear] = useState<string | null>(null);
 
   const isApproved = user?.status === 'approved';
 
@@ -324,8 +327,19 @@ export default function Home() {
     { enabled: isApproved && debouncedQuery.length >= 2 }
   );
 
-  // Analytics queries with date range
-  const { data: volumeData } = trpc.dashboard.testVolumeByMonth.useQuery(dateParams, {
+  // Volume trend: yearly by default, monthly when drilling into a year
+  const volumeQueryParams = useMemo(() => {
+    if (drillDownYear) {
+      return {
+        from: `${drillDownYear}-01-01`,
+        to: `${drillDownYear}-12-31`,
+        groupBy: 'month' as const,
+      };
+    }
+    return dateParams ? { ...dateParams, groupBy: 'year' as const } : { groupBy: 'year' as const };
+  }, [dateParams, drillDownYear]);
+
+  const { data: volumeData } = trpc.dashboard.testVolumeByMonth.useQuery(volumeQueryParams, {
     enabled: isApproved,
   });
 
@@ -402,10 +416,14 @@ export default function Home() {
 
   const formattedVolumeData = useMemo(() => {
     if (!volumeData) return [];
-    return volumeData.map((d: any) => ({
-      ...d,
-      label: new Date(d.month + '-01').toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
-    }));
+    return volumeData.map((d: any) => {
+      // If month is just a year (e.g. "2024"), show it as-is
+      const isYear = /^\d{4}$/.test(d.month);
+      const label = isYear
+        ? d.month
+        : new Date(d.month + '-01').toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+      return { ...d, label };
+    });
   }, [volumeData]);
 
   const formattedTopTests = useMemo(() => {
@@ -1005,30 +1023,75 @@ export default function Home() {
           <div className="grid gap-6 lg:grid-cols-3">
             <Card className="lg:col-span-2">
               <CardHeader>
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-primary" />
-                  <div>
-                    <CardTitle>Test Volume Trend</CardTitle>
-                    <CardDescription>Monthly test count</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-primary" />
+                    <div>
+                      <CardTitle>Test Volume Trend</CardTitle>
+                      <CardDescription>
+                        {drillDownYear
+                          ? `Monthly breakdown for ${drillDownYear}`
+                          : 'Tests per year (click a bar to see monthly breakdown)'}
+                      </CardDescription>
+                    </div>
                   </div>
+                  {drillDownYear && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1.5 text-muted-foreground hover:text-foreground"
+                      onClick={() => setDrillDownYear(null)}
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                      Back to yearly
+                    </Button>
+                  )}
                 </div>
               </CardHeader>
               <CardContent>
                 {formattedVolumeData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={280}>
-                    <AreaChart data={formattedVolumeData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="volumeGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="oklch(0.65 0.18 175)" stopOpacity={0.4} />
-                          <stop offset="95%" stopColor="oklch(0.65 0.18 175)" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.3 0.02 260)" />
-                      <XAxis dataKey="label" tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 12 }} axisLine={{ stroke: 'oklch(0.3 0.02 260)' }} tickLine={false} />
-                      <YAxis tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 12 }} axisLine={{ stroke: 'oklch(0.3 0.02 260)' }} tickLine={false} allowDecimals={false} />
+                    <BarChart
+                      data={formattedVolumeData}
+                      margin={{ top: 20, right: 10, left: 0, bottom: 0 }}
+                      onClick={(state) => {
+                        if (!drillDownYear && state?.activePayload?.[0]?.payload?.month) {
+                          const year = state.activePayload[0].payload.month;
+                          if (/^\d{4}$/.test(year)) {
+                            setDrillDownYear(year);
+                          }
+                        }
+                      }}
+                      style={!drillDownYear ? { cursor: 'pointer' } : undefined}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.3 0.02 260)" vertical={false} />
+                      <XAxis
+                        dataKey="label"
+                        tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 12 }}
+                        axisLine={{ stroke: 'oklch(0.3 0.02 260)' }}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        tick={{ fill: 'oklch(0.65 0.02 260)', fontSize: 12 }}
+                        axisLine={{ stroke: 'oklch(0.3 0.02 260)' }}
+                        tickLine={false}
+                        allowDecimals={false}
+                      />
                       <Tooltip content={<ChartTooltip />} />
-                      <Area type="monotone" dataKey="count" name="Tests" stroke="oklch(0.65 0.18 175)" strokeWidth={2} fill="url(#volumeGradient)" dot={{ fill: 'oklch(0.65 0.18 175)', r: 3 }} activeDot={{ r: 5, stroke: 'oklch(0.65 0.18 175)', strokeWidth: 2 }} />
-                    </AreaChart>
+                      <Bar
+                        dataKey="count"
+                        name="Tests"
+                        radius={[4, 4, 0, 0]}
+                        fill="oklch(0.65 0.18 175)"
+                      >
+                        <LabelList
+                          dataKey="count"
+                          position="top"
+                          formatter={(v: number) => v.toLocaleString()}
+                          style={{ fill: 'oklch(0.65 0.02 260)', fontSize: 11, fontWeight: 500 }}
+                        />
+                      </Bar>
+                    </BarChart>
                   </ResponsiveContainer>
                 ) : (
                   <div className="flex items-center justify-center h-[280px] text-muted-foreground">

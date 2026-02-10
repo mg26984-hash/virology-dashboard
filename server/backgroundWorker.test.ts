@@ -192,10 +192,10 @@ describe("Normalization Functions", () => {
       if (!trimmed) return null;
       const lower = trimmed.toLowerCase().replace(/[^a-z\s]/g, "").trim();
       // Non-Kuwaiti variants first (to avoid matching "non ku" as Kuwaiti)
-      if (/^non[\s-]*ku(wait[i]?[t]?)?$/i.test(lower)) return "Non-Kuwaiti";
+      if (/^non[\s-]*ku(w(a(i(t[i]?[t]?)?)?)?)?$/i.test(lower)) return "Non-Kuwaiti";
       if (lower === "non") return "Non-Kuwaiti";
-      // Kuwaiti variants: kuwaiti, kuwait, kuwaitt, ku, khy
-      if (/^ku(wait[i]?[t]?)?$/i.test(lower) || lower === "khy") return "Kuwaiti";
+      // Kuwaiti variants: kuwaiti, kuwait, kuwaitt, kuwa, kuwai, ku, khy
+      if (/^ku(w(a(i(t[i]?[t]?)?)?)?)?$/i.test(lower) || lower === "khy") return "Kuwaiti";
       return trimmed
         .split(/\s+/)
         .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
@@ -207,12 +207,16 @@ describe("Normalization Functions", () => {
     expect(normalizeNationality("KUWAITT")).toBe("Kuwaiti");
     expect(normalizeNationality("Ku")).toBe("Kuwaiti");
     expect(normalizeNationality("ku")).toBe("Kuwaiti");
+    expect(normalizeNationality("Kuwa")).toBe("Kuwaiti");
+    expect(normalizeNationality("kuwa")).toBe("Kuwaiti");
+    expect(normalizeNationality("Kuwai")).toBe("Kuwaiti");
     expect(normalizeNationality("Khy")).toBe("Kuwaiti");
     expect(normalizeNationality("khy")).toBe("Kuwaiti");
     expect(normalizeNationality("NON KUWAITI")).toBe("Non-Kuwaiti");
     expect(normalizeNationality("NON KUWAIT")).toBe("Non-Kuwaiti");
     expect(normalizeNationality("Non Ku")).toBe("Non-Kuwaiti");
     expect(normalizeNationality("non ku")).toBe("Non-Kuwaiti");
+    expect(normalizeNationality("Non Kuwa")).toBe("Non-Kuwaiti");
     expect(normalizeNationality("NON")).toBe("Non-Kuwaiti");
     expect(normalizeNationality(null)).toBeNull();
     expect(normalizeNationality("")).toBeNull();

@@ -1170,11 +1170,11 @@ export const appRouter = router({
       return getProcessingStats();
     }),
 
-    // Analytics: test volume by month
+    // Analytics: test volume trend (yearly or monthly drill-down)
     testVolumeByMonth: approvedProcedure
-      .input(z.object({ from: z.string().optional(), to: z.string().optional() }).optional())
+      .input(z.object({ from: z.string().optional(), to: z.string().optional(), groupBy: z.enum(['year', 'month']).optional() }).optional())
       .query(async ({ input }) => {
-        return getTestVolumeByMonth(input?.from, input?.to);
+        return getTestVolumeByMonth(input?.from, input?.to, input?.groupBy ?? 'year');
       }),
 
     // Analytics: result distribution (top 10)
@@ -1215,7 +1215,7 @@ export const appRouter = router({
         // Gather all analytics data in parallel
         const [stats, volumeByMonth, resultDistribution, topTestTypes, testsByNationality] = await Promise.all([
           getDashboardStats(),
-          getTestVolumeByMonth(from, to),
+          getTestVolumeByMonth(from, to, 'month'),
           getResultDistribution(from, to),
           getTopTestTypes(10, from, to),
           getTestsByNationality(10, from, to),

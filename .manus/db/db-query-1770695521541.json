@@ -1,0 +1,18 @@
+{
+  "query": "SELECT nationality, COUNT(*) as cnt FROM patients WHERE nationality LIKE '%Kuwa%' OR nationality LIKE '%kuwa%' OR nationality LIKE '%KUWA%' GROUP BY nationality ORDER BY cnt DESC;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute SELECT nationality, COUNT(*) as cnt FROM patients WHERE nationality LIKE '%Kuwa%' OR nationality LIKE '%kuwa%' OR nationality LIKE '%KUWA%' GROUP BY nationality ORDER BY cnt DESC;",
+  "rows": [
+    {
+      "nationality": "Kuwaiti",
+      "cnt": "590"
+    },
+    {
+      "nationality": "Non-Kuwaiti",
+      "cnt": "213"
+    }
+  ],
+  "messages": [],
+  "stdout": "nationality\tcnt\nKuwaiti\t590\nNon-Kuwaiti\t213\n",
+  "stderr": "",
+  "execution_time_ms": 1639
+}

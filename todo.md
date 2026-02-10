@@ -739,3 +739,25 @@
 - [x] Add manifest column to uploadBatches table (JSON array of filenames)
 - [x] Store manifest during ZIP processing for reconciliation
 - [x] All 170 tests passing
+
+## Nationality Normalization Round 3
+- [x] Normalized "Kuwa" → "Kuwaiti" in database (1 row)
+- [x] Fixed regex in normalizeNationality() to handle all partial variants (kuwa, kuwai, kuw, etc.)
+- [x] Verified: DB now has only "Kuwaiti" (590) and "Non-Kuwaiti" (213) - fully clean
+
+## Test Volume Trend: Use Actual Test Dates
+- [x] Investigated: query already uses accessionDate (actual test date), not upload date
+- [x] Fixed: default view changed from last-12-months to all-time data
+- [x] Change trend to show tests per year since 2016 (not per month)
+- [x] Add drill-down: click a year bar to see monthly breakdown, with back button
+
+## Patient Autocomplete: Prioritize First Name Matches
+- [x] Fix autocomplete to suggest patients by first name first (e.g. typing "ta" should suggest TAFLAH first)
+- [x] Order results so first-name matches appear before last-name or fileNumber matches
+- [x] Smart relevance scoring: first-name prefix > any-name-part prefix > last-name prefix > name contains > civil ID prefix > civil ID contains
+
+## Auto-Clear Uploaded Files After Processing
+- [x] Delete uploaded images/PDFs from S3 after document processing completes or is discarded (deleteProcessedFile in documentProcessor.ts)
+- [x] Delete reassembled ZIP files from disk after processing (largeZipProcessor.ts finally block)
+- [x] Clean up chunked upload parts from S3 after finalization (chunkedZipUpload.ts)
+- [x] Periodic temp file cleanup every 30 min for orphaned files >1 hour old
