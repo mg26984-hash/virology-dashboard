@@ -1,0 +1,90 @@
+{
+  "query": "SELECT id, fileName, processingStatus, processingError, retryCount, createdAt FROM documents WHERE fileName LIKE '%Ali%' OR fileName LIKE '%urine%' OR fileName LIKE '%bld%' ORDER BY createdAt DESC LIMIT 10",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute SELECT id, fileName, processingStatus, processingError, retryCount, createdAt FROM documents WHERE fileName LIKE '%Ali%' OR fileName LIKE '%urine%' OR fileName LIKE '%bld%' ORDER BY createdAt DESC LIMIT 10",
+  "rows": [
+    {
+      "id": "510039",
+      "fileName": "valid-image.jpg",
+      "processingStatus": "discarded",
+      "processingError": "Document does not contain valid virology test results",
+      "retryCount": "0",
+      "createdAt": "2026-02-10 04:01:43"
+    },
+    {
+      "id": "510023",
+      "fileName": "valid-image.jpg",
+      "processingStatus": "discarded",
+      "processingError": "Document does not contain valid virology test results",
+      "retryCount": "0",
+      "createdAt": "2026-02-10 04:00:18"
+    },
+    {
+      "id": "510009",
+      "fileName": "valid-image.jpg",
+      "processingStatus": "discarded",
+      "processingError": "Document does not contain valid virology test results",
+      "retryCount": "0",
+      "createdAt": "2026-02-10 03:54:34"
+    },
+    {
+      "id": "484353",
+      "fileName": "valid-image.jpg",
+      "processingStatus": "discarded",
+      "processingError": "Document does not contain valid virology test results",
+      "retryCount": "0",
+      "createdAt": "2026-02-09 21:49:29"
+    },
+    {
+      "id": "483468",
+      "fileName": "valid-image.jpg",
+      "processingStatus": "discarded",
+      "processingError": "Document does not contain valid virology test results",
+      "retryCount": "0",
+      "createdAt": "2026-02-09 20:54:44"
+    },
+    {
+      "id": "483248",
+      "fileName": "valid-image.jpg",
+      "processingStatus": "discarded",
+      "processingError": "Document does not contain valid virology test results",
+      "retryCount": "0",
+      "createdAt": "2026-02-09 19:55:24"
+    },
+    {
+      "id": "483233",
+      "fileName": "valid-image.jpg",
+      "processingStatus": "discarded",
+      "processingError": "Document does not contain valid virology test results",
+      "retryCount": "0",
+      "createdAt": "2026-02-09 19:38:27"
+    },
+    {
+      "id": "483218",
+      "fileName": "valid-image.jpg",
+      "processingStatus": "discarded",
+      "processingError": "Document does not contain valid virology test results",
+      "retryCount": "0",
+      "createdAt": "2026-02-09 19:27:54"
+    },
+    {
+      "id": "483203",
+      "fileName": "valid-image.jpg",
+      "processingStatus": "discarded",
+      "processingError": "Document does not contain valid virology test results",
+      "retryCount": "0",
+      "createdAt": "2026-02-09 19:25:40"
+    },
+    {
+      "id": "483188",
+      "fileName": "valid-image.jpg",
+      "processingStatus": "discarded",
+      "processingError": "Document does not contain valid virology test results",
+      "retryCount": "0",
+      "createdAt": "2026-02-09 19:17:05"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tfileName\tprocessingStatus\tprocessingError\tretryCount\tcreatedAt\n510039\tvalid-image.jpg\tdiscarded\tDocument does not contain valid virology test results\t0\t2026-02-10 04:01:43\n510023\tvalid-image.jpg\tdiscarded\tDocument does not contain valid virology test results\t0\t2026-02-10 04:00:18\n510009\tvalid-image.jpg\tdiscarded\tDocument does not contain valid virology test results\t0\t2026-02-10 03:54:34\n484353\tvalid-image.jpg\tdiscarded\tDocument does not contain valid virology test results\t0\t2026-02-09 21:49:29\n483468\tvalid-image.jpg\tdiscarded\tDocument does not contain valid virology test results\t0\t2026-02-09 20:54:44\n483248\tvalid-image.jpg\tdiscarded\tDocument does not contain valid virology test results\t0\t2026-02-09 19:55:24\n483233\tvalid-image.jpg\tdiscarded\tDocument does not contain valid virology test results\t0\t2026-02-09 19:38:27\n483218\tvalid-image.jpg\tdiscarded\tDocument does not contain valid virology test results\t0\t2026-02-09 19:27:54\n483203\tvalid-image.jpg\tdiscarded\tDocument does not contain valid virology test results\t0\t2026-02-09 19:25:40\n483188\tvalid-image.jpg\tdiscarded\tDocument does not contain valid virology test results\t0\t2026-02-09 19:17:05\n",
+  "stderr": "",
+  "execution_time_ms": 1649
+}

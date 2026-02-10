@@ -152,13 +152,20 @@ EXTRACTION GUIDELINES:
 - Patient Name: Full name as shown on the report
 - Date of Birth: Convert to DD/MM/YYYY format
 - Nationality: Country of citizenship
-- Test Type: The specific virology test name (e.g., "Polyomaviruses (BKV & JCV) DNA in Urine")
+- Test Type: The specific virology test name (e.g., "Polyomaviruses (BKV & JCV) DNA in Urine", "Polyomaviruses (BKV & JCV) DNA in Blood")
 - Result: The complete result text (e.g., "JC Virus Detected (76 Copies/mL)")
 - Viral Load: Extract numeric value with comparison operators if present (e.g., "76", ">50,000,000")
 - Unit: Usually "Copies/mL" for viral load tests
 - Accession Date: Convert to ISO format YYYY-MM-DD HH:mm:ss
 - Signed By: Name of the physician who signed the report
 - Signed At: Date/time of signature in ISO format
+
+MULTI-PAGE DOCUMENTS:
+- A single PDF or document may contain MULTIPLE test results across MULTIPLE pages
+- Each page may represent a DIFFERENT test (e.g., page 1 = Blood BKV, page 2 = Urine BKV)
+- You MUST extract ALL tests from ALL pages and include them in the tests array
+- The patient information is usually the same across pages but the test type, result, accession date, and accession number will differ
+- Do NOT stop after the first page or first test found
 
 Be thorough and accurate. Medical data accuracy is critical.`;
 
@@ -186,6 +193,16 @@ export async function extractVirologyData(imageUrl: string): Promise<ExtractedVi
       ],
       response_format: EXTRACTION_SCHEMA
     });
+
+    if (!response?.choices || !Array.isArray(response.choices) || response.choices.length === 0) {
+      console.error("[DocumentProcessor] LLM returned no choices. Response:", JSON.stringify(response).substring(0, 500));
+      return {
+        hasTestResults: false,
+        patient: { civilId: "" },
+        tests: [],
+        rawExtraction: `LLM returned no choices: ${JSON.stringify(response).substring(0, 200)}`
+      };
+    }
 
     const rawContent = response.choices[0]?.message?.content;
     if (!rawContent) {
@@ -227,7 +244,7 @@ export async function extractFromPdf(pdfUrl: string): Promise<ExtractedVirologyD
           content: [
             {
               type: "text",
-              text: "Extract all virology test data from this laboratory report PDF. If this is not a valid virology report or doesn't contain test results, set hasTestResults to false."
+              text: "Extract ALL virology test data from this laboratory report PDF. The PDF may contain MULTIPLE PAGES, each with a SEPARATE test result for the SAME patient. You MUST examine EVERY page and include ALL tests found across ALL pages in the tests array. Do NOT stop after the first page. If this is not a valid virology report or doesn't contain test results, set hasTestResults to false."
             },
             {
               type: "file_url",
@@ -241,6 +258,16 @@ export async function extractFromPdf(pdfUrl: string): Promise<ExtractedVirologyD
       ],
       response_format: EXTRACTION_SCHEMA
     });
+
+    if (!response?.choices || !Array.isArray(response.choices) || response.choices.length === 0) {
+      console.error("[DocumentProcessor] LLM returned no choices for PDF. Response:", JSON.stringify(response).substring(0, 500));
+      return {
+        hasTestResults: false,
+        patient: { civilId: "" },
+        tests: [],
+        rawExtraction: `LLM returned no choices: ${JSON.stringify(response).substring(0, 200)}`
+      };
+    }
 
     const rawContent = response.choices[0]?.message?.content;
     if (!rawContent) {

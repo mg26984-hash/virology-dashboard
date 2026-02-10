@@ -1,0 +1,8 @@
+{
+  "query": "SELECT id, fileName, processingStatus, errorMessage, retryCount, createdAt FROM documents WHERE fileName LIKE '%Ali%' OR fileName LIKE '%urine%' OR fileName LIKE '%bld%' ORDER BY createdAt DESC LIMIT 10",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute SELECT id, fileName, processingStatus, errorMessage, retryCount, createdAt FROM documents WHERE fileName LIKE '%Ali%' OR fileName LIKE '%urine%' OR fileName LIKE '%bld%' ORDER BY createdAt DESC LIMIT 10",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1054 (42S22) at line 1: Unknown column 'errormessage' in 'field list'"
+  ]
+}

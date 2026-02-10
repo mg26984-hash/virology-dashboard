@@ -761,3 +761,18 @@
 - [x] Delete reassembled ZIP files from disk after processing (largeZipProcessor.ts finally block)
 - [x] Clean up chunked upload parts from S3 after finalization (chunkedZipUpload.ts)
 - [x] Periodic temp file cleanup every 30 min for orphaned files >1 hour old
+
+## Owner Can Promote/Demote Admins
+- [x] Add backend procedure for owner to change user role (admin/user) - already implemented as setRole with ownerProcedure
+- [x] Only the owner (identified by OWNER_OPEN_ID) can promote/demote - ownerProcedure middleware enforces this
+- [x] Add promote/demote UI controls on User Management page - Make Admin / Remove Admin buttons visible to owner
+- [x] Log role changes to audit trail - updateUserRole logs to audit
+- [x] Transfer Ownership feature also available for owner to transfer to an admin
+
+## Fix Multi-Page PDF Processing (Multiple Tests Per PDF)
+- [x] Diagnose why multi-page PDFs with separate test results per page fail to process (LLM response.choices undefined + & in filename breaking S3 URL)
+- [x] Update LLM prompt/processing to handle multiple test results from a single PDF (enhanced system prompt + user prompt for multi-page extraction)
+- [x] Sanitize filenames with special characters (& ? # % + spaces) in all 4 upload paths (single, batch, zip, chunked)
+- [x] Add robust error handling when LLM returns no choices (log response details, return graceful failure)
+- [x] Ensure each page's test result is saved as a separate test record (already supported by tests array loop)
+- [ ] Test with the AliSanambld&urine.pdf sample on published site

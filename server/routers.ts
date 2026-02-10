@@ -236,8 +236,9 @@ export const appRouter = router({
         const fileBuffer = Buffer.from(input.fileData, 'base64');
         console.log(`[Documents] Decoded buffer size: ${fileBuffer.length} bytes`);
         
-        // Generate unique file key
-        const fileKey = `virology-reports/${ctx.user!.id}/${nanoid()}-${input.fileName}`;
+        // Generate unique file key (sanitize filename for S3 URL compatibility)
+        const safeFileName = input.fileName.replace(/[&?#%+\s]/g, '_');
+        const fileKey = `virology-reports/${ctx.user!.id}/${nanoid()}-${safeFileName}`;
         
         // Upload to S3
         const { url } = await storagePut(fileKey, fileBuffer, input.mimeType);
@@ -297,7 +298,8 @@ export const appRouter = router({
             }
 
             const fileBuffer = Buffer.from(file.fileData, 'base64');
-            const fileKey = `virology-reports/${ctx.user!.id}/${nanoid()}-${file.fileName}`;
+            const safeFileName = file.fileName.replace(/[&?#%+\s]/g, '_');
+            const fileKey = `virology-reports/${ctx.user!.id}/${nanoid()}-${safeFileName}`;
             const { url } = await storagePut(fileKey, fileBuffer, file.mimeType);
 
             const document = await createDocument({
@@ -406,8 +408,9 @@ export const appRouter = router({
                 continue;
               }
 
-              // Upload to S3
-              const fileKey = `virology-reports/${ctx.user!.id}/${nanoid()}-${fileName}`;
+              // Upload to S3 (sanitize filename for URL compatibility)
+              const safeFileName = fileName.replace(/[&?#%+\s]/g, '_');
+              const fileKey = `virology-reports/${ctx.user!.id}/${nanoid()}-${safeFileName}`;
               const { url } = await storagePut(fileKey, fileBuffer, mimeType);
 
               // Create document record
@@ -591,8 +594,9 @@ export const appRouter = router({
                 continue;
               }
 
-              // Upload to S3
-              const fileKey = `virology-reports/${ctx.user!.id}/${nanoid()}-${fileName}`;
+              // Upload to S3 (sanitize filename for URL compatibility)
+              const safeFileName = fileName.replace(/[&?#%+\s]/g, '_');
+              const fileKey = `virology-reports/${ctx.user!.id}/${nanoid()}-${safeFileName}`;
               const { url } = await storagePut(fileKey, fileBuffer, mimeType);
 
               // Create document record
