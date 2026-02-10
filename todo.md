@@ -805,3 +805,11 @@
 - [x] Add owner notification when a document fails permanently after 3 retries (❌ Failed: filename, error)
 - [x] Notifications are fire-and-forget to avoid blocking the processing pipeline
 - [x] All 171 tests passing
+
+## Add iOS Shortcut Setup Instructions with Screenshots
+- [x] Compressed 3 user-provided shortcut screenshots from ~300KB to ~15-25KB WebP
+- [x] Uploaded compressed screenshots to S3 CDN
+- [x] Updated Upload page with clear step-by-step iOS Shortcut setup guide with reference screenshot
+- [x] Included consolidated report instructions (Add to Variable + Combine Text + Show Alert)
+- [x] Added "How It Works" explanation box for the summary alert feature
+- [x] All 171 tests passing

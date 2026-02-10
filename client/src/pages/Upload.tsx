@@ -828,55 +828,102 @@ export default function Upload() {
                   <div className="border-t border-blue-200 dark:border-white/10" />
 
                   {/* Option B: iOS Shortcut — for share sheet */}
-                  <div className="space-y-1.5">
+                  <div className="space-y-3">
                     <p className="text-xs font-medium text-blue-700 dark:text-blue-300">Option B &mdash; iOS Shortcut <span className="text-[10px] text-muted-foreground ml-1">(Share Sheet)</span></p>
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
                       Share photos from your gallery, WhatsApp, or any app using the iOS Share button. Supports multiple files at once.
                     </p>
-                    <ol className="text-xs text-muted-foreground space-y-1.5 pl-4 list-decimal">
-                      <li>Open the <strong>Shortcuts</strong> app &rarr; tap <strong>+</strong> (new shortcut)</li>
-                      <li>Search for <strong>Repeat with Each</strong> and add it. It will say &ldquo;Repeat with each item in <em>Shortcut Input</em>&rdquo; &mdash; this loops through all shared files</li>
-                      <li><strong>Inside</strong> the Repeat block, search for <strong>Get Contents of URL</strong> and add it (drag it between &ldquo;Repeat with Each&rdquo; and &ldquo;End Repeat&rdquo;)</li>
-                      <li>Tap the pale blue <strong>URL</strong> word and paste your upload URL:</li>
-                    </ol>
-                    <div className="rounded-lg border-2 border-amber-400 dark:border-amber-500/50 bg-amber-50 dark:bg-amber-950/20 p-2.5 space-y-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide">Shortcut URL (paste this in the shortcut)</span>
+
+                    {/* Step-by-step with screenshots */}
+                    <div className="space-y-4">
+                      {/* Step 1: Create the shortcut */}
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-semibold text-foreground">Step 1: Create the Shortcut</p>
+                        <ol className="text-xs text-muted-foreground space-y-1 pl-4 list-decimal">
+                          <li>Open the <strong>Shortcuts</strong> app on your iPhone</li>
+                          <li>Tap <strong>+</strong> to create a new shortcut</li>
+                          <li>Add these actions in order (use the search bar at the bottom):</li>
+                        </ol>
+                        <div className="ml-4 space-y-0.5">
+                          <p className="text-[11px] text-muted-foreground">&bull; <strong>Repeat with Each</strong> &mdash; set input to <em>Shortcut Input</em></p>
+                          <p className="text-[11px] text-muted-foreground">&bull; <strong>Get Contents of URL</strong> &mdash; paste your upload URL (below)</p>
+                          <p className="text-[11px] text-muted-foreground">&bull; <strong>Get Dictionary Value</strong> &mdash; key = <code className="text-emerald-600 dark:text-emerald-400">shortMessage</code></p>
+                          <p className="text-[11px] text-muted-foreground">&bull; <strong>Add to Variable</strong> &mdash; variable name = <code className="text-emerald-600 dark:text-emerald-400">Results</code></p>
+                          <p className="text-[11px] text-muted-foreground">&bull; <em>(End Repeat closes automatically)</em></p>
+                          <p className="text-[11px] text-muted-foreground">&bull; <strong>Combine Text</strong> &mdash; input = <em>Results</em>, separator = <em>New Lines</em></p>
+                          <p className="text-[11px] text-muted-foreground">&bull; <strong>Show Alert</strong> &mdash; message = <em>Combined Text</em></p>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <code className="text-[11px] bg-white dark:bg-black/30 border border-amber-200 dark:border-amber-800/30 px-2 py-1.5 rounded font-mono flex-1 break-all text-amber-800 dark:text-amber-300 select-all">
-                          {window.location.origin}/api/upload/quick?token={uploadToken || "YOUR_TOKEN"}
-                        </code>
-                        {uploadToken && (
-                          <Button size="sm" className="shrink-0 bg-amber-600 hover:bg-amber-700 text-white" onClick={() => {
-                            const url = window.location.origin + "/api/upload/quick?token=" + uploadToken;
-                            navigator.clipboard.writeText(url);
-                            toast.success("Shortcut URL copied! Paste it in the iOS Shortcut.");
-                          }}>
-                            <Copy className="h-3.5 w-3.5 mr-1.5" />Copy
-                          </Button>
-                        )}
+
+                      {/* Upload URL box */}
+                      <div className="rounded-lg border-2 border-amber-400 dark:border-amber-500/50 bg-amber-50 dark:bg-amber-950/20 p-2.5 space-y-1.5">
+                        <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide">Your Upload URL (copy and paste into the shortcut)</span>
+                        <div className="flex items-center gap-2">
+                          <code className="text-[11px] bg-white dark:bg-black/30 border border-amber-200 dark:border-amber-800/30 px-2 py-1.5 rounded font-mono flex-1 break-all text-amber-800 dark:text-amber-300 select-all">
+                            {window.location.origin}/api/upload/quick?token={uploadToken || "YOUR_TOKEN"}
+                          </code>
+                          {uploadToken && (
+                            <Button size="sm" className="shrink-0 bg-amber-600 hover:bg-amber-700 text-white" onClick={() => {
+                              const url = window.location.origin + "/api/upload/quick?token=" + uploadToken;
+                              navigator.clipboard.writeText(url);
+                              toast.success("Shortcut URL copied!");
+                            }}>
+                              <Copy className="h-3.5 w-3.5 mr-1.5" />Copy
+                            </Button>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-amber-600 dark:text-amber-400/70">This URL is different from the Quick Upload page link. Make sure to use this one.</p>
                       </div>
-                      <p className="text-[10px] text-amber-600 dark:text-amber-400/70">This URL is different from the Quick Upload page link above. Make sure to use this one in your shortcut.</p>
-                    </div>
-                    <ol start={5} className="text-xs text-muted-foreground space-y-1.5 pl-4 list-decimal">
-                      <li>Tap the arrow <strong>&rsaquo;</strong> next to the action to expand it. Change <strong>Method</strong> to <strong>POST</strong></li>
-                      <li>Tap <strong>Body</strong> &rarr; choose <strong>Form</strong>. Add a field: Key = <code className="text-emerald-700 dark:text-emerald-400 text-[11px]">images</code>, Type = <code className="text-emerald-700 dark:text-emerald-400 text-[11px]">File</code>, Value = <code className="text-emerald-700 dark:text-emerald-400 text-[11px]">Repeat Item</code> (the current file in the loop)</li>
-                      <li>Tap the shortcut name at the top &rarr; rename to <strong>Upload to Virology</strong></li>
-                      <li>Tap the <strong>&#x2193;</strong> arrow next to the name &rarr; tap <strong>Details</strong> or <strong>Privacy</strong> &rarr; enable <strong>Show in Share Sheet</strong></li>
-                      <li>Tap <strong>Done</strong>. Now share any photo(s) &rarr; pick <strong>Upload to Virology</strong> from the share menu</li>
-                    </ol>
-                    <div className="mt-2 rounded-lg border border-emerald-300 dark:border-emerald-800/50 bg-emerald-50 dark:bg-emerald-950/20 p-2.5 space-y-1.5">
-                      <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">Add Upload Feedback (Recommended)</p>
-                      <p className="text-[10px] text-emerald-700 dark:text-emerald-400">To see whether each upload succeeded or failed, add these steps <strong>after</strong> the &ldquo;Get Contents of URL&rdquo; action (still inside the Repeat block):</p>
-                      <ol className="text-[10px] text-emerald-700 dark:text-emerald-400 space-y-1 pl-3 list-decimal">
-                        <li>Search for <strong>Get Dictionary Value</strong> and add it. Set <strong>Key</strong> to <code className="text-emerald-800 dark:text-emerald-300">shortMessage</code> and <strong>Input</strong> to <code className="text-emerald-800 dark:text-emerald-300">Contents of URL</code></li>
-                        <li>Search for <strong>Show Alert</strong> and add it. Set the message to <code className="text-emerald-800 dark:text-emerald-300">Dictionary Value</code> (the result from step above)</li>
-                      </ol>
-                      <p className="text-[10px] text-emerald-600 dark:text-emerald-500">You&rsquo;ll see alerts like &ldquo;\u2705 1 uploaded&rdquo; or &ldquo;\u274c Upload failed: ...&rdquo; after each file.</p>
-                    </div>
-                    <div className="mt-1.5 rounded-lg border border-blue-300 dark:border-blue-800/50 bg-blue-50 dark:bg-blue-950/20 p-2">
-                      <p className="text-[10px] text-blue-700 dark:text-blue-400"><strong>Multi-file tip:</strong> The &ldquo;Repeat with Each&rdquo; loop sends each file one at a time, so all selected photos will be uploaded. Without it, only the first file gets sent.</p>
+
+                      {/* Step 2: Configure Get Contents of URL */}
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-semibold text-foreground">Step 2: Configure &ldquo;Get Contents of URL&rdquo;</p>
+                        <ol className="text-xs text-muted-foreground space-y-1 pl-4 list-decimal">
+                          <li>Tap the arrow <strong>&rsaquo;</strong> to expand the action</li>
+                          <li>Change <strong>Method</strong> to <strong>POST</strong></li>
+                          <li>Tap <strong>Body</strong> &rarr; choose <strong>Form</strong></li>
+                          <li>Add a field: Key = <code className="text-emerald-600 dark:text-emerald-400">images</code>, Type = <code className="text-emerald-600 dark:text-emerald-400">File</code>, Value = <code className="text-emerald-600 dark:text-emerald-400">Repeat Item</code></li>
+                        </ol>
+                      </div>
+
+                      {/* Step 3: Enable Share Sheet */}
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-semibold text-foreground">Step 3: Enable Share Sheet</p>
+                        <ol className="text-xs text-muted-foreground space-y-1 pl-4 list-decimal">
+                          <li>Tap the shortcut name at the top &rarr; rename to <strong>Upload to Virology</strong></li>
+                          <li>Tap the <strong>&#x2193;</strong> arrow next to the name &rarr; <strong>Details</strong> or <strong>Privacy</strong></li>
+                          <li>Enable <strong>Show in Share Sheet</strong></li>
+                          <li>Tap <strong>Done</strong></li>
+                        </ol>
+                      </div>
+
+                      {/* Screenshot reference */}
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold text-foreground">Your shortcut should look like this:</p>
+                        <div className="flex gap-3 overflow-x-auto pb-2">
+                          <div className="shrink-0 text-center space-y-1">
+                            <picture>
+                              <source srcSet="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/fWCjlKIUeEtHrNXf.webp" type="image/webp" />
+                              <img
+                                src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/mnpLHsIYCkXKkWFt.jpg"
+                                alt="Final iOS Shortcut setup"
+                                className="rounded-lg border border-border shadow-sm"
+                                style={{ width: '220px', height: 'auto' }}
+                                loading="lazy"
+                              />
+                            </picture>
+                            <p className="text-[10px] text-muted-foreground">Complete shortcut with upload feedback</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* How it works */}
+                      <div className="rounded-lg border border-emerald-300 dark:border-emerald-800/50 bg-emerald-50 dark:bg-emerald-950/20 p-2.5 space-y-1">
+                        <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">How It Works</p>
+                        <p className="text-[10px] text-emerald-700 dark:text-emerald-400">
+                          When you share files, the shortcut uploads each one and collects the results. After all files are done, you get <strong>one summary alert</strong> showing the status of every file &mdash; no need to tap OK after each upload.
+                        </p>
+                      </div>
                     </div>
 
                   </div>
