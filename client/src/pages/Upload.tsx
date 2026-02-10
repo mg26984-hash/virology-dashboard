@@ -461,11 +461,15 @@ export default function Upload() {
                   <div className="flex-1">
                     <p className="text-sm font-semibold">Tap the three-dot menu → More</p>
                     <p className="text-xs text-muted-foreground mt-1">In the top-right corner, tap <strong>⋮</strong> (three dots), then tap <strong>More</strong></p>
-                    <img
-                      src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/HmZNRYpaWaMhxEWn.png"
-                      alt="WhatsApp three-dot menu showing More option"
-                      className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
-                    />
+                    <picture>
+                      <source srcSet="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/cAULhwhFQpybRkla.webp" type="image/webp" />
+                      <img
+                        src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/XCDOKEglafHyGoMV.jpg"
+                        alt="WhatsApp three-dot menu showing More option"
+                        className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
+                        loading="lazy" width="200" height="358"
+                      />
+                    </picture>
                   </div>
                 </div>
                 {/* Android Step 3 */}
@@ -476,11 +480,15 @@ export default function Upload() {
                   <div className="flex-1">
                     <p className="text-sm font-semibold">Tap "Export chat"</p>
                     <p className="text-xs text-muted-foreground mt-1">From the submenu, select <strong>Export chat</strong></p>
-                    <img
-                      src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/xykfuJtrcUHWKfPc.png"
-                      alt="WhatsApp submenu showing Export chat option"
-                      className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
-                    />
+                    <picture>
+                      <source srcSet="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/TxCNyWuYHeeuiEwR.webp" type="image/webp" />
+                      <img
+                        src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/QIsEmFteXytqkbSU.jpg"
+                        alt="WhatsApp submenu showing Export chat option"
+                        className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
+                        loading="lazy" width="200" height="358"
+                      />
+                    </picture>
                   </div>
                 </div>
                 {/* Android Step 4 */}
@@ -491,12 +499,15 @@ export default function Upload() {
                   <div className="flex-1">
                     <p className="text-sm font-semibold">Choose "Attach Media"</p>
                     <p className="text-xs text-muted-foreground mt-1">When prompted, select <strong>Attach Media</strong> to include all images in the export</p>
-                    <img
-                      src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/SWwOSiwixB
-sijxJy.png"
-                      alt="WhatsApp Export Chat dialog with Attach Media option"
-                      className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
-                    />
+                    <picture>
+                      <source srcSet="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/DbDbIGMuQmgUfLGg.webp" type="image/webp" />
+                      <img
+                        src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/PAuqcJgbRafwVlmd.jpg"
+                        alt="WhatsApp Export Chat dialog with Attach Media option"
+                        className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
+                        loading="lazy" width="200" height="358"
+                      />
+                    </picture>
                   </div>
                 </div>
               </>
@@ -510,11 +521,15 @@ sijxJy.png"
                   <div className="flex-1">
                     <p className="text-sm font-semibold">Tap the group name at the top</p>
                     <p className="text-xs text-muted-foreground mt-1">Tap <strong>OTC virology 2026</strong> at the top of the chat to open group info</p>
-                    <img
-                      src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/KPxKDwkOwmmCqjkY.png"
-                      alt="iPhone WhatsApp - tap group name OTC virology 2026"
-                      className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
-                    />
+                    <picture>
+                      <source srcSet="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/lwUIEAvWHdaacgFk.webp" type="image/webp" />
+                      <img
+                        src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/CLSMzFXlwTnkJJWE.jpg"
+                        alt="iPhone WhatsApp - tap group name OTC virology 2026"
+                        className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
+                        loading="lazy" width="200" height="358"
+                      />
+                    </picture>
                   </div>
                 </div>
                 {/* iPhone Step 3 */}
@@ -525,11 +540,15 @@ sijxJy.png"
                   <div className="flex-1">
                     <p className="text-sm font-semibold">Scroll down and tap "Export Chat"</p>
                     <p className="text-xs text-muted-foreground mt-1">Scroll to the bottom of group info and tap <strong>Export Chat</strong></p>
-                    <img
-                      src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/ZWBfsTGcdjlckDek.png"
-                      alt="iPhone WhatsApp - Export Chat option in group info"
-                      className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
-                    />
+                    <picture>
+                      <source srcSet="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/vOHdWkArCYYGJxDZ.webp" type="image/webp" />
+                      <img
+                        src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/stBecZNjwwtuFNZm.jpg"
+                        alt="iPhone WhatsApp - Export Chat option in group info"
+                        className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
+                        loading="lazy" width="200" height="358"
+                      />
+                    </picture>
                   </div>
                 </div>
                 {/* iPhone Step 4 */}
@@ -540,11 +559,15 @@ sijxJy.png"
                   <div className="flex-1">
                     <p className="text-sm font-semibold">Choose "Attach Media"</p>
                     <p className="text-xs text-muted-foreground mt-1">When prompted, select <strong>Attach Media</strong> to include all images in the export</p>
-                    <img
-                      src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/nknLofChGhjpQwjv.png"
-                      alt="iPhone WhatsApp - Attach Media dialog"
-                      className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
-                    />
+                    <picture>
+                      <source srcSet="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/ezQqrrAIorOeWOJQ.webp" type="image/webp" />
+                      <img
+                        src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/xhFVbtnBvWjfWSqR.jpg"
+                        alt="iPhone WhatsApp - Attach Media dialog"
+                        className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
+                        loading="lazy" width="200" height="358"
+                      />
+                    </picture>
                   </div>
                 </div>
               </>

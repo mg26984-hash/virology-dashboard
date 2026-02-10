@@ -776,3 +776,13 @@
 - [x] Add robust error handling when LLM returns no choices (log response details, return graceful failure)
 - [x] Ensure each page's test result is saved as a separate test record (already supported by tests array loop)
 - [ ] Test with the AliSanambld&urine.pdf sample on published site
+
+## Add iPhone iOS 18 WhatsApp Screenshots + Compress All Guide Images
+- [x] Research current iOS 18 WhatsApp interface design
+- [x] Generate iPhone screenshot: Tap group name "OTC virology 2026" (with red circle highlight)
+- [x] Generate iPhone screenshot: Group Info page with Export Chat option (red border highlight)
+- [x] Generate iPhone screenshot: Attach Media dialog (red border highlight)
+- [x] Compress all 6 guide images from ~5MB PNG to ~10-17KB WebP (99.7% reduction)
+- [x] Upload compressed WebP + JPG fallbacks to S3 CDN
+- [x] Update Upload.tsx with <picture> elements (WebP primary, JPG fallback) + lazy loading + explicit dimensions
+- [x] All 171 tests passing
