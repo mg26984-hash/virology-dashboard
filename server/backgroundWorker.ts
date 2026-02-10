@@ -2,6 +2,7 @@ import { getDb } from "./db";
 import { documents } from "../drizzle/schema";
 import { eq, asc, sql, and, lt, or } from "drizzle-orm";
 import { processUploadedDocument } from "./documentProcessor";
+import { notifyOwner } from "./_core/notification";
 
 const MAX_RETRIES = 3;
 
@@ -112,6 +113,30 @@ async function processPendingDocuments() {
             result.testsCreated ? ` (${result.testsCreated} tests created)` : ""
           }`
         );
+
+        // Send processing status notification to owner
+        if (result.status === 'completed') {
+          const skipInfo = result.testsSkipped ? `, ${result.testsSkipped} duplicate(s) skipped` : '';
+          notifyOwner({
+            title: `\u2705 Processed: ${doc.fileName}`,
+            content: `${result.testsCreated} test(s) extracted${skipInfo}`,
+          }).catch(() => {});
+        } else if (result.status === 'discarded') {
+          notifyOwner({
+            title: `\u26a0\ufe0f Discarded: ${doc.fileName}`,
+            content: result.duplicateInfo || result.error || 'No valid test results found',
+          }).catch(() => {});
+        } else if (result.status === 'failed') {
+          // Only notify on final failure (retryCount >= MAX_RETRIES - 1)
+          const docRecord = await db.select({ retryCount: documents.retryCount }).from(documents).where(eq(documents.id, doc.id)).limit(1);
+          const retries = docRecord[0]?.retryCount ?? 0;
+          if (retries >= MAX_RETRIES - 1) {
+            notifyOwner({
+              title: `\u274c Failed: ${doc.fileName}`,
+              content: `Processing failed after ${MAX_RETRIES} attempts. Error: ${result.error || 'Unknown error'}`,
+            }).catch(() => {});
+          }
+        }
       } catch (err) {
         console.error(
           `[BackgroundWorker] Error processing document #${doc.id}:`,

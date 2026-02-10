@@ -794,3 +794,14 @@
 - [x] Added owner notification on quick upload success/failure (fire-and-forget)
 - [x] Updated iOS Shortcut guide with "Add Upload Feedback" section (Get Dictionary Value → Show Alert)
 - [x] All 171 tests passing
+
+## Discard Old Broken Documents with & in S3 URLs
+- [x] Checked DB: 0 documents in pending/failed/processing status — all broken docs already discarded by background worker after max retries
+- [x] Queue is clean, no manual intervention needed
+
+## Processing Status Push Notification
+- [x] Add owner notification when a document finishes processing successfully (✅ Processed: filename, N tests extracted)
+- [x] Add owner notification when a document is discarded (⚠️ Discarded: filename, reason)
+- [x] Add owner notification when a document fails permanently after 3 retries (❌ Failed: filename, error)
+- [x] Notifications are fire-and-forget to avoid blocking the processing pipeline
+- [x] All 171 tests passing
