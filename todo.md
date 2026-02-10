@@ -813,3 +813,10 @@
 - [x] Included consolidated report instructions (Add to Variable + Combine Text + Show Alert)
 - [x] Added "How It Works" explanation box for the summary alert feature
 - [x] All 171 tests passing
+
+## Add Android "Add to Home Screen" Screenshots
+- [x] Generated Android screenshot: Chrome three-dot menu with "Add to Home Screen" highlighted (red border)
+- [x] Generated Android screenshot: Share sheet showing "Virology" app highlighted (red border)
+- [x] Compressed from ~5MB to ~11-14KB WebP (99.7% reduction) with JPG fallbacks
+- [x] Uploaded to S3 CDN and updated Upload page with <picture> elements + lazy loading
+- [x] All 171 tests passing

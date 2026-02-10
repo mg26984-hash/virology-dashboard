@@ -930,16 +930,33 @@ export default function Upload() {
                 </div>
 
                 {/* Android instructions */}
-                <div className="rounded-lg border border-border p-3 space-y-2">
+                <div className="rounded-lg border border-border p-3 space-y-3">
                   <div className="flex items-center gap-2">
                     <Smartphone className="h-4 w-4 text-green-600" />
                     <span className="text-sm font-medium">Android (Add to Home Screen)</span>
                   </div>
-                  <ol className="text-xs text-muted-foreground space-y-1 pl-4 list-decimal">
-                    <li>Open this site in <strong>Chrome</strong> on your phone</li>
-                    <li>Tap the <strong>three-dot menu</strong> {"→"} <strong>Add to Home Screen</strong></li>
-                    <li>Now when you share photos from Gallery or WhatsApp, select <strong>Virology</strong> from the share sheet</li>
-                  </ol>
+                  <div className="space-y-3">
+                    <div className="flex gap-3 items-start">
+                      <div className="h-6 w-6 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">1</div>
+                      <div className="flex-1">
+                        <p className="text-xs text-muted-foreground">Open this site in <strong className="text-foreground">Chrome</strong> on your phone. Tap the <strong className="text-foreground">three-dot menu</strong> (top right) and select <strong className="text-foreground">Add to Home Screen</strong>.</p>
+                        <picture>
+                          <source srcSet="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/kpIEfZnmOQOGSDzr.webp" type="image/webp" />
+                          <img src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/WXtVegBJPkQjbfbm.jpg" alt="Chrome menu - Add to Home Screen" className="mt-2 rounded-lg border border-border/50 w-[140px]" loading="lazy" width="140" height="250" />
+                        </picture>
+                      </div>
+                    </div>
+                    <div className="flex gap-3 items-start">
+                      <div className="h-6 w-6 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">2</div>
+                      <div className="flex-1">
+                        <p className="text-xs text-muted-foreground">Now share photos from <strong className="text-foreground">Gallery</strong> or <strong className="text-foreground">WhatsApp</strong>. Tap <strong className="text-foreground">Share</strong> and select <strong className="text-foreground">Virology</strong> from the share sheet.</p>
+                        <picture>
+                          <source srcSet="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/iGhpdiIJJKipxaNk.webp" type="image/webp" />
+                          <img src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/zVFvucOaQuVtrMiT.jpg" alt="Android share sheet - Virology" className="mt-2 rounded-lg border border-border/50 w-[140px]" loading="lazy" width="140" height="250" />
+                        </picture>
+                      </div>
+                    </div>
+                  </div>
                   <p className="text-xs text-muted-foreground italic">No token needed for Android &mdash; it uses your logged-in session.</p>
                 </div>
               </div>
