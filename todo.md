@@ -820,3 +820,9 @@
 - [x] Compressed from ~5MB to ~11-14KB WebP (99.7% reduction) with JPG fallbacks
 - [x] Uploaded to S3 CDN and updated Upload page with <picture> elements + lazy loading
 - [x] All 171 tests passing
+
+## Remove Upload/Processing Notifications
+- [x] Removed notifyOwner calls from Quick Upload endpoint (uploadRoutes.ts) — success and failure
+- [x] Removed notifyOwner calls from background worker (backgroundWorker.ts) — completed, discarded, and failed
+- [x] Removed unused notifyOwner imports from both files
+- [x] All 171 tests passing

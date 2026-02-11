@@ -14,7 +14,6 @@ import { processUploadedDocument } from "./documentProcessor";
 import { documents } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
 import { processLargeZipFromDisk, getLargeZipProgress, getLargeZipProgressFromDb } from "./largeZipProcessor";
-import { notifyOwner } from "./_core/notification";
 import { chunkedZipRouter } from "./chunkedZipUpload";
 
 // Compute SHA-256 hash of file content for deduplication
@@ -725,13 +724,6 @@ router.post("/quick", upload.any(), async (req: Request, res: Response) => {
     const successMsg = `${newCount} new file(s) uploaded, ${dupCount} duplicate(s) skipped.${largeZipMsg} Processing will begin automatically.`;
     console.log(`[Quick Upload] Done. New: ${newCount}, Duplicates: ${dupCount}, Large ZIPs: ${largeZipJobs.length}, Total: ${allFiles.length}`);
 
-    // Send notification to owner about the quick upload result
-    const fileNames = results.map(r => r.fileName).join(", ");
-    notifyOwner({
-      title: `Quick Upload: ${newCount} new file(s)`,
-      content: `${successMsg}\nFiles: ${fileNames}`,
-    }).catch(() => {}); // fire-and-forget
-
     res.json({
       success: true,
       message: successMsg,
@@ -748,12 +740,6 @@ router.post("/quick", upload.any(), async (req: Request, res: Response) => {
   } catch (error) {
     console.error("[Quick Upload] Error:", error);
     const errMsg = error instanceof Error ? error.message : "Upload failed";
-
-    // Notify owner about the failure
-    notifyOwner({
-      title: "Quick Upload Failed",
-      content: `Error: ${errMsg}`,
-    }).catch(() => {});
 
     res.status(500).json({
       success: false,
