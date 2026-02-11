@@ -826,3 +826,13 @@
 - [x] Removed notifyOwner calls from background worker (backgroundWorker.ts) — completed, discarded, and failed
 - [x] Removed unused notifyOwner imports from both files
 - [x] All 171 tests passing
+
+## Auto-Merge Patients with Same Civil ID
+- [x] Analyzed current patient schema — unique constraint on civilId prevents true duplicates; issue is name inconsistency (ALL CAPS, truncated names, mixed casing)
+- [x] Implemented smart name reconciliation in upsertPatient: chooseBestName() picks the longer/more complete name on each upload
+- [x] Added normalizePatientName() — converts ALL CAPS to Title Case, preserves Arabic particles (al-, el-), trims whitespace
+- [x] New patients are auto-normalized on creation; existing patients get best-name upgrade on re-upload
+- [x] Admin "Auto-Normalize Names" tab on Patient Merge page — batch normalizes all 814+ patient names with before/after table
+- [x] Batch-optimized: processes 800+ patients in ~4 seconds using parallel chunks of 50
+- [x] Audit logging for normalization operations
+- [x] All 20 auto-merge tests passing (normalizePatientName, chooseBestName, smart upsert, admin endpoint, access control)

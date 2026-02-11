@@ -55,6 +55,7 @@ import {
   getUserById,
   getBKPCRLeaderboard,
   getCMVPCRLeaderboard,
+  autoNormalizeAllPatientNames,
 } from "./db";
 import { ENV } from './_core/env';
 import ExcelJS from "exceljs";
@@ -1511,6 +1512,22 @@ export const appRouter = router({
         ctx.user!.id,
         input.reason
       );
+      return result;
+    }),
+
+  autoNormalizeNames: adminProcedure
+    .mutation(async ({ ctx }) => {
+      const result = await autoNormalizeAllPatientNames();
+      // Audit log the normalization
+      await createAuditLog({
+        action: 'auto_normalize_names',
+        userId: ctx.user!.id,
+        metadata: JSON.stringify({
+          totalPatients: result.totalPatients,
+          namesNormalized: result.namesNormalized,
+          sampleChanges: result.changes.slice(0, 20),
+        }),
+      });
       return result;
     }),
 

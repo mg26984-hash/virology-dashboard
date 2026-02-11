@@ -1,0 +1,13 @@
+{
+  "query": "\nSELECT COUNT(*) as total FROM patients;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute \nSELECT COUNT(*) as total FROM patients;\n",
+  "rows": [
+    {
+      "total": "814"
+    }
+  ],
+  "messages": [],
+  "stdout": "total\n814\n",
+  "stderr": "",
+  "execution_time_ms": 1583
+}

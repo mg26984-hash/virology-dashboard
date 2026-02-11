@@ -145,6 +145,58 @@ export async function updateUserRole(userId: number, role: 'user' | 'admin', adm
 
 // ============ PATIENT FUNCTIONS ============
 
+/**
+ * Normalize a patient name to Title Case.
+ * Handles ALL CAPS, all lowercase, and mixed casing from OCR/LLM extraction.
+ * Preserves common Arabic name particles (al-, el-) in lowercase.
+ */
+export function normalizePatientName(name: string | null | undefined): string | null {
+  if (!name || !name.trim()) return null;
+  const trimmed = name.trim().replace(/\s+/g, ' ');
+  // Convert to title case, handling Arabic particles
+  return trimmed.split(' ').map((word, idx) => {
+    const lower = word.toLowerCase();
+    // Keep Arabic particles lowercase (unless first word)
+    if (idx > 0 && (lower === 'al' || lower === 'el' || lower === 'al-' || lower === 'el-')) {
+      return lower;
+    }
+    // Handle hyphenated words like "Al-Azmi"
+    if (word.includes('-')) {
+      return word.split('-').map(part => 
+        part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
+      ).join('-');
+    }
+    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+  }).join(' ');
+}
+
+/**
+ * Choose the best (most complete) name between two candidates.
+ * Prefers the longer name as it's likely more complete (e.g., includes middle name).
+ * If same length, prefers the newer incoming name.
+ */
+export function chooseBestName(existingName: string | null, newName: string | null): string | null {
+  const normExisting = normalizePatientName(existingName);
+  const normNew = normalizePatientName(newName);
+  
+  // If one is null/empty, use the other
+  if (!normExisting) return normNew;
+  if (!normNew) return normExisting;
+  
+  // Count name parts (words) — more parts = more complete name
+  const existingParts = normExisting.split(' ').length;
+  const newParts = normNew.split(' ').length;
+  
+  if (newParts > existingParts) return normNew;
+  if (existingParts > newParts) return normExisting;
+  
+  // Same number of parts — prefer the longer string (might have full middle names vs initials)
+  if (normNew.length > normExisting.length) return normNew;
+  
+  // Default: keep existing
+  return normExisting;
+}
+
 export async function upsertPatient(patient: InsertPatient): Promise<Patient> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -152,18 +204,30 @@ export async function upsertPatient(patient: InsertPatient): Promise<Patient> {
   const existing = await db.select().from(patients).where(eq(patients.civilId, patient.civilId)).limit(1);
   
   if (existing.length > 0) {
+    const bestName = chooseBestName(existing[0].name, patient.name ?? null);
+    const nameChanged = bestName !== existing[0].name;
+    
     await db.update(patients).set({
-      name: patient.name || existing[0].name,
+      name: bestName,
       dateOfBirth: patient.dateOfBirth || existing[0].dateOfBirth,
       nationality: patient.nationality || existing[0].nationality,
       gender: patient.gender || existing[0].gender,
       passportNo: patient.passportNo || existing[0].passportNo,
     }).where(eq(patients.civilId, patient.civilId));
     
+    if (nameChanged) {
+      console.log(`[AutoMerge] Patient ${patient.civilId}: name updated "${existing[0].name}" → "${bestName}"`);
+    }
+    
     const updated = await db.select().from(patients).where(eq(patients.civilId, patient.civilId)).limit(1);
     return updated[0];
   } else {
-    await db.insert(patients).values(patient);
+    // Normalize name for new patients too
+    const normalizedPatient = {
+      ...patient,
+      name: normalizePatientName(patient.name),
+    };
+    await db.insert(patients).values(normalizedPatient);
     const inserted = await db.select().from(patients).where(eq(patients.civilId, patient.civilId)).limit(1);
     return inserted[0];
   }
@@ -1555,3 +1619,62 @@ export async function getCMVPCRLeaderboard(limit = 20) {
   return results;
 }
 
+
+// ============ AUTO-MERGE / NAME NORMALIZATION ============
+
+export interface AutoMergeResult {
+  totalPatients: number;
+  namesNormalized: number;
+  changes: Array<{
+    patientId: number;
+    civilId: string;
+    oldName: string | null;
+    newName: string | null;
+  }>;
+}
+
+/**
+ * Normalize all existing patient names to Title Case.
+ * This is a one-time cleanup operation that can be run by admins.
+ * It applies the same normalizePatientName() logic used during upsert.
+ * Uses batch updates for performance (processes ~800+ patients efficiently).
+ */
+export async function autoNormalizeAllPatientNames(): Promise<AutoMergeResult> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const allPatients = await db.select().from(patients).orderBy(patients.id);
+  const result: AutoMergeResult = {
+    totalPatients: allPatients.length,
+    namesNormalized: 0,
+    changes: [],
+  };
+
+  // Compute all changes in memory first
+  const updates: Array<{ id: number; civilId: string; oldName: string | null; newName: string | null }> = [];
+  for (const p of allPatients) {
+    const normalized = normalizePatientName(p.name);
+    if (normalized !== p.name) {
+      updates.push({ id: p.id, civilId: p.civilId, oldName: p.name, newName: normalized });
+    }
+  }
+
+  // Batch update in chunks of 50 using Promise.all
+  const BATCH_SIZE = 50;
+  for (let i = 0; i < updates.length; i += BATCH_SIZE) {
+    const batch = updates.slice(i, i + BATCH_SIZE);
+    await Promise.all(
+      batch.map(u => db.update(patients).set({ name: u.newName }).where(eq(patients.id, u.id)))
+    );
+  }
+
+  result.namesNormalized = updates.length;
+  result.changes = updates.map(u => ({
+    patientId: u.id,
+    civilId: u.civilId,
+    oldName: u.oldName,
+    newName: u.newName,
+  }));
+
+  return result;
+}

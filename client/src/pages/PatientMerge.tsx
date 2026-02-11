@@ -35,6 +35,7 @@ import {
   ChevronDown,
   ChevronUp,
   X,
+  Wand2,
 } from "lucide-react";
 
 type Patient = {
@@ -151,7 +152,7 @@ function PatientCard({
 }
 
 export default function PatientMerge() {
-  const [activeTab, setActiveTab] = useState<"suggestions" | "manual">("suggestions");
+  const [activeTab, setActiveTab] = useState<"suggestions" | "manual" | "normalize">("suggestions");
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [targetPatient, setTargetPatient] = useState<Patient | null>(null);
@@ -161,6 +162,7 @@ export default function PatientMerge() {
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [lastMergeResult, setLastMergeResult] = useState<{ testsReassigned: number } | null>(null);
   const [expandedSuggestion, setExpandedSuggestion] = useState<number | null>(null);
+  const [showNormalizeResult, setShowNormalizeResult] = useState(false);
 
   // Debounce search
   const [searchTimer, setSearchTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
@@ -196,6 +198,17 @@ export default function PatientMerge() {
   });
 
   const utils = trpc.useUtils();
+
+  const normalizeMutation = trpc.autoNormalizeNames.useMutation({
+    onSuccess: (result) => {
+      setShowNormalizeResult(true);
+      toast.success(`Normalized ${result.namesNormalized} of ${result.totalPatients} patient names`);
+      utils.invalidate();
+    },
+    onError: (error) => {
+      toast.error("Normalization failed: " + error.message);
+    },
+  });
 
   const handleMerge = () => {
     if (!targetPatient || !sourcePatient) return;
@@ -259,7 +272,7 @@ export default function PatientMerge() {
       </div>
 
       {/* Tab Switcher */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         <Button
           variant={activeTab === "suggestions" ? "default" : "outline"}
           onClick={() => setActiveTab("suggestions")}
@@ -275,6 +288,14 @@ export default function PatientMerge() {
         >
           <Search className="h-4 w-4 mr-1" />
           Manual Merge
+        </Button>
+        <Button
+          variant={activeTab === "normalize" ? "default" : "outline"}
+          onClick={() => setActiveTab("normalize")}
+          size="sm"
+        >
+          <Wand2 className="h-4 w-4 mr-1" />
+          Auto-Normalize Names
         </Button>
       </div>
 
@@ -526,6 +547,96 @@ export default function PatientMerge() {
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* Auto-Normalize Names Tab */}
+      {activeTab === "normalize" && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Wand2 className="h-5 w-5 text-primary" />
+              Auto-Normalize Patient Names
+            </CardTitle>
+            <CardDescription>
+              Standardize all patient names to Title Case (e.g., "YAQOUB MANDI KHALIFA" becomes "Yaqoub Mandi Khalifa").
+              This also ensures future uploads always pick the most complete name for each Civil ID.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="bg-muted/50 rounded-lg p-4 text-sm space-y-2">
+              <p className="font-medium">What this does:</p>
+              <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                <li>Converts ALL CAPS names to Title Case (preserves Arabic particles like "al-")</li>
+                <li>Trims extra whitespace and normalizes spacing</li>
+                <li>Logs all changes to the audit trail</li>
+                <li>Future uploads will automatically pick the longer/more complete name when the same Civil ID appears</li>
+              </ul>
+            </div>
+
+            <Button
+              onClick={() => normalizeMutation.mutate()}
+              disabled={normalizeMutation.isPending}
+              className="bg-primary hover:bg-primary/90"
+            >
+              {normalizeMutation.isPending ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Normalizing...
+                </>
+              ) : (
+                <>
+                  <Wand2 className="h-4 w-4 mr-2" />
+                  Run Name Normalization
+                </>
+              )}
+            </Button>
+
+            {normalizeMutation.data && showNormalizeResult && (
+              <div className="mt-4 space-y-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div className="bg-muted/30 rounded-lg p-3 text-center">
+                    <div className="text-2xl font-bold">{normalizeMutation.data.totalPatients}</div>
+                    <div className="text-xs text-muted-foreground">Total Patients</div>
+                  </div>
+                  <div className="bg-emerald-500/10 rounded-lg p-3 text-center">
+                    <div className="text-2xl font-bold text-emerald-400">{normalizeMutation.data.namesNormalized}</div>
+                    <div className="text-xs text-muted-foreground">Names Updated</div>
+                  </div>
+                  <div className="bg-muted/30 rounded-lg p-3 text-center">
+                    <div className="text-2xl font-bold">{normalizeMutation.data.totalPatients - normalizeMutation.data.namesNormalized}</div>
+                    <div className="text-xs text-muted-foreground">Already Correct</div>
+                  </div>
+                </div>
+
+                {normalizeMutation.data.changes.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium mb-2">Changes Made ({normalizeMutation.data.changes.length}):</p>
+                    <div className="max-h-80 overflow-y-auto rounded-lg border">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted/50 sticky top-0">
+                          <tr>
+                            <th className="text-left p-2 font-medium">Civil ID</th>
+                            <th className="text-left p-2 font-medium">Before</th>
+                            <th className="text-left p-2 font-medium">After</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {normalizeMutation.data.changes.map((change, idx) => (
+                            <tr key={idx} className="border-t border-border/50">
+                              <td className="p-2 font-mono text-xs">{change.civilId}</td>
+                              <td className="p-2 text-muted-foreground">{change.oldName || '—'}</td>
+                              <td className="p-2 text-emerald-400 font-medium">{change.newName || '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Confirmation Dialog */}

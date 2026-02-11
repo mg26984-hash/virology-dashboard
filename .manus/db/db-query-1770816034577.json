@@ -1,0 +1,115 @@
+{
+  "query": "SELECT id, civilId, name, dateOfBirth, nationality FROM patients ORDER BY id LIMIT 15;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute SELECT id, civilId, name, dateOfBirth, nationality FROM patients ORDER BY id LIMIT 15;",
+  "rows": [
+    {
+      "id": "1",
+      "civilId": "267110800212",
+      "name": "YAQOUB MANDI KHALIFA",
+      "dateOfBirth": "08/11/1967",
+      "nationality": "Kuwaiti"
+    },
+    {
+      "id": "2",
+      "civilId": "290062101542",
+      "name": "MOHAMMAD RAZA M HUSAIN",
+      "dateOfBirth": "21/06/1990",
+      "nationality": "Kuwaiti"
+    },
+    {
+      "id": "3",
+      "civilId": "255120400871",
+      "name": "ABDULAZIZ M A ALKHAMIS",
+      "dateOfBirth": "04/12/1955",
+      "nationality": "Kuwaiti"
+    },
+    {
+      "id": "4",
+      "civilId": "303022501162",
+      "name": "MAITHAH MESHAL",
+      "dateOfBirth": "25/02/2003",
+      "nationality": "Kuwaiti"
+    },
+    {
+      "id": "5",
+      "civilId": "297031201171",
+      "name": "fatmah dawoud ABDULLAH",
+      "dateOfBirth": "12/03/1997",
+      "nationality": "Kuwaiti"
+    },
+    {
+      "id": "6",
+      "civilId": "279092501339",
+      "name": "Hassan Abdullah Khalefa",
+      "dateOfBirth": "25/09/1979",
+      "nationality": "Kuwaiti"
+    },
+    {
+      "id": "7",
+      "civilId": "280101401574",
+      "name": "MARIAM SAAD SHANNOUF",
+      "dateOfBirth": "14/10/1980",
+      "nationality": "Kuwaiti"
+    },
+    {
+      "id": "8",
+      "civilId": "280020601208",
+      "name": "FATEMAH TEAMAH DOUDAN",
+      "dateOfBirth": "06/02/1980",
+      "nationality": "Kuwaiti"
+    },
+    {
+      "id": "9",
+      "civilId": "262040501205",
+      "name": "HESSAH ABDULLAH NAYEF",
+      "dateOfBirth": "05/04/1962",
+      "nationality": "Kuwaiti"
+    },
+    {
+      "id": "10",
+      "civilId": "273051400518",
+      "name": "DEEMAH HUMAIDI MO ALAZMI",
+      "dateOfBirth": "14/05/1973",
+      "nationality": "Kuwaiti"
+    },
+    {
+      "id": "11",
+      "civilId": "290091100629",
+      "name": "AMAL MOHAMMAD HELAL",
+      "dateOfBirth": "11/09/1990",
+      "nationality": "Non-Kuwaiti"
+    },
+    {
+      "id": "12",
+      "civilId": "263082100869",
+      "name": "NOURA MUBARAK",
+      "dateOfBirth": "21/08/1963",
+      "nationality": "Kuwaiti"
+    },
+    {
+      "id": "13",
+      "civilId": "293110300815",
+      "name": "ABDULMOHSEN KHALED MOHAMMAD ALFARES",
+      "dateOfBirth": "03/11/1993",
+      "nationality": "Kuwaiti"
+    },
+    {
+      "id": "14",
+      "civilId": "296011501412",
+      "name": "SHOUQ ALI MEFARREH",
+      "dateOfBirth": "15/01/1996",
+      "nationality": "Kuwaiti"
+    },
+    {
+      "id": "15",
+      "civilId": "291011800479",
+      "name": "HANAN MOHD AL",
+      "dateOfBirth": "18/01/1991",
+      "nationality": "Kuwaiti"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tcivilId\tname\tdateOfBirth\tnationality\n1\t267110800212\tYAQOUB MANDI KHALIFA\t08/11/1967\tKuwaiti\n2\t290062101542\tMOHAMMAD RAZA M HUSAIN\t21/06/1990\tKuwaiti\n3\t255120400871\tABDULAZIZ M A ALKHAMIS\t04/12/1955\tKuwaiti\n4\t303022501162\tMAITHAH MESHAL\t25/02/2003\tKuwaiti\n5\t297031201171\tfatmah dawoud ABDULLAH\t12/03/1997\tKuwaiti\n6\t279092501339\tHassan Abdullah Khalefa\t25/09/1979\tKuwaiti\n7\t280101401574\tMARIAM SAAD SHANNOUF\t14/10/1980\tKuwaiti\n8\t280020601208\tFATEMAH TEAMAH DOUDAN\t06/02/1980\tKuwaiti\n9\t262040501205\tHESSAH ABDULLAH NAYEF\t05/04/1962\tKuwaiti\n10\t273051400518\tDEEMAH HUMAIDI MO ALAZMI\t14/05/1973\tKuwaiti\n11\t290091100629\tAMAL MOHAMMAD HELAL\t11/09/1990\tNon-Kuwaiti\n12\t263082100869\tNOURA MUBARAK\t21/08/1963\tKuwaiti\n13\t293110300815\tABDULMOHSEN KHALED MOHAMMAD ALFARES\t03/11/1993\tKuwaiti\n14\t296011501412\tSHOUQ ALI MEFARREH\t15/01/1996\tKuwaiti\n15\t291011800479\tHANAN MOHD AL\t18/01/1991\tKuwaiti\n",
+  "stderr": "",
+  "execution_time_ms": 1583
+}

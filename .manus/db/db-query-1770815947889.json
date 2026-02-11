@@ -1,0 +1,190 @@
+{
+  "query": "\nSELECT civilId, name, id, \n  (SELECT COUNT(*) FROM virologyTests WHERE patientId = patients.id) as testCount\nFROM patients \nORDER BY civilId\nLIMIT 30;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute \nSELECT civilId, name, id, \n  (SELECT COUNT(*) FROM virologyTests WHERE patientId = patients.id) as testCount\nFROM patients \nORDER BY civilId\nLIMIT 30;\n",
+  "rows": [
+    {
+      "civilId": "229010100502",
+      "name": "MUNIAH RUSHOUD SALEM",
+      "id": "360049",
+      "testCount": "2"
+    },
+    {
+      "civilId": "231041200357",
+      "name": "MARIAM E A ALEMRAN",
+      "id": "360104",
+      "testCount": "1"
+    },
+    {
+      "civilId": "238030200601",
+      "name": "NOWAYER SAAD FAJRI",
+      "id": "360308",
+      "testCount": "2"
+    },
+    {
+      "civilId": "239062600268",
+      "name": "MABKHOT MOHAMMAD",
+      "id": "180084",
+      "testCount": "13"
+    },
+    {
+      "civilId": "243062200354",
+      "name": "MERSAL MAASHI RAJEH",
+      "id": "360200",
+      "testCount": "15"
+    },
+    {
+      "civilId": "243062300814",
+      "name": "FATEMAH HASHEM MOHAMMED",
+      "id": "360102",
+      "testCount": "1"
+    },
+    {
+      "civilId": "243102200376",
+      "name": "Fahad Faleh Mejld Al Azmi",
+      "id": "360012",
+      "testCount": "8"
+    },
+    {
+      "civilId": "244052500737",
+      "name": "MUBARAK Z J ALODWANI",
+      "id": "360279",
+      "testCount": "4"
+    },
+    {
+      "civilId": "245040501294",
+      "name": "FERYAL AL TAYYEB AHMAD",
+      "id": "360272",
+      "testCount": "6"
+    },
+    {
+      "civilId": "245060500643",
+      "name": "wadhha awwad",
+      "id": "360296",
+      "testCount": "7"
+    },
+    {
+      "civilId": "245070600605",
+      "name": "MADHI SALEM ALAZMI",
+      "id": "360138",
+      "testCount": "1"
+    },
+    {
+      "civilId": "245071600324",
+      "name": "SABRIYAH DAIF MOHD",
+      "id": "360061",
+      "testCount": "3"
+    },
+    {
+      "civilId": "245081200666",
+      "name": "SAUD BANI ALAZMI",
+      "id": "65",
+      "testCount": "3"
+    },
+    {
+      "civilId": "246042701032",
+      "name": "SAYER H KHALAF",
+      "id": "360409",
+      "testCount": "2"
+    },
+    {
+      "civilId": "246082300268",
+      "name": "SAUD MAAYOUF",
+      "id": "360178",
+      "testCount": "1"
+    },
+    {
+      "civilId": "246103000353",
+      "name": "KHALED EID ALI",
+      "id": "180067",
+      "testCount": "12"
+    },
+    {
+      "civilId": "247020101081",
+      "name": "RABDAH HAMED AL HUMAIDI",
+      "id": "180060",
+      "testCount": "41"
+    },
+    {
+      "civilId": "247042700763",
+      "name": "SAAD M K ALAZEMI",
+      "id": "360174",
+      "testCount": "1"
+    },
+    {
+      "civilId": "247050101437",
+      "name": "SOUD S S ALRUDAINY",
+      "id": "120008",
+      "testCount": "3"
+    },
+    {
+      "civilId": "247070101864",
+      "name": "SOUD RAJAN ALAZMI",
+      "id": "360136",
+      "testCount": "1"
+    },
+    {
+      "civilId": "247112600347",
+      "name": "FATEMAH AHMAD MAHMOUD",
+      "id": "360364",
+      "testCount": "2"
+    },
+    {
+      "civilId": "248050300967",
+      "name": "SEETAH HATTAB HASAN",
+      "id": "360109",
+      "testCount": "5"
+    },
+    {
+      "civilId": "248062500616",
+      "name": "SALEH YOUSEF JABER",
+      "id": "360319",
+      "testCount": "1"
+    },
+    {
+      "civilId": "248070600393",
+      "name": "Jali Abdullah Saleh",
+      "id": "360360",
+      "testCount": "1"
+    },
+    {
+      "civilId": "248101900648",
+      "name": "MATRAH HAMBOUR",
+      "id": "30032",
+      "testCount": "2"
+    },
+    {
+      "civilId": "249011100051",
+      "name": "AISHAH A H M ALIFAIRE",
+      "id": "86",
+      "testCount": "15"
+    },
+    {
+      "civilId": "249042200311",
+      "name": "MOHSEN ABBAS HUSSAIN",
+      "id": "80",
+      "testCount": "1"
+    },
+    {
+      "civilId": "249060600511",
+      "name": "AFEEFAH NADA MOHD",
+      "id": "360274",
+      "testCount": "1"
+    },
+    {
+      "civilId": "249071500356",
+      "name": "khaled ali.",
+      "id": "360355",
+      "testCount": "2"
+    },
+    {
+      "civilId": "249081100233",
+      "name": "ABDULLAH AHMAD ABDULLAH ALMEQLED",
+      "id": "180097",
+      "testCount": "1"
+    }
+  ],
+  "messages": [],
+  "stdout": "civilId\tname\tid\ttestCount\n229010100502\tMUNIAH RUSHOUD SALEM\t360049\t2\n231041200357\tMARIAM E A ALEMRAN\t360104\t1\n238030200601\tNOWAYER SAAD FAJRI\t360308\t2\n239062600268\tMABKHOT MOHAMMAD\t180084\t13\n243062200354\tMERSAL MAASHI RAJEH\t360200\t15\n243062300814\tFATEMAH HASHEM MOHAMMED\t360102\t1\n243102200376\tFahad Faleh Mejld Al Azmi\t360012\t8\n244052500737\tMUBARAK Z J ALODWANI\t360279\t4\n245040501294\tFERYAL AL TAYYEB AHMAD\t360272\t6\n245060500643\twadhha awwad\t360296\t7\n245070600605\tMADHI SALEM ALAZMI\t360138\t1\n245071600324\tSABRIYAH DAIF MOHD\t360061\t3\n245081200666\tSAUD BANI ALAZMI\t65\t3\n246042701032\tSAYER H KHALAF\t360409\t2\n246082300268\tSAUD MAAYOUF\t360178\t1\n246103000353\tKHALED EID ALI\t180067\t12\n247020101081\tRABDAH HAMED AL HUMAIDI\t180060\t41\n247042700763\tSAAD M K ALAZEMI\t360174\t1\n247050101437\tSOUD S S ALRUDAINY\t120008\t3\n247070101864\tSOUD RAJAN ALAZMI\t360136\t1\n247112600347\tFATEMAH AHMAD MAHMOUD\t360364\t2\n248050300967\tSEETAH HATTAB HASAN\t360109\t5\n248062500616\tSALEH YOUSEF JABER\t360319\t1\n248070600393\tJali Abdullah Saleh\t360360\t1\n248101900648\tMATRAH HAMBOUR\t30032\t2\n249011100051\tAISHAH A H M ALIFAIRE\t86\t15\n249042200311\tMOHSEN ABBAS HUSSAIN\t80\t1\n249060600511\tAFEEFAH NADA MOHD\t360274\t1\n249071500356\tkhaled ali.\t360355\t2\n249081100233\tABDULLAH AHMAD ABDULLAH ALMEQLED\t180097\t1\n",
+  "stderr": "",
+  "execution_time_ms": 1631
+}
