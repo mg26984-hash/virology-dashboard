@@ -866,3 +866,11 @@
 - [x] Final fix: Added hardcoded fallback (nPtvS3FjrgpNRuGEU3ERv5 / Mohammed Megahed) in env.ts
 - [x] Removed temporary debugOwner endpoint
 - [x] All tests still passing
+
+## Prevent Future Env Var Failures
+- [x] Audited all process.env usage across server code (found 12 references)
+- [x] Centralized all env access through ENV getters in _core/env.ts — no more direct process.env in app code
+- [x] Added startup validation: logs CRITICAL errors for missing required vars, WARNING for optional ones
+- [x] Added ENV.geminiApiKey getter; updated gemini.ts and documentProcessor.ts to use it
+- [x] Updated db.ts to use ENV.databaseUrl
+- [x] Only remaining direct process.env: _core/index.ts (PORT, NODE_ENV) and routers.ts ownership transfer (intentional runtime mutation)

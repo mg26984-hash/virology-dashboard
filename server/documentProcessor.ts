@@ -1,5 +1,6 @@
 import { invokeGemini } from "./gemini";
 import { invokeLLM } from "./_core/llm";
+import { ENV } from "./_core/env";
 import { storageDelete } from './storage';
 import { updateDocumentStatus, 
   upsertPatient, 
@@ -276,7 +277,7 @@ async function extractWithPlatformLLM(fileUrl: string, mimeType: string): Promis
  */
 export async function extractVirologyData(fileUrl: string, mimeType: string = "image/jpeg"): Promise<ExtractedVirologyData> {
   // Check if Gemini API key is configured
-  const hasGeminiKey = !!process.env.GEMINI_API_KEY;
+  const hasGeminiKey = !!ENV.geminiApiKey;
 
   if (hasGeminiKey) {
     try {

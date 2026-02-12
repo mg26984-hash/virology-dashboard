@@ -9,11 +9,13 @@
  * - Structured JSON output via responseSchema
  */
 
+import { ENV } from "./_core/env";
+
 const GEMINI_MODEL = "gemini-2.0-flash";
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
 function getGeminiApiKey(): string {
-  const key = process.env.GEMINI_API_KEY;
+  const key = ENV.geminiApiKey;
   if (!key) {
     throw new Error("GEMINI_API_KEY is not configured. Please add it via Settings > Secrets.");
   }
