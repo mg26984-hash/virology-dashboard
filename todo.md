@@ -923,3 +923,9 @@
 - [x] Root cause: process.env.GEMINI_API_KEY was stale from platform injection, overriding the fallback
 - [x] Fix: Changed env.ts to always use FALLBACK_GEMINI_API_KEY (hardcoded new paid key)
 - [ ] Verify in production after publishing (production server still uses old key until republished)
+
+## Gemini API Health Monitoring
+- [x] Add tRPC procedure to test Gemini API connection (quick text-only call) - aiUsage.testConnection mutation
+- [x] Add "Test Connection" button on AI Usage page that shows success/failure with response time - added to Rate Limit Monitor card header
+- [x] Implement daily scheduled check that tests Gemini API health - scheduleGeminiHealthCheck() runs at 9:00 AM daily
+- [x] Send owner notification if Gemini API fails (invalid key, quota exceeded, or network error) - notifyOwner() called with error details

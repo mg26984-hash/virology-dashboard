@@ -140,3 +140,63 @@ export async function invokeGemini(request: GeminiExtractionRequest): Promise<st
   console.log(`[Gemini] Extraction complete (${elapsed}s), response length: ${textPart.text.length} chars`);
   return textPart.text;
 }
+
+/**
+ * Test Gemini API connection with a simple text-only request.
+ * Returns health status, response time, and any error details.
+ */
+export async function testGeminiConnection(): Promise<{
+  success: boolean;
+  responseTimeMs: number;
+  model: string;
+  error?: string;
+}> {
+  const startTime = Date.now();
+  
+  try {
+    const key = getGeminiApiKey();
+    const url = `${GEMINI_BASE_URL}/models/${GEMINI_MODEL}:generateContent?key=${key}`;
+    
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: "Reply with OK" }] }]
+      })
+    });
+    
+    const responseTimeMs = Date.now() - startTime;
+    const data: GeminiResponse = await response.json();
+    
+    if (!response.ok || data.error) {
+      return {
+        success: false,
+        responseTimeMs,
+        model: GEMINI_MODEL,
+        error: data.error ? `${data.error.code} ${data.error.status}: ${data.error.message}` : `HTTP ${response.status}`
+      };
+    }
+    
+    if (!data.candidates || data.candidates.length === 0) {
+      return {
+        success: false,
+        responseTimeMs,
+        model: GEMINI_MODEL,
+        error: "No response from Gemini API"
+      };
+    }
+    
+    return {
+      success: true,
+      responseTimeMs,
+      model: GEMINI_MODEL
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      responseTimeMs: Date.now() - startTime,
+      model: GEMINI_MODEL,
+      error: error.message || "Unknown error"
+    };
+  }
+}

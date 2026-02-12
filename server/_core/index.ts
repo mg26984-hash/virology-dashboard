@@ -79,6 +79,8 @@ async function startServer() {
     startBackgroundWorker(30000); // Check every 30 seconds
     // Start periodic temp file cleanup (every 6 hours)
     startTempCleanupScheduler();
+    // Start daily Gemini API health check (9:00 AM)
+    import("../geminiHealthCheck").then(m => m.scheduleGeminiHealthCheck());
   });
 }
 

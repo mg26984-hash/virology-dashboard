@@ -1720,6 +1720,10 @@ export const appRouter = router({
         const { getRecentFallbackEvents } = await import("./db");
         return getRecentFallbackEvents(input?.limit ?? 20);
       }),
+    testConnection: ownerProcedure.mutation(async () => {
+      const { testGeminiConnection } = await import("./gemini");
+      return testGeminiConnection();
+    }),
   }),
 
   // ─── Leaderboard ──────────────────────────────────────────────────────

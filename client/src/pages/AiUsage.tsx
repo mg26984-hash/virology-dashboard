@@ -18,12 +18,51 @@ import {
   Area,
   AreaChart,
 } from "recharts";
-import { Activity, Cpu, DollarSign, TrendingDown, Zap, Server, AlertTriangle, FileWarning } from "lucide-react";
+import { Activity, Cpu, DollarSign, TrendingDown, Zap, Server, AlertTriangle, FileWarning, Wifi } from "lucide-react";
 import { useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 const GEMINI_COLOR = "oklch(0.65 0.18 175)";
 const PLATFORM_COLOR = "oklch(0.6 0.15 30)";
 const UNKNOWN_COLOR = "oklch(0.5 0.05 250)";
+
+function TestConnectionButton() {
+  const testConnection = trpc.aiUsage.testConnection.useMutation();
+
+  const handleTest = async () => {
+    try {
+      const result = await testConnection.mutateAsync();
+      
+      if (result.success) {
+        toast.success(`Gemini API Connected`, {
+          description: `Response time: ${result.responseTimeMs}ms | Model: ${result.model}`,
+        });
+      } else {
+        toast.error(`Gemini API Failed`, {
+          description: result.error || 'Unknown error',
+        });
+      }
+    } catch (error: any) {
+      toast.error(`Connection Test Failed`, {
+        description: error.message || 'Unknown error',
+      });
+    }
+  };
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={handleTest}
+      disabled={testConnection.isPending}
+      className="shrink-0"
+    >
+      <Wifi className="h-3.5 w-3.5 mr-1.5" />
+      {testConnection.isPending ? 'Testing...' : 'Test Connection'}
+    </Button>
+  );
+}
 
 function StatCard({
   title,
@@ -471,13 +510,14 @@ export default function AiUsage() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <div>
+            <div className="flex-1">
               <CardTitle className="text-base flex items-center gap-2">
                 <FileWarning className="h-4 w-4" />
                 Rate Limit Monitor
               </CardTitle>
               <CardDescription>Last 7 days — documents that fell back to Platform LLM</CardDescription>
             </div>
+            <TestConnectionButton />
             {fallback && (
               <div className="flex items-center gap-3 text-sm">
                 <div className="text-center">
