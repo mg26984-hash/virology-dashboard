@@ -118,20 +118,7 @@ export const appRouter = router({
         isOwner,
       };
     }),
-    // Temporary debug endpoint to diagnose owner detection in production
-    debugOwner: protectedProcedure.query(({ ctx }) => {
-      return {
-        userOpenId: ctx.user?.openId ?? 'none',
-        userName: ctx.user?.name ?? 'none',
-        envOwnerOpenId: ENV.ownerOpenId,
-        envOwnerName: ENV.ownerName,
-        openIdMatch: ctx.user?.openId === ENV.ownerOpenId,
-        nameMatch: ENV.ownerName !== '' && ctx.user?.name === ENV.ownerName,
-        isOwner: ctx.user ? isUserOwner(ctx.user) : false,
-        rawEnvOwnerOpenId: process.env.OWNER_OPEN_ID ?? 'NOT_SET',
-        rawEnvOwnerName: process.env.OWNER_NAME ?? 'NOT_SET',
-      };
-    }),
+
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });

@@ -862,4 +862,7 @@
 - [x] Fixed: Changed env.ts to use dynamic getters (not cached at import time)
 - [x] Fixed: Added isUserOwner() helper with OWNER_NAME fallback for env mismatch resilience
 - [x] Applied fix to auth.me, ownerProcedure, and users.list
+- [x] ROOT CAUSE: OWNER_OPEN_ID and OWNER_NAME env vars are NOT_SET in production deployment
+- [x] Final fix: Added hardcoded fallback (nPtvS3FjrgpNRuGEU3ERv5 / Mohammed Megahed) in env.ts
+- [x] Removed temporary debugOwner endpoint
 - [x] All tests still passing
