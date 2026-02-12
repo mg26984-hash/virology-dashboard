@@ -936,3 +936,7 @@
 - [x] Add tRPC mutation to update GEMINI_API_KEY (aiUsage.updateApiKey writes to env.ts)
 - [x] Test the new key after update and show success/failure (auto-tests after update)
 - [x] Update env.ts hardcoded fallback with the new key (regex replace in updateApiKey mutation)
+
+## Fix Rate Limit Monitor Layout
+- [x] Fix overlapping buttons and stats in Rate Limit Monitor card header
+- [x] Reorganize card header to stack title/description, buttons, and stats vertically on mobile (space-y-4 with flex-col on mobile, flex-row on sm+)

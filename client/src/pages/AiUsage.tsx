@@ -626,36 +626,41 @@ export default function AiUsage() {
       {/* Recent Fallback Events */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
+          <div className="space-y-4">
+            {/* Title and Description */}
+            <div>
               <CardTitle className="text-base flex items-center gap-2">
                 <FileWarning className="h-4 w-4" />
                 Rate Limit Monitor
               </CardTitle>
               <CardDescription>Last 7 days — documents that fell back to Platform LLM</CardDescription>
             </div>
-            <div className="flex items-center gap-2">
-              <UpdateApiKeyButton />
-              <TestConnectionButton />
-            </div>
-            {fallback && (
-              <div className="flex items-center gap-3 text-sm">
-                <div className="text-center">
-                  <p className="text-lg font-bold">{fallback.geminiRecent}</p>
-                  <p className="text-xs text-muted-foreground">Gemini</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-lg font-bold text-orange-500">{fallback.platformRecent}</p>
-                  <p className="text-xs text-muted-foreground">Platform</p>
-                </div>
-                <div className="text-center">
-                  <p className={`text-lg font-bold ${fallback.fallbackRate > 20 ? 'text-amber-500' : fallback.fallbackRate > 0 ? 'text-orange-400' : 'text-emerald-500'}`}>
-                    {fallback.fallbackRate}%
-                  </p>
-                  <p className="text-xs text-muted-foreground">Fallback</p>
-                </div>
+            
+            {/* Buttons and Stats Row */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <UpdateApiKeyButton />
+                <TestConnectionButton />
               </div>
-            )}
+              {fallback && (
+                <div className="flex items-center gap-3 text-sm">
+                  <div className="text-center">
+                    <p className="text-lg font-bold">{fallback.geminiRecent}</p>
+                    <p className="text-xs text-muted-foreground">Gemini</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-lg font-bold text-orange-500">{fallback.platformRecent}</p>
+                    <p className="text-xs text-muted-foreground">Platform</p>
+                  </div>
+                  <div className="text-center">
+                    <p className={`text-lg font-bold ${fallback.fallbackRate > 20 ? 'text-amber-500' : fallback.fallbackRate > 0 ? 'text-orange-400' : 'text-emerald-500'}`}>
+                      {fallback.fallbackRate}%
+                    </p>
+                    <p className="text-xs text-muted-foreground">Fallback</p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
