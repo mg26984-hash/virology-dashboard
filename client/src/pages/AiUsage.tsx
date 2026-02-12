@@ -18,14 +18,131 @@ import {
   Area,
   AreaChart,
 } from "recharts";
-import { Activity, Cpu, DollarSign, TrendingDown, Zap, Server, AlertTriangle, FileWarning, Wifi } from "lucide-react";
+import { Activity, Cpu, DollarSign, TrendingDown, Zap, Server, AlertTriangle, FileWarning, Wifi, Key } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const GEMINI_COLOR = "oklch(0.65 0.18 175)";
 const PLATFORM_COLOR = "oklch(0.6 0.15 30)";
 const UNKNOWN_COLOR = "oklch(0.5 0.05 250)";
+
+function UpdateApiKeyButton() {
+  const [open, setOpen] = useState(false);
+  const [newKey, setNewKey] = useState("");
+  const updateKey = trpc.aiUsage.updateApiKey.useMutation();
+  const testConnection = trpc.aiUsage.testConnection.useMutation();
+
+  const handleUpdate = async () => {
+    if (!newKey.trim()) {
+      toast.error("API key is required");
+      return;
+    }
+
+    if (!newKey.startsWith("AIzaSy")) {
+      toast.error("Invalid Gemini API key format", {
+        description: "Key should start with 'AIzaSy'",
+      });
+      return;
+    }
+
+    try {
+      // Update the key
+      await updateKey.mutateAsync({ apiKey: newKey });
+      
+      // Test the new key
+      const result = await testConnection.mutateAsync();
+      
+      if (result.success) {
+        toast.success("API Key Updated Successfully", {
+          description: `Tested in ${result.responseTimeMs}ms - Key is working`,
+        });
+        setOpen(false);
+        setNewKey("");
+      } else {
+        toast.error("API Key Updated but Test Failed", {
+          description: result.error || "The key was saved but may not be working",
+        });
+      }
+    } catch (error: any) {
+      toast.error("Failed to Update API Key", {
+        description: error.message || "Unknown error",
+      });
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="shrink-0">
+          <Key className="h-3.5 w-3.5 mr-1.5" />
+          Update API Key
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Update Gemini API Key</DialogTitle>
+          <DialogDescription>
+            Enter your new Gemini API key. The key will be validated before saving.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="apiKey">API Key</Label>
+            <Input
+              id="apiKey"
+              type="password"
+              placeholder="AIzaSy..."
+              value={newKey}
+              onChange={(e) => setNewKey(e.target.value)}
+              disabled={updateKey.isPending || testConnection.isPending}
+            />
+            <p className="text-xs text-muted-foreground">
+              Get your API key from{" "}
+              <a
+                href="https://aistudio.google.com/apikey"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-foreground"
+              >
+                Google AI Studio
+              </a>
+            </p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setOpen(false);
+              setNewKey("");
+            }}
+            disabled={updateKey.isPending || testConnection.isPending}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleUpdate}
+            disabled={updateKey.isPending || testConnection.isPending}
+          >
+            {updateKey.isPending || testConnection.isPending ? "Updating..." : "Update & Test"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function TestConnectionButton() {
   const testConnection = trpc.aiUsage.testConnection.useMutation();
@@ -517,7 +634,10 @@ export default function AiUsage() {
               </CardTitle>
               <CardDescription>Last 7 days — documents that fell back to Platform LLM</CardDescription>
             </div>
-            <TestConnectionButton />
+            <div className="flex items-center gap-2">
+              <UpdateApiKeyButton />
+              <TestConnectionButton />
+            </div>
             {fallback && (
               <div className="flex items-center gap-3 text-sm">
                 <div className="text-center">

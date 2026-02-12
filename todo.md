@@ -929,3 +929,10 @@
 - [x] Add "Test Connection" button on AI Usage page that shows success/failure with response time - added to Rate Limit Monitor card header
 - [x] Implement daily scheduled check that tests Gemini API health - scheduleGeminiHealthCheck() runs at 9:00 AM daily
 - [x] Send owner notification if Gemini API fails (invalid key, quota exceeded, or network error) - notifyOwner() called with error details
+
+## Update Gemini API Key from AI Usage Dashboard
+- [x] Add "Update API Key" button next to Test Connection on AI Usage page
+- [x] Create dialog with input field for new API key (password field with validation)
+- [x] Add tRPC mutation to update GEMINI_API_KEY (aiUsage.updateApiKey writes to env.ts)
+- [x] Test the new key after update and show success/failure (auto-tests after update)
+- [x] Update env.ts hardcoded fallback with the new key (regex replace in updateApiKey mutation)

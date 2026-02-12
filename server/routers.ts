@@ -1724,6 +1724,26 @@ export const appRouter = router({
       const { testGeminiConnection } = await import("./gemini");
       return testGeminiConnection();
     }),
+    updateApiKey: ownerProcedure
+      .input(z.object({ apiKey: z.string().min(30) }))
+      .mutation(async ({ input }) => {
+        const fs = await import("fs/promises");
+        const path = await import("path");
+        
+        // Update the hardcoded fallback in env.ts
+        const envPath = path.join(process.cwd(), "server/_core/env.ts");
+        let envContent = await fs.readFile(envPath, "utf-8");
+        
+        // Replace the FALLBACK_GEMINI_API_KEY value
+        envContent = envContent.replace(
+          /const FALLBACK_GEMINI_API_KEY = "[^"]+";/,
+          `const FALLBACK_GEMINI_API_KEY = "${input.apiKey}";`
+        );
+        
+        await fs.writeFile(envPath, envContent, "utf-8");
+        
+        return { success: true };
+      }),
   }),
 
   // ─── Leaderboard ──────────────────────────────────────────────────────
