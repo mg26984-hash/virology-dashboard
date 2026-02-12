@@ -856,3 +856,10 @@
 - [x] Restrict dashboard access to owner only (ownerProcedure on all endpoints)
 - [x] Add navigation entry (owner-only visibility in sidebar)
 - [x] Write tests for usage analytics procedures (12/12 passing)
+
+## Bug Fix: Owner Detection Not Working
+- [x] Investigated: dev sandbox works correctly (isOwner=true), issue is in published/deployed environment
+- [x] Fixed: Changed env.ts to use dynamic getters (not cached at import time)
+- [x] Fixed: Added isUserOwner() helper with OWNER_NAME fallback for env mismatch resilience
+- [x] Applied fix to auth.me, ownerProcedure, and users.list
+- [x] All tests still passing

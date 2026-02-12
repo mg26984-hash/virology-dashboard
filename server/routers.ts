@@ -90,9 +90,14 @@ const adminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   return next({ ctx });
 });
 
-// Middleware to check if user is the owner (for role assignment)
+// Helper to check if a user is the owner (openId match or name fallback)
+function isUserOwner(user: { openId: string; name: string | null }): boolean {
+  return user.openId === ENV.ownerOpenId
+    || (ENV.ownerName !== '' && user.name === ENV.ownerName);
+}
+
 const ownerProcedure = protectedProcedure.use(async ({ ctx, next }) => {
-  if (ctx.user?.openId !== ENV.ownerOpenId) {
+  if (!ctx.user || !isUserOwner(ctx.user)) {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "Only the project owner can assign admin roles",
@@ -107,9 +112,10 @@ export const appRouter = router({
   auth: router({
     me: publicProcedure.query(opts => {
       if (!opts.ctx.user) return null;
+      const isOwner = isUserOwner(opts.ctx.user);
       return {
         ...opts.ctx.user,
-        isOwner: opts.ctx.user.openId === ENV.ownerOpenId,
+        isOwner,
       };
     }),
     logout: publicProcedure.mutation(({ ctx }) => {
@@ -125,7 +131,7 @@ export const appRouter = router({
       const allUsers = await getAllUsers();
       return allUsers.map(u => ({
         ...u,
-        isOwner: u.openId === ENV.ownerOpenId,
+        isOwner: isUserOwner(u),
       }));
     }),
     
