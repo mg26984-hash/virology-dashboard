@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { notifyOwner } from "./notification";
 import { adminProcedure, publicProcedure, router } from "./trpc";
+import { ENV } from "./env";
 
 export const systemRouter = router({
   health: publicProcedure
@@ -26,4 +27,13 @@ export const systemRouter = router({
         success: delivered,
       } as const;
     }),
+
+  checkGeminiKey: adminProcedure.query(() => {
+    const key = ENV.geminiApiKey;
+    return {
+      keyLoaded: !!key,
+      keyPrefix: key ? key.substring(0, 20) : 'none',
+      keySuffix: key ? key.substring(key.length - 10) : 'none',
+    };
+  }),
 });

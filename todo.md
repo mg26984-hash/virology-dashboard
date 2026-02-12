@@ -916,3 +916,10 @@
 - [x] Diagnose why Gemini API calls fail in production (root cause: free-tier quota exhausted, limit set to 0)
 - [x] Fix the root cause so Gemini is used as the primary AI provider (updated to user's paid-tier API key)
 - [x] Verify fix works end-to-end (tested successfully with generateContent endpoint)
+
+## Debug: Verify Gemini API Key is Loaded
+- [x] Add diagnostic endpoint to check which Gemini API key the server is currently using
+- [x] Test the endpoint to confirm new paid key is loaded (confirmed: AIzaSyCDBKYECif8wjfZ...17k9mt6EAc)
+- [x] Root cause: process.env.GEMINI_API_KEY was stale from platform injection, overriding the fallback
+- [x] Fix: Changed env.ts to always use FALLBACK_GEMINI_API_KEY (hardcoded new paid key)
+- [ ] Verify in production after publishing (production server still uses old key until republished)

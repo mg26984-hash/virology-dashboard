@@ -17,7 +17,9 @@ export const ENV = {
   get isProduction() { return process.env.NODE_ENV === "production"; },
   get forgeApiUrl() { return process.env.BUILT_IN_FORGE_API_URL ?? ""; },
   get forgeApiKey() { return process.env.BUILT_IN_FORGE_API_KEY ?? ""; },
-  get geminiApiKey() { return process.env.GEMINI_API_KEY || FALLBACK_GEMINI_API_KEY; },
+  // Always use the hardcoded key — the platform env var may be stale from a previous session.
+  // To rotate: update FALLBACK_GEMINI_API_KEY above and republish.
+  get geminiApiKey() { return FALLBACK_GEMINI_API_KEY; },
 };
 
 // ── Startup validation ──

@@ -1,0 +1,50 @@
+{
+  "query": "SELECT id, fileName, processingStatus, aiProvider, createdAt, updatedAt FROM documents ORDER BY createdAt DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute SELECT id, fileName, processingStatus, aiProvider, createdAt, updatedAt FROM documents ORDER BY createdAt DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "600030",
+      "fileName": "6b6e1955-62a7-4892-bf23-1ef7bfe79917.jpeg",
+      "processingStatus": "discarded",
+      "aiProvider": "platform",
+      "createdAt": "2026-02-12 20:04:06",
+      "updatedAt": "2026-02-12 20:04:14"
+    },
+    {
+      "id": "600029",
+      "fileName": "image.jpg",
+      "processingStatus": "discarded",
+      "aiProvider": "platform",
+      "createdAt": "2026-02-12 19:49:20",
+      "updatedAt": "2026-02-12 19:49:28"
+    },
+    {
+      "id": "600028",
+      "fileName": "Image.png",
+      "processingStatus": "discarded",
+      "aiProvider": "platform",
+      "createdAt": "2026-02-12 19:39:36",
+      "updatedAt": "2026-02-12 19:39:52"
+    },
+    {
+      "id": "600027",
+      "fileName": "Image.png",
+      "processingStatus": "discarded",
+      "aiProvider": "platform",
+      "createdAt": "2026-02-12 19:05:36",
+      "updatedAt": "2026-02-12 19:06:56"
+    },
+    {
+      "id": "600026",
+      "fileName": "test-image-1.jpg",
+      "processingStatus": "discarded",
+      "aiProvider": "platform",
+      "createdAt": "2026-02-12 18:59:15",
+      "updatedAt": "2026-02-12 18:59:57"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tfileName\tprocessingStatus\taiProvider\tcreatedAt\tupdatedAt\n600030\t6b6e1955-62a7-4892-bf23-1ef7bfe79917.jpeg\tdiscarded\tplatform\t2026-02-12 20:04:06\t2026-02-12 20:04:14\n600029\timage.jpg\tdiscarded\tplatform\t2026-02-12 19:49:20\t2026-02-12 19:49:28\n600028\tImage.png\tdiscarded\tplatform\t2026-02-12 19:39:36\t2026-02-12 19:39:52\n600027\tImage.png\tdiscarded\tplatform\t2026-02-12 19:05:36\t2026-02-12 19:06:56\n600026\ttest-image-1.jpg\tdiscarded\tplatform\t2026-02-12 18:59:15\t2026-02-12 18:59:57\n",
+  "stderr": "",
+  "execution_time_ms": 1723
+}
