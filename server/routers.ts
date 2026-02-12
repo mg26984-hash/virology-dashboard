@@ -1744,6 +1744,14 @@ export const appRouter = router({
         
         return { success: true };
       }),
+    getQuota: ownerProcedure.query(async () => {
+      const { getGeminiQuota } = await import("./gemini");
+      return getGeminiQuota();
+    }),
+    getKeyMetadata: ownerProcedure.query(async () => {
+      const { getApiKeyMetadata } = await import("./gemini");
+      return getApiKeyMetadata();
+    }),
   }),
 
   // ─── Leaderboard ──────────────────────────────────────────────────────

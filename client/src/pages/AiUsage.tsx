@@ -144,6 +144,51 @@ function UpdateApiKeyButton() {
   );
 }
 
+function ApiKeyQuotaInfo() {
+  const { data: quota } = trpc.aiUsage.getQuota.useQuery(undefined, {
+    refetchInterval: 60000, // Refresh every minute
+  });
+  const { data: keyMeta } = trpc.aiUsage.getKeyMetadata.useQuery();
+
+  if (!keyMeta) return null;
+
+  const lastUpdated = keyMeta.lastUpdated
+    ? new Date(keyMeta.lastUpdated).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "Unknown";
+
+  return (
+    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 text-sm text-muted-foreground border-t pt-4">
+      <div className="flex items-center gap-2">
+        <Key className="h-3.5 w-3.5" />
+        <span>
+          API Key: ****{keyMeta.lastFourChars}
+        </span>
+        <span className="text-xs">•</span>
+        <span className="text-xs">Updated {lastUpdated}</span>
+      </div>
+      {quota?.success && quota.remainingRequests !== undefined && (
+        <div className="flex items-center gap-2">
+          <Zap className="h-3.5 w-3.5" />
+          <span>
+            Quota: {quota.remainingRequests.toLocaleString()}
+            {quota.totalRequests && ` / ${quota.totalRequests.toLocaleString()}`} remaining
+          </span>
+          {quota.resetTime && (
+            <>
+              <span className="text-xs">•</span>
+              <span className="text-xs">Resets {new Date(quota.resetTime).toLocaleTimeString()}</span>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TestConnectionButton() {
   const testConnection = trpc.aiUsage.testConnection.useMutation();
 
@@ -661,6 +706,9 @@ export default function AiUsage() {
                 </div>
               )}
             </div>
+            
+            {/* API Key and Quota Info */}
+            <ApiKeyQuotaInfo />
           </div>
         </CardHeader>
         <CardContent>

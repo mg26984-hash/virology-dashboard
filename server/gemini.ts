@@ -200,3 +200,78 @@ export async function testGeminiConnection(): Promise<{
     };
   }
 }
+
+/**
+ * Get Gemini API quota usage information.
+ * Note: The Gemini API doesn't provide a direct quota endpoint.
+ * This function returns mock data based on typical free-tier limits.
+ * For accurate quota tracking, monitor the X-RateLimit headers in API responses.
+ */
+export async function getGeminiQuota(): Promise<{
+  success: boolean;
+  remainingRequests?: number;
+  totalRequests?: number;
+  resetTime?: string;
+  error?: string;
+}> {
+  try {
+    const apiKey = getGeminiApiKey();
+    
+    // Gemini API doesn't expose quota endpoints directly
+    // We'll make a minimal test call and check rate limit headers
+    const url = `${GEMINI_BASE_URL}/models?key=${apiKey}`;
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      return {
+        success: false,
+        error: `API returned ${response.status}: ${response.statusText}`,
+      };
+    }
+    
+    // Check for rate limit headers (if available)
+    const remaining = response.headers.get('x-ratelimit-remaining');
+    const limit = response.headers.get('x-ratelimit-limit');
+    const reset = response.headers.get('x-ratelimit-reset');
+    
+    return {
+      success: true,
+      remainingRequests: remaining ? parseInt(remaining) : undefined,
+      totalRequests: limit ? parseInt(limit) : undefined,
+      resetTime: reset || undefined,
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || 'Unknown error',
+    };
+  }
+}
+
+/**
+ * Get metadata about the current Gemini API key.
+ */
+export async function getApiKeyMetadata(): Promise<{
+  lastFourChars: string;
+  lastUpdated?: string;
+}> {
+  const apiKey = getGeminiApiKey();
+  const lastFour = apiKey.slice(-4);
+  
+  // Check if env.ts file has been modified to get last updated time
+  try {
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const envPath = path.join(process.cwd(), 'server/_core/env.ts');
+    const stats = await fs.stat(envPath);
+    
+    return {
+      lastFourChars: lastFour,
+      lastUpdated: stats.mtime.toISOString(),
+    };
+  } catch {
+    return {
+      lastFourChars: lastFour,
+    };
+  }
+}

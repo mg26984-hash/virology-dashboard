@@ -940,3 +940,9 @@
 ## Fix Rate Limit Monitor Layout
 - [x] Fix overlapping buttons and stats in Rate Limit Monitor card header
 - [x] Reorganize card header to stack title/description, buttons, and stats vertically on mobile (space-y-4 with flex-col on mobile, flex-row on sm+)
+
+## Gemini Quota and API Key Metadata Display
+- [x] Add backend procedure to fetch Gemini quota usage (getGeminiQuota checks rate limit headers)
+- [x] Add backend procedure to get API key metadata (getApiKeyMetadata returns last 4 chars + env.ts mtime)
+- [x] Display quota info in Rate Limit Monitor card (ApiKeyQuotaInfo component shows remaining/total if available)
+- [x] Display API key info in Rate Limit Monitor card (shows ****XXXX + last updated date)
