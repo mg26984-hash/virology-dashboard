@@ -874,3 +874,13 @@
 - [x] Added ENV.geminiApiKey getter; updated gemini.ts and documentProcessor.ts to use it
 - [x] Updated db.ts to use ENV.databaseUrl
 - [x] Only remaining direct process.env: _core/index.ts (PORT, NODE_ENV) and routers.ts ownership transfer (intentional runtime mutation)
+
+## Cost Reduction: Hash-Based Duplicate Detection & Filename Pre-Filter (DONE)
+- [x] fileHash column already existed in schema; verified it's populated during uploads
+- [x] uploadRoutes.ts (iOS Shortcut) already had SHA-256 hash dedup in all handlers
+- [x] Added hash-based dedup to all 4 tRPC upload paths in routers.ts (single, bulk, ZIP, chunked)
+- [x] Added filename pre-filter (isLikelyVirologyReport) to all 4 tRPC upload paths
+- [x] Pre-filter blocks obvious non-virology files (receipts, screenshots, selfies, etc.)
+- [x] Pre-filter allows ambiguous filenames through (patient names, civil IDs) — no false negatives
+- [x] Logs skipped files with reason for transparency
+- [x] 45 tests passing: hash computation, filename pre-filter (allow/block/edge cases), integration flow

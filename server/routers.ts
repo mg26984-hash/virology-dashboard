@@ -63,7 +63,73 @@ import {
 } from "./db";
 import { ENV } from './_core/env';
 import ExcelJS from "exceljs";
+import crypto from "crypto";
 import { processUploadedDocument } from "./documentProcessor";
+
+// ─── Cost Reduction Helpers ────────────────────────────────────────────────
+
+/** Compute SHA-256 hash of file content for deduplication */
+function computeFileHash(buffer: Buffer): string {
+  return crypto.createHash("sha256").update(buffer).digest("hex");
+}
+
+/** Check if a file with the same hash already exists in the database */
+async function isDuplicateHash(fileHash: string): Promise<{ duplicate: boolean; existingDocId?: number }> {
+  const db = await getDb();
+  if (!db) return { duplicate: false };
+  const existing = await db.select({ id: documents.id, processingStatus: documents.processingStatus })
+    .from(documents)
+    .where(eq(documents.fileHash, fileHash))
+    .limit(1);
+  if (existing.length > 0) {
+    return { duplicate: true, existingDocId: existing[0].id };
+  }
+  return { duplicate: false };
+}
+
+/**
+ * Lightweight pre-filter: check if a filename is likely a virology report.
+ * Returns true if the file should be processed, false if it should be skipped.
+ * Uses keyword matching on filename — cheap check before expensive LLM call.
+ */
+const VIROLOGY_KEYWORDS = [
+  'virology', 'viral', 'virus', 'cmv', 'bkv', 'jcv', 'pcr', 'polyoma',
+  'cytomegalovirus', 'hepatitis', 'hbv', 'hcv', 'hiv', 'ebv', 'hsv',
+  'dna', 'rna', 'load', 'detected', 'copies', 'blood', 'urine', 'serum',
+  'plasma', 'quantitative', 'qualitative', 'molecular', 'lab', 'report',
+  'result', 'test', 'specimen', 'accession', 'pathology', 'transplant',
+  'renal', 'kidney', 'nephro',
+];
+
+/** File extensions/names that are clearly NOT virology reports */
+const NON_VIROLOGY_PATTERNS = [
+  /^receipt/i, /^invoice/i, /^screenshot/i, /^photo_\d/i, /^img_\d/i,
+  /^selfie/i, /^avatar/i, /^profile/i, /^logo/i, /^banner/i,
+  /^wallpaper/i, /^meme/i, /^scan_\d/i,
+];
+
+function isLikelyVirologyReport(fileName: string): { likely: boolean; reason?: string } {
+  const lower = fileName.toLowerCase();
+  const nameWithoutExt = lower.replace(/\.(pdf|jpg|jpeg|png)$/i, '');
+  
+  // Check if filename matches known non-virology patterns
+  for (const pattern of NON_VIROLOGY_PATTERNS) {
+    if (pattern.test(nameWithoutExt)) {
+      return { likely: false, reason: `Filename matches non-virology pattern: ${pattern}` };
+    }
+  }
+  
+  // Check for virology keywords in filename
+  const hasKeyword = VIROLOGY_KEYWORDS.some(kw => lower.includes(kw));
+  if (hasKeyword) {
+    return { likely: true };
+  }
+  
+  // If filename is generic (e.g., "document.pdf", "image.jpg", patient names, civil IDs),
+  // we can't determine from filename alone — allow it through
+  // This is intentionally permissive to avoid false negatives
+  return { likely: true, reason: 'No keywords found but allowing through (ambiguous filename)' };
+}
 import { generatePatientPDF, generateBulkPatientPDF } from "./pdfReport";
 import { generateDashboardPDF } from "./dashboardPdfReport";
 import { triggerProcessAllPending, retryAllFailed as retryAllFailedDocs } from "./backgroundWorker";
@@ -247,6 +313,29 @@ export const appRouter = router({
         console.log(`[Documents] Received upload: fileName=${input.fileName}, base64Length=${input.fileData?.length || 0}, reportedSize=${input.fileSize}`);
         const fileBuffer = Buffer.from(input.fileData, 'base64');
         console.log(`[Documents] Decoded buffer size: ${fileBuffer.length} bytes`);
+
+        // Hash-based duplicate detection (skip before S3 upload + LLM call)
+        const fileHash = computeFileHash(fileBuffer);
+        const { duplicate, existingDocId } = await isDuplicateHash(fileHash);
+        if (duplicate) {
+          console.log(`[Documents] Skipping duplicate file: ${input.fileName} (hash: ${fileHash.substring(0, 12)}..., existing doc: ${existingDocId})`);
+          return {
+            documentId: existingDocId,
+            status: 'duplicate',
+            message: 'This file has already been uploaded and processed.',
+          };
+        }
+
+        // Filename pre-filter (skip obviously non-virology files)
+        const preFilter = isLikelyVirologyReport(input.fileName);
+        if (!preFilter.likely) {
+          console.log(`[Documents] Pre-filter skipped: ${input.fileName} (${preFilter.reason})`);
+          return {
+            documentId: null,
+            status: 'skipped',
+            message: `File skipped: does not appear to be a virology report (${preFilter.reason})`,
+          };
+        }
         
         // Generate unique file key (sanitize filename for S3 URL compatibility)
         const safeFileName = input.fileName.replace(/[&?#%+\s]/g, '_');
@@ -264,6 +353,7 @@ export const appRouter = router({
           fileUrl: url,
           mimeType: input.mimeType,
           fileSize: input.fileSize,
+          fileHash,
           processingStatus: 'pending',
         });
 
@@ -310,6 +400,24 @@ export const appRouter = router({
             }
 
             const fileBuffer = Buffer.from(file.fileData, 'base64');
+
+            // Hash-based duplicate detection
+            const fileHash = computeFileHash(fileBuffer);
+            const { duplicate: isDup } = await isDuplicateHash(fileHash);
+            if (isDup) {
+              console.log(`[Documents] Bulk: skipping duplicate file: ${file.fileName}`);
+              results.push({ fileName: file.fileName, success: true, error: 'Duplicate file (already uploaded)' });
+              continue;
+            }
+
+            // Filename pre-filter
+            const preFilter = isLikelyVirologyReport(file.fileName);
+            if (!preFilter.likely) {
+              console.log(`[Documents] Bulk: pre-filter skipped: ${file.fileName}`);
+              results.push({ fileName: file.fileName, success: false, error: `Skipped: ${preFilter.reason}` });
+              continue;
+            }
+
             const safeFileName = file.fileName.replace(/[&?#%+\s]/g, '_');
             const fileKey = `virology-reports/${ctx.user!.id}/${nanoid()}-${safeFileName}`;
             const { url } = await storagePut(fileKey, fileBuffer, file.mimeType);
@@ -321,6 +429,7 @@ export const appRouter = router({
               fileUrl: url,
               mimeType: file.mimeType,
               fileSize: file.fileSize,
+              fileHash,
               processingStatus: 'pending',
             });
 
@@ -420,6 +529,23 @@ export const appRouter = router({
                 continue;
               }
 
+              // Hash-based duplicate detection
+              const fileHash = computeFileHash(fileBuffer);
+              const { duplicate: isDup } = await isDuplicateHash(fileHash);
+              if (isDup) {
+                console.log(`[Documents] ZIP: skipping duplicate file: ${fileName}`);
+                results.push({ fileName, success: true, error: 'Duplicate file (already uploaded)' });
+                continue;
+              }
+
+              // Filename pre-filter
+              const preFilter = isLikelyVirologyReport(fileName);
+              if (!preFilter.likely) {
+                console.log(`[Documents] ZIP: pre-filter skipped: ${fileName}`);
+                results.push({ fileName, success: false, error: `Skipped: ${preFilter.reason}` });
+                continue;
+              }
+
               // Upload to S3 (sanitize filename for URL compatibility)
               const safeFileName = fileName.replace(/[&?#%+\s]/g, '_');
               const fileKey = `virology-reports/${ctx.user!.id}/${nanoid()}-${safeFileName}`;
@@ -433,6 +559,7 @@ export const appRouter = router({
                 fileUrl: url,
                 mimeType,
                 fileSize: fileBuffer.length,
+                fileHash,
                 processingStatus: 'pending',
               });
 
@@ -606,6 +733,23 @@ export const appRouter = router({
                 continue;
               }
 
+              // Hash-based duplicate detection
+              const fileHash = computeFileHash(fileBuffer);
+              const { duplicate: isDup } = await isDuplicateHash(fileHash);
+              if (isDup) {
+                console.log(`[Documents] Chunked ZIP: skipping duplicate file: ${fileName}`);
+                results.push({ fileName, success: true, error: 'Duplicate file (already uploaded)' });
+                continue;
+              }
+
+              // Filename pre-filter
+              const preFilter = isLikelyVirologyReport(fileName);
+              if (!preFilter.likely) {
+                console.log(`[Documents] Chunked ZIP: pre-filter skipped: ${fileName}`);
+                results.push({ fileName, success: false, error: `Skipped: ${preFilter.reason}` });
+                continue;
+              }
+
               // Upload to S3 (sanitize filename for URL compatibility)
               const safeFileName = fileName.replace(/[&?#%+\s]/g, '_');
               const fileKey = `virology-reports/${ctx.user!.id}/${nanoid()}-${safeFileName}`;
@@ -619,6 +763,7 @@ export const appRouter = router({
                 fileUrl: url,
                 mimeType,
                 fileSize: fileBuffer.length,
+                fileHash,
                 processingStatus: 'pending',
               });
 

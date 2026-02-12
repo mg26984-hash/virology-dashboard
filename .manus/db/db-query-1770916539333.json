@@ -1,0 +1,20 @@
+{
+  "query": "SELECT processingStatus, aiProvider, COUNT(*) as cnt FROM documents GROUP BY processingStatus, aiProvider ORDER BY cnt DESC;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute SELECT processingStatus, aiProvider, COUNT(*) as cnt FROM documents GROUP BY processingStatus, aiProvider ORDER BY cnt DESC;",
+  "rows": [
+    {
+      "processingStatus": "discarded",
+      "aiProvider": "NULL",
+      "cnt": "8405"
+    },
+    {
+      "processingStatus": "completed",
+      "aiProvider": "NULL",
+      "cnt": "1661"
+    }
+  ],
+  "messages": [],
+  "stdout": "processingStatus\taiProvider\tcnt\ndiscarded\tNULL\t8405\ncompleted\tNULL\t1661\n",
+  "stderr": "",
+  "execution_time_ms": 1512
+}
