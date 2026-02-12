@@ -18,7 +18,7 @@ import {
   Area,
   AreaChart,
 } from "recharts";
-import { Activity, Cpu, DollarSign, TrendingDown, Zap, Server } from "lucide-react";
+import { Activity, Cpu, DollarSign, TrendingDown, Zap, Server, AlertTriangle, FileWarning } from "lucide-react";
 import { useMemo, useState } from "react";
 
 const GEMINI_COLOR = "oklch(0.65 0.18 175)";
@@ -331,6 +331,7 @@ export default function AiUsage() {
   const { data: daily, isLoading: dailyLoading } = trpc.aiUsage.daily.useQuery({ days: parseInt(timeRange) });
   const { data: weekly, isLoading: weeklyLoading } = trpc.aiUsage.weekly.useQuery({ weeks: 12 });
   const { data: costEstimate, isLoading: costLoading } = trpc.aiUsage.costEstimate.useQuery();
+  const { data: fallback, isLoading: fallbackLoading } = trpc.aiUsage.fallbackEvents.useQuery();
 
   return (
     <div className="space-y-6">
@@ -439,6 +440,96 @@ export default function AiUsage() {
             <Skeleton className="h-[300px] w-full" />
           ) : (
             <DailyUsageChart data={daily ?? []} />
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Fallback Alert */}
+      {fallback && fallback.fallbackRate > 20 && (
+        <Card className="border-amber-500/30 bg-amber-500/5">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5 shrink-0" />
+              <div className="text-sm space-y-1">
+                <p className="font-medium text-amber-500">
+                  High Fallback Rate: {fallback.fallbackRate}% of recent documents used Platform LLM
+                </p>
+                <p className="text-muted-foreground">
+                  In the last 7 days, {fallback.platformRecent} of {fallback.totalRecent} documents fell back to the platform LLM.
+                  This may indicate Gemini rate limits or API issues. Consider checking your Gemini API quota at{" "}
+                  <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" className="underline text-amber-400 hover:text-amber-300">
+                    Google AI Studio
+                  </a>.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Recent Fallback Events */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base flex items-center gap-2">
+                <FileWarning className="h-4 w-4" />
+                Rate Limit Monitor
+              </CardTitle>
+              <CardDescription>Last 7 days — documents that fell back to Platform LLM</CardDescription>
+            </div>
+            {fallback && (
+              <div className="flex items-center gap-3 text-sm">
+                <div className="text-center">
+                  <p className="text-lg font-bold">{fallback.geminiRecent}</p>
+                  <p className="text-xs text-muted-foreground">Gemini</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-lg font-bold text-orange-500">{fallback.platformRecent}</p>
+                  <p className="text-xs text-muted-foreground">Platform</p>
+                </div>
+                <div className="text-center">
+                  <p className={`text-lg font-bold ${fallback.fallbackRate > 20 ? 'text-amber-500' : fallback.fallbackRate > 0 ? 'text-orange-400' : 'text-emerald-500'}`}>
+                    {fallback.fallbackRate}%
+                  </p>
+                  <p className="text-xs text-muted-foreground">Fallback</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {fallbackLoading ? (
+            <Skeleton className="h-32 w-full" />
+          ) : fallback && fallback.events.length > 0 ? (
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {fallback.events.map((event) => (
+                <div key={event.id} className="flex items-center justify-between py-2 px-3 rounded-md bg-muted/30 text-sm">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Server className="h-3.5 w-3.5 text-orange-500 shrink-0" />
+                    <span className="truncate">{event.fileName}</span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant="outline" className={`text-xs ${
+                      event.status === 'completed' ? 'text-emerald-500 border-emerald-500/30' :
+                      event.status === 'discarded' ? 'text-amber-500 border-amber-500/30' :
+                      'text-red-500 border-red-500/30'
+                    }`}>
+                      {event.status}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(event.processedAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+              <Zap className="h-8 w-8 mb-2 text-emerald-500" />
+              <p className="text-sm font-medium">No fallback events in the last 7 days</p>
+              <p className="text-xs">All documents processed by Gemini successfully</p>
+            </div>
           )}
         </CardContent>
       </Card>

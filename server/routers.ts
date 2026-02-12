@@ -1714,6 +1714,12 @@ export const appRouter = router({
     costEstimate: ownerProcedure.query(async () => {
       return getAiCostEstimate();
     }),
+    fallbackEvents: ownerProcedure
+      .input(z.object({ limit: z.number().min(1).max(50).default(20) }).optional())
+      .query(async ({ input }) => {
+        const { getRecentFallbackEvents } = await import("./db");
+        return getRecentFallbackEvents(input?.limit ?? 20);
+      }),
   }),
 
   // ─── Leaderboard ──────────────────────────────────────────────────────

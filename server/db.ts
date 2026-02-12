@@ -1,4 +1,4 @@
-import { eq, like, and, or, gte, lte, desc, sql } from "drizzle-orm";
+import { eq, like, and, or, gte, lte, desc, sql, isNotNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { 
   InsertUser, users, 
@@ -823,6 +823,8 @@ export async function getUploadHistory(limit: number = 50, offset: number = 0) {
     pendingFiles: sql<number>`SUM(CASE WHEN ${documents.processingStatus} = 'pending' THEN 1 ELSE 0 END)`,
     processingFiles: sql<number>`SUM(CASE WHEN ${documents.processingStatus} = 'processing' THEN 1 ELSE 0 END)`,
     discardedFiles: sql<number>`SUM(CASE WHEN ${documents.processingStatus} = 'discarded' THEN 1 ELSE 0 END)`,
+    geminiFiles: sql<number>`SUM(CASE WHEN ${documents.aiProvider} = 'gemini' THEN 1 ELSE 0 END)`,
+    platformFiles: sql<number>`SUM(CASE WHEN ${documents.aiProvider} = 'platform' THEN 1 ELSE 0 END)`,
     totalSize: sql<number>`SUM(${documents.fileSize})`,
     firstUpload: sql<Date>`MIN(${documents.createdAt})`,
     lastUpload: sql<Date>`MAX(${documents.createdAt})`,
@@ -847,6 +849,8 @@ export async function getUploadHistory(limit: number = 50, offset: number = 0) {
       const pendingFiles = Number(r.pendingFiles) || 0;
       const processingFiles = Number(r.processingFiles) || 0;
       const discardedFiles = Number(r.discardedFiles) || 0;
+      const geminiFiles = Number(r.geminiFiles) || 0;
+      const platformFiles = Number(r.platformFiles) || 0;
       const totalSize = Number(r.totalSize) || 0;
       return {
         uploadedBy: r.uploadedBy,
@@ -863,6 +867,8 @@ export async function getUploadHistory(limit: number = 50, offset: number = 0) {
         firstUpload: r.firstUpload,
         lastUpload: r.lastUpload,
         lastProcessed: r.lastProcessed,
+        geminiFiles,
+        platformFiles,
         successRate: totalFiles ? Math.round((completedFiles / totalFiles) * 100) : 0,
       };
     }),
@@ -1829,5 +1835,67 @@ export async function getAiCostEstimate() {
     actualCost: Math.round(actualCost * 100) / 100,
     savings: Math.round(savings * 100) / 100,
     savingsPercent: summary.total > 0 ? Math.round((savings / totalIfAllPlatform) * 100) : 0,
+  };
+}
+
+/**
+ * Get recent platform fallback events (documents processed by platform when Gemini was expected).
+ * These indicate Gemini rate limits or API errors.
+ */
+export async function getRecentFallbackEvents(limit: number = 20) {
+  const db = await getDb();
+  if (!db) return { events: [], fallbackRate: 0, totalRecent: 0, platformRecent: 0 };
+
+  // Get recent documents processed by platform (last 7 days) — these are fallback events
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  
+  const events = await db.select({
+    id: documents.id,
+    fileName: documents.fileName,
+    processingStatus: documents.processingStatus,
+    aiProvider: documents.aiProvider,
+    createdAt: documents.createdAt,
+    updatedAt: documents.updatedAt,
+  })
+    .from(documents)
+    .where(
+      and(
+        eq(documents.aiProvider, 'platform'),
+        gte(documents.updatedAt, sevenDaysAgo),
+      )
+    )
+    .orderBy(desc(documents.updatedAt))
+    .limit(limit);
+
+  // Calculate fallback rate for last 7 days
+  const [stats] = await db.select({
+    total: sql<number>`COUNT(*)`,
+    platformCount: sql<number>`SUM(CASE WHEN ${documents.aiProvider} = 'platform' THEN 1 ELSE 0 END)`,
+    geminiCount: sql<number>`SUM(CASE WHEN ${documents.aiProvider} = 'gemini' THEN 1 ELSE 0 END)`,
+  })
+    .from(documents)
+    .where(
+      and(
+        gte(documents.updatedAt, sevenDaysAgo),
+        isNotNull(documents.aiProvider),
+      )
+    );
+
+  const totalRecent = Number(stats?.total) || 0;
+  const platformRecent = Number(stats?.platformCount) || 0;
+  const geminiRecent = Number(stats?.geminiCount) || 0;
+  const fallbackRate = (totalRecent > 0) ? Math.round((platformRecent / totalRecent) * 100) : 0;
+
+  return {
+    events: events.map(e => ({
+      id: e.id,
+      fileName: e.fileName,
+      status: e.processingStatus,
+      processedAt: e.updatedAt,
+    })),
+    fallbackRate,
+    totalRecent,
+    platformRecent,
+    geminiRecent,
   };
 }

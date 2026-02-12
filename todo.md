@@ -896,3 +896,18 @@
 - [x] Investigated: PHOTO- files should be allowed through (user photographs virology reports with camera)
 - [x] Root cause of platform LLM usage: GEMINI_API_KEY not set in production (same issue as OWNER_OPEN_ID)
 - [x] Fixed: Added FALLBACK_GEMINI_API_KEY in env.ts so Gemini is used in production
+
+## Provider Badge on Processing History (DONE)
+- [x] Added geminiFiles and platformFiles counts to getUploadHistory query in db.ts
+- [x] Show Gemini (blue sparkle) and Platform (orange server) badges on each batch row
+- [x] Badges only appear when count > 0
+
+## Gemini API Key Rotation
+- [x] Key is hardcoded as fallback in env.ts (needed because Secrets don't inject to production)
+- [x] To rotate: update the FALLBACK_GEMINI_API_KEY constant in server/_core/env.ts and republish
+- [x] Also set via Settings > Secrets as backup (will be used if env var injection is fixed)
+
+## Rate Limit Monitoring on AI Usage Dashboard
+- [x] Track Gemini fallback-to-platform events with timestamps (getRecentFallbackEvents in db.ts queries platform-provider docs from last 7 days)
+- [x] Add a "Fallback Events" section to AI Usage dashboard showing recent rate limit hits (Rate Limit Monitor card with scrollable event list)
+- [x] Show alert/warning when fallback rate exceeds threshold (amber alert banner when >20% of recent uploads use platform)

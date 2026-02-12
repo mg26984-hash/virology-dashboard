@@ -6,6 +6,7 @@ import {
   History, ChevronLeft, ChevronRight, CheckCircle2,
   XCircle, Clock, Trash2, User, Calendar,
   HardDrive, TrendingUp, FileArchive, Loader2,
+  Sparkles, Server,
 } from "lucide-react";
 
 function fmtSize(b: number | null): string {
@@ -184,6 +185,18 @@ function UploadBatchRow({ batch }: { batch: any }) {
             <Badge variant="outline" className="text-amber-500 border-amber-500/30 bg-amber-500/5 text-xs">
               <Trash2 className="h-3 w-3 mr-1" />
               {batch.discardedFiles}
+            </Badge>
+          )}
+          {batch.geminiFiles > 0 && (
+            <Badge variant="outline" className="text-blue-500 border-blue-500/30 bg-blue-500/5 text-xs">
+              <Sparkles className="h-3 w-3 mr-1" />
+              {batch.geminiFiles} Gemini
+            </Badge>
+          )}
+          {batch.platformFiles > 0 && (
+            <Badge variant="outline" className="text-orange-500 border-orange-500/30 bg-orange-500/5 text-xs">
+              <Server className="h-3 w-3 mr-1" />
+              {batch.platformFiles} Platform
             </Badge>
           )}
         </div>
