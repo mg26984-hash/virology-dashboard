@@ -891,3 +891,8 @@
 - [x] Return skipped file info in response summary (shortMessage includes non-virology count)
 - [x] Added skippedNonVirology counter to batch progress tracking
 - [x] Zero TypeScript errors
+
+## Bug Fix: Pre-Filter Not Catching iOS Camera Photo Filenames
+- [x] Investigated: PHOTO- files should be allowed through (user photographs virology reports with camera)
+- [x] Root cause of platform LLM usage: GEMINI_API_KEY not set in production (same issue as OWNER_OPEN_ID)
+- [x] Fixed: Added FALLBACK_GEMINI_API_KEY in env.ts so Gemini is used in production

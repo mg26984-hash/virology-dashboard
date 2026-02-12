@@ -1,0 +1,50 @@
+{
+  "query": "SELECT id, fileName, processingStatus, aiProvider, createdAt, updatedAt FROM documents WHERE fileName LIKE 'PHOTO-%' ORDER BY createdAt DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3Toxohk3Dhi9dsc.27440a48dc26 --database n8MPugiTXDQnrheaaMVyV7 --execute SELECT id, fileName, processingStatus, aiProvider, createdAt, updatedAt FROM documents WHERE fileName LIKE 'PHOTO-%' ORDER BY createdAt DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "600001",
+      "fileName": "PHOTO-2026-02-12-08-33-27.jpg",
+      "processingStatus": "discarded",
+      "aiProvider": "platform",
+      "createdAt": "2026-02-12 18:34:33",
+      "updatedAt": "2026-02-12 18:35:00"
+    },
+    {
+      "id": "570009",
+      "fileName": "PHOTO-2026-02-11-10-43-09.jpg",
+      "processingStatus": "discarded",
+      "aiProvider": "NULL",
+      "createdAt": "2026-02-11 07:44:54",
+      "updatedAt": "2026-02-11 07:45:34"
+    },
+    {
+      "id": "510107",
+      "fileName": "PHOTO-2026-02-10-12-19-04.jpg",
+      "processingStatus": "discarded",
+      "aiProvider": "NULL",
+      "createdAt": "2026-02-10 20:10:09",
+      "updatedAt": "2026-02-10 21:06:00"
+    },
+    {
+      "id": "480004",
+      "fileName": "PHOTO-2026-02-09-10-56-30.jpg",
+      "processingStatus": "completed",
+      "aiProvider": "NULL",
+      "createdAt": "2026-02-09 08:42:58",
+      "updatedAt": "2026-02-09 08:43:13"
+    },
+    {
+      "id": "420025",
+      "fileName": "PHOTO-2026-02-08-11-02-21.jpg",
+      "processingStatus": "completed",
+      "aiProvider": "NULL",
+      "createdAt": "2026-02-08 08:35:20",
+      "updatedAt": "2026-02-08 08:36:01"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tfileName\tprocessingStatus\taiProvider\tcreatedAt\tupdatedAt\n600001\tPHOTO-2026-02-12-08-33-27.jpg\tdiscarded\tplatform\t2026-02-12 18:34:33\t2026-02-12 18:35:00\n570009\tPHOTO-2026-02-11-10-43-09.jpg\tdiscarded\tNULL\t2026-02-11 07:44:54\t2026-02-11 07:45:34\n510107\tPHOTO-2026-02-10-12-19-04.jpg\tdiscarded\tNULL\t2026-02-10 20:10:09\t2026-02-10 21:06:00\n480004\tPHOTO-2026-02-09-10-56-30.jpg\tcompleted\tNULL\t2026-02-09 08:42:58\t2026-02-09 08:43:13\n420025\tPHOTO-2026-02-08-11-02-21.jpg\tcompleted\tNULL\t2026-02-08 08:35:20\t2026-02-08 08:36:01\n",
+  "stderr": "",
+  "execution_time_ms": 1828
+}

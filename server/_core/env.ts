@@ -5,6 +5,7 @@
 // ── Hardcoded fallbacks for values that may not be injected in production ──
 const FALLBACK_OWNER_OPEN_ID = "nPtvS3FjrgpNRuGEU3ERv5";
 const FALLBACK_OWNER_NAME = "Mohammed Megahed";
+const FALLBACK_GEMINI_API_KEY = "AIzaSyDPncKYmdOj84ui5toyaRjGPMLdftxxB6o";
 
 export const ENV = {
   get appId() { return process.env.VITE_APP_ID ?? ""; },
@@ -16,7 +17,7 @@ export const ENV = {
   get isProduction() { return process.env.NODE_ENV === "production"; },
   get forgeApiUrl() { return process.env.BUILT_IN_FORGE_API_URL ?? ""; },
   get forgeApiKey() { return process.env.BUILT_IN_FORGE_API_KEY ?? ""; },
-  get geminiApiKey() { return process.env.GEMINI_API_KEY ?? ""; },
+  get geminiApiKey() { return process.env.GEMINI_API_KEY || FALLBACK_GEMINI_API_KEY; },
 };
 
 // ── Startup validation ──
