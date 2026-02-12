@@ -50,6 +50,13 @@
       "when": 1770669993314,
       "tag": "0006_sweet_kat_farrell",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1770898807300,
+      "tag": "0007_eminent_venom",
+      "breakpoints": true
     }
   ]
 }

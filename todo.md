@@ -846,3 +846,13 @@
 - [x] Write tests for hybrid fallback logic (9/9 passing)
 - [ ] Test end-to-end document processing with Gemini (user to test via iOS Shortcut)
 - [x] Verify existing tests still pass
+
+## AI Usage Dashboard (Owner-Only)
+- [x] Add `aiProvider` column to documents table to track which AI processed each document
+- [x] Update documentProcessor to save provider info on each processed document
+- [x] Create owner-only tRPC procedures for usage analytics (counts by provider, daily/weekly)
+- [x] Build AI Usage Dashboard page with charts showing Gemini vs Platform usage over time
+- [x] Show estimated cost savings based on provider distribution
+- [x] Restrict dashboard access to owner only (ownerProcedure on all endpoints)
+- [x] Add navigation entry (owner-only visibility in sidebar)
+- [x] Write tests for usage analytics procedures (12/12 passing)

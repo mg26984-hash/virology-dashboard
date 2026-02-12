@@ -22,7 +22,7 @@ import {
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
 import { trpc } from "@/lib/trpc";
-import { LayoutDashboard, LogOut, PanelLeft, Users, Upload, Search, Shield, FileSpreadsheet, ClipboardList, GitMerge, Sun, Moon, History, Home, Trophy } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, Users, Upload, Search, Shield, FileSpreadsheet, ClipboardList, GitMerge, Sun, Moon, History, Home, Trophy, Activity } from "lucide-react";
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -168,6 +168,7 @@ function DashboardLayoutContent({
       '/admin/merge': 'Patient Merge',
       '/admin/audit-log': 'Audit Log',
       '/leaderboard': 'Leaderboard',
+      '/owner/ai-usage': 'AI Usage',
     };
     // Exact match
     if (routeMap[location]) {
@@ -349,6 +350,22 @@ function DashboardLayoutContent({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 </>
+              )}
+              {/* Owner-only: AI Usage Analytics */}
+              {user?.isOwner && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    isActive={location === '/owner/ai-usage'}
+                    onClick={() => setLocation('/owner/ai-usage')}
+                    tooltip="AI Usage"
+                    className={`h-10 transition-all font-normal`}
+                  >
+                    <Activity
+                      className={`h-4 w-4 ${location === '/owner/ai-usage' ? "text-primary" : ""}`}
+                    />
+                    <span>AI Usage</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
               )}
             </SidebarMenu>
           </SidebarContent>

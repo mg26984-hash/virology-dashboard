@@ -79,6 +79,8 @@ export const documents = mysqlTable("documents", {
   extractedData: text("extractedData"),
   retryCount: int("retryCount").default(0).notNull(),
   batchId: varchar("batchId", { length: 64 }),
+  /** Which AI provider processed this document: gemini or platform */
+  aiProvider: varchar("aiProvider", { length: 20 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

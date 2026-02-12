@@ -56,6 +56,10 @@ import {
   getBKPCRLeaderboard,
   getCMVPCRLeaderboard,
   autoNormalizeAllPatientNames,
+  getAiUsageSummary,
+  getAiUsageByDay,
+  getAiUsageByWeek,
+  getAiCostEstimate,
 } from "./db";
 import { ENV } from './_core/env';
 import ExcelJS from "exceljs";
@@ -1539,6 +1543,26 @@ export const appRouter = router({
       const tests = await getTestsByPatientId(input.id);
       return { ...patient, testCount: tests.length, recentTests: tests.slice(0, 5) };
     }),
+
+  // ─── AI Usage Analytics (Owner-only) ─────────────────────────────────
+  aiUsage: router({
+    summary: ownerProcedure.query(async () => {
+      return getAiUsageSummary();
+    }),
+    daily: ownerProcedure
+      .input(z.object({ days: z.number().min(1).max(90).default(30) }).optional())
+      .query(async ({ input }) => {
+        return getAiUsageByDay(input?.days ?? 30);
+      }),
+    weekly: ownerProcedure
+      .input(z.object({ weeks: z.number().min(1).max(52).default(12) }).optional())
+      .query(async ({ input }) => {
+        return getAiUsageByWeek(input?.weeks ?? 12);
+      }),
+    costEstimate: ownerProcedure.query(async () => {
+      return getAiCostEstimate();
+    }),
+  }),
 
   // ─── Leaderboard ──────────────────────────────────────────────────────
   leaderboard: router({

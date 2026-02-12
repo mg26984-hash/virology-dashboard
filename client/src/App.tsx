@@ -18,6 +18,7 @@ import PatientMerge from "./pages/PatientMerge";
 import ProcessingHistory from "./pages/ProcessingHistory";
 import QuickUpload from "./pages/QuickUpload";
 import Leaderboard from "./pages/Leaderboard";
+import AiUsage from "./pages/AiUsage";
 
 function Router() {
   return (
@@ -33,6 +34,7 @@ function Router() {
         <Route path="/admin/merge" component={PatientMerge} />
         <Route path="/processing-history" component={ProcessingHistory} />
         <Route path="/leaderboard" component={Leaderboard} />
+        <Route path="/owner/ai-usage" component={AiUsage} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>

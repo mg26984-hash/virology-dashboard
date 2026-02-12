@@ -370,7 +370,8 @@ export async function processUploadedDocument(
         documentId, 
         'discarded', 
         'Document does not contain valid virology test results',
-        extracted.rawExtraction
+        extracted.rawExtraction,
+        extracted.provider
       );
       await deleteProcessedFile(fileUrl);
       return {
@@ -437,7 +438,8 @@ export async function processUploadedDocument(
         documentId, 
         'discarded', 
         `All ${testsSkipped} test(s) already exist in database: ${duplicateTests.join(', ')}`,
-        extracted.rawExtraction
+        extracted.rawExtraction,
+        extracted.provider
       );
       await deleteProcessedFile(fileUrl);
       return {
@@ -452,7 +454,7 @@ export async function processUploadedDocument(
       };
     }
 
-    await updateDocumentStatus(documentId, 'completed', undefined, extracted.rawExtraction);
+    await updateDocumentStatus(documentId, 'completed', undefined, extracted.rawExtraction, extracted.provider);
     await deleteProcessedFile(fileUrl);
 
     return {

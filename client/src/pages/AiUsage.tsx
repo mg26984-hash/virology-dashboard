@@ -1,0 +1,466 @@
+import { trpc } from "@/lib/trpc";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+  Area,
+  AreaChart,
+} from "recharts";
+import { Activity, Cpu, DollarSign, TrendingDown, Zap, Server } from "lucide-react";
+import { useMemo, useState } from "react";
+
+const GEMINI_COLOR = "oklch(0.65 0.18 175)";
+const PLATFORM_COLOR = "oklch(0.6 0.15 30)";
+const UNKNOWN_COLOR = "oklch(0.5 0.05 250)";
+
+function StatCard({
+  title,
+  value,
+  description,
+  icon: Icon,
+  trend,
+  loading,
+}: {
+  title: string;
+  value: string | number;
+  description: string;
+  icon: React.ElementType;
+  trend?: { value: number; label: string };
+  loading?: boolean;
+}) {
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-4 w-4" />
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-8 w-20 mb-1" />
+          <Skeleton className="h-3 w-32" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+        <Icon className="h-4 w-4 text-muted-foreground" />
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold">{value}</div>
+        <p className="text-xs text-muted-foreground mt-1">
+          {description}
+        </p>
+        {trend && (
+          <div className="flex items-center gap-1 mt-2">
+            <TrendingDown className="h-3 w-3 text-emerald-500" />
+            <span className="text-xs text-emerald-500 font-medium">
+              {trend.value}% {trend.label}
+            </span>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ProviderPieChart({ gemini, platform, unknown }: { gemini: number; platform: number; unknown: number }) {
+  const data = useMemo(() => {
+    const items = [];
+    if (gemini > 0) items.push({ name: "Gemini", value: gemini, color: GEMINI_COLOR });
+    if (platform > 0) items.push({ name: "Platform LLM", value: platform, color: PLATFORM_COLOR });
+    if (unknown > 0) items.push({ name: "Unknown", value: unknown, color: UNKNOWN_COLOR });
+    return items;
+  }, [gemini, platform, unknown]);
+
+  if (data.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+        No data yet. Upload documents to see provider distribution.
+      </div>
+    );
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height={300}>
+      <PieChart>
+        <Pie
+          data={data}
+          cx="50%"
+          cy="50%"
+          innerRadius={60}
+          outerRadius={100}
+          paddingAngle={3}
+          dataKey="value"
+          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+        >
+          {data.map((entry, index) => (
+            <Cell key={`cell-${index}`} fill={entry.color} />
+          ))}
+        </Pie>
+        <Tooltip
+          contentStyle={{
+            backgroundColor: "oklch(0.2 0.02 260)",
+            border: "1px solid oklch(0.3 0.02 260)",
+            borderRadius: "8px",
+            color: "oklch(0.9 0 0)",
+          }}
+          formatter={(value: number) => [`${value} documents`, ""]}
+        />
+        <Legend />
+      </PieChart>
+    </ResponsiveContainer>
+  );
+}
+
+function DailyUsageChart({ data }: { data: Array<{ date: string; gemini: number; platform: number; unknown: number }> }) {
+  if (!data || data.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+        No daily data available yet.
+      </div>
+    );
+  }
+
+  const chartData = data.map(d => ({
+    ...d,
+    date: d.date.slice(5), // Show MM-DD
+  }));
+
+  return (
+    <ResponsiveContainer width="100%" height={300}>
+      <AreaChart data={chartData}>
+        <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.3 0.02 260)" />
+        <XAxis
+          dataKey="date"
+          tick={{ fill: "oklch(0.6 0 0)", fontSize: 12 }}
+          tickLine={false}
+          axisLine={false}
+        />
+        <YAxis
+          tick={{ fill: "oklch(0.6 0 0)", fontSize: 12 }}
+          tickLine={false}
+          axisLine={false}
+          allowDecimals={false}
+        />
+        <Tooltip
+          contentStyle={{
+            backgroundColor: "oklch(0.2 0.02 260)",
+            border: "1px solid oklch(0.3 0.02 260)",
+            borderRadius: "8px",
+            color: "oklch(0.9 0 0)",
+          }}
+        />
+        <Area
+          type="monotone"
+          dataKey="gemini"
+          stackId="1"
+          stroke={GEMINI_COLOR}
+          fill={GEMINI_COLOR}
+          fillOpacity={0.6}
+          name="Gemini"
+        />
+        <Area
+          type="monotone"
+          dataKey="platform"
+          stackId="1"
+          stroke={PLATFORM_COLOR}
+          fill={PLATFORM_COLOR}
+          fillOpacity={0.6}
+          name="Platform LLM"
+        />
+        {data.some(d => d.unknown > 0) && (
+          <Area
+            type="monotone"
+            dataKey="unknown"
+            stackId="1"
+            stroke={UNKNOWN_COLOR}
+            fill={UNKNOWN_COLOR}
+            fillOpacity={0.4}
+            name="Unknown"
+          />
+        )}
+        <Legend />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
+function WeeklyUsageChart({ data }: { data: Array<{ week: string; weekStart: string; gemini: number; platform: number; unknown: number }> }) {
+  if (!data || data.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+        No weekly data available yet.
+      </div>
+    );
+  }
+
+  const chartData = data.map(d => ({
+    ...d,
+    label: d.weekStart.slice(5), // Show MM-DD
+  }));
+
+  return (
+    <ResponsiveContainer width="100%" height={300}>
+      <BarChart data={chartData}>
+        <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.3 0.02 260)" />
+        <XAxis
+          dataKey="label"
+          tick={{ fill: "oklch(0.6 0 0)", fontSize: 12 }}
+          tickLine={false}
+          axisLine={false}
+        />
+        <YAxis
+          tick={{ fill: "oklch(0.6 0 0)", fontSize: 12 }}
+          tickLine={false}
+          axisLine={false}
+          allowDecimals={false}
+        />
+        <Tooltip
+          contentStyle={{
+            backgroundColor: "oklch(0.2 0.02 260)",
+            border: "1px solid oklch(0.3 0.02 260)",
+            borderRadius: "8px",
+            color: "oklch(0.9 0 0)",
+          }}
+        />
+        <Bar dataKey="gemini" stackId="a" fill={GEMINI_COLOR} name="Gemini" radius={[0, 0, 0, 0]} />
+        <Bar dataKey="platform" stackId="a" fill={PLATFORM_COLOR} name="Platform LLM" radius={[4, 4, 0, 0]} />
+        <Legend />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+function CostSavingsCard({ loading, data }: {
+  loading: boolean;
+  data?: {
+    gemini: number;
+    platform: number;
+    unknown: number;
+    total: number;
+    platformCost: number;
+    geminiCost: number;
+    totalIfAllPlatform: number;
+    actualCost: number;
+    savings: number;
+    savingsPercent: number;
+  };
+}) {
+  if (loading || !data) {
+    return (
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="h-3 w-60" />
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-20 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="border-emerald-500/20">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <DollarSign className="h-5 w-5 text-emerald-500" />
+          Estimated Cost Savings
+        </CardTitle>
+        <CardDescription>
+          Rough estimates based on ~$0.01/doc (platform) vs ~$0.001/doc (Gemini)
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">If all Platform</p>
+            <p className="text-lg font-semibold text-red-400">${data.totalIfAllPlatform.toFixed(2)}</p>
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">Actual Cost</p>
+            <p className="text-lg font-semibold">${data.actualCost.toFixed(2)}</p>
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">You Saved</p>
+            <p className="text-lg font-semibold text-emerald-500">${data.savings.toFixed(2)}</p>
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">Savings Rate</p>
+            <p className="text-lg font-semibold text-emerald-500">{data.savingsPercent}%</p>
+          </div>
+        </div>
+
+        <div className="mt-4 pt-4 border-t border-border">
+          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-2 rounded-full" style={{ backgroundColor: GEMINI_COLOR }} />
+              Gemini: {data.gemini} docs (${data.geminiCost.toFixed(2)})
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-2 rounded-full" style={{ backgroundColor: PLATFORM_COLOR }} />
+              Platform: {data.platform} docs (${data.platformCost.toFixed(2)})
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function AiUsage() {
+  const [timeRange, setTimeRange] = useState<"30" | "60" | "90">("30");
+
+  const { data: summary, isLoading: summaryLoading } = trpc.aiUsage.summary.useQuery();
+  const { data: daily, isLoading: dailyLoading } = trpc.aiUsage.daily.useQuery({ days: parseInt(timeRange) });
+  const { data: weekly, isLoading: weeklyLoading } = trpc.aiUsage.weekly.useQuery({ weeks: 12 });
+  const { data: costEstimate, isLoading: costLoading } = trpc.aiUsage.costEstimate.useQuery();
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">AI Usage Analytics</h1>
+          <p className="text-muted-foreground mt-1">
+            Track document processing by AI provider and monitor cost savings
+          </p>
+        </div>
+        <Badge variant="outline" className="text-xs">
+          Owner Only
+        </Badge>
+      </div>
+
+      {/* Summary Stats */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <StatCard
+          title="Total Processed"
+          value={summary?.total ?? 0}
+          description="Documents processed by AI"
+          icon={Activity}
+          loading={summaryLoading}
+        />
+        <StatCard
+          title="Gemini"
+          value={summary?.gemini ?? 0}
+          description="Processed with your API key"
+          icon={Zap}
+          loading={summaryLoading}
+        />
+        <StatCard
+          title="Platform LLM"
+          value={summary?.platform ?? 0}
+          description="Processed with platform credits"
+          icon={Server}
+          loading={summaryLoading}
+        />
+        <StatCard
+          title="Pre-Integration"
+          value={summary?.unknown ?? 0}
+          description="Before provider tracking"
+          icon={Cpu}
+          loading={summaryLoading}
+        />
+      </div>
+
+      {/* Cost Savings */}
+      <CostSavingsCard loading={costLoading} data={costEstimate ?? undefined} />
+
+      {/* Charts */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Provider Distribution */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Provider Distribution</CardTitle>
+            <CardDescription>Share of documents by AI provider</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {summaryLoading ? (
+              <Skeleton className="h-[300px] w-full" />
+            ) : (
+              <ProviderPieChart
+                gemini={summary?.gemini ?? 0}
+                platform={summary?.platform ?? 0}
+                unknown={summary?.unknown ?? 0}
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Weekly Breakdown */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Weekly Breakdown</CardTitle>
+            <CardDescription>Documents processed per week (last 12 weeks)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {weeklyLoading ? (
+              <Skeleton className="h-[300px] w-full" />
+            ) : (
+              <WeeklyUsageChart data={weekly ?? []} />
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Daily Trend */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-base">Daily Trend</CardTitle>
+            <CardDescription>Documents processed per day by provider</CardDescription>
+          </div>
+          <Tabs value={timeRange} onValueChange={(v) => setTimeRange(v as "30" | "60" | "90")}>
+            <TabsList className="h-8">
+              <TabsTrigger value="30" className="text-xs px-3 h-6">30d</TabsTrigger>
+              <TabsTrigger value="60" className="text-xs px-3 h-6">60d</TabsTrigger>
+              <TabsTrigger value="90" className="text-xs px-3 h-6">90d</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </CardHeader>
+        <CardContent>
+          {dailyLoading ? (
+            <Skeleton className="h-[300px] w-full" />
+          ) : (
+            <DailyUsageChart data={daily ?? []} />
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Info Note */}
+      <Card className="bg-muted/30">
+        <CardContent className="pt-6">
+          <div className="flex items-start gap-3">
+            <Activity className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
+            <div className="text-sm text-muted-foreground space-y-1">
+              <p>
+                <strong>How it works:</strong> Documents are processed using Gemini 2.0 Flash first (your API key, no platform credits).
+                If Gemini fails (rate limit, API error), the system automatically falls back to the platform LLM.
+              </p>
+              <p>
+                <strong>Cost estimates</strong> are rough approximations. Platform cost ~$0.01/doc, Gemini ~$0.001/doc.
+                Documents processed before the Gemini integration show as "Pre-Integration" (unknown provider).
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

@@ -571,16 +571,22 @@ export async function updateDocumentStatus(
   id: number, 
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'discarded',
   error?: string,
-  extractedData?: string
+  extractedData?: string,
+  aiProvider?: string
 ) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  await db.update(documents).set({
+  const updateData: Record<string, unknown> = {
     processingStatus: status,
     processingError: error || null,
     extractedData: extractedData || null,
-  }).where(eq(documents.id, id));
+  };
+  if (aiProvider) {
+    updateData.aiProvider = aiProvider;
+  }
+
+  await db.update(documents).set(updateData).where(eq(documents.id, id));
 }
 
 export async function getDocumentById(id: number) {
@@ -1677,4 +1683,151 @@ export async function autoNormalizeAllPatientNames(): Promise<AutoMergeResult> {
   }));
 
   return result;
+}
+
+
+// ============ AI USAGE ANALYTICS ============
+
+/**
+ * Get summary counts of documents processed by each AI provider.
+ */
+export async function getAiUsageSummary() {
+  const db = await getDb();
+  if (!db) return { gemini: 0, platform: 0, unknown: 0, total: 0 };
+
+  const results = await db.execute(sql`
+    SELECT 
+      COALESCE(aiProvider, 'unknown') AS provider,
+      COUNT(*) AS count
+    FROM documents
+    WHERE processingStatus IN ('completed', 'discarded')
+    GROUP BY COALESCE(aiProvider, 'unknown')
+  `);
+
+  const rows = (results as any)[0] ?? [];
+  let gemini = 0, platform = 0, unknown = 0;
+  for (const row of rows) {
+    const provider = String(row.provider);
+    const count = Number(row.count) || 0;
+    if (provider === 'gemini') gemini = count;
+    else if (provider === 'platform') platform = count;
+    else unknown += count;
+  }
+
+  return { gemini, platform, unknown, total: gemini + platform + unknown };
+}
+
+/**
+ * Get daily AI usage breakdown over the last N days.
+ */
+export async function getAiUsageByDay(days: number = 30) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const safeDays = Math.max(1, Math.min(90, Math.floor(days)));
+
+  const results = await db.execute(sql`
+    SELECT 
+      DATE_FORMAT(updatedAt, '%Y-%m-%d') AS date,
+      COALESCE(aiProvider, 'unknown') AS provider,
+      COUNT(*) AS count
+    FROM documents
+    WHERE processingStatus IN ('completed', 'discarded')
+      AND updatedAt >= DATE_SUB(NOW(), INTERVAL ${sql.raw(String(safeDays))} DAY)
+    GROUP BY DATE_FORMAT(updatedAt, '%Y-%m-%d'), COALESCE(aiProvider, 'unknown')
+    ORDER BY date ASC
+  `);
+
+  const rows = (results as any)[0] ?? [];
+  
+  // Group by date
+  const dateMap = new Map<string, { date: string; gemini: number; platform: number; unknown: number }>();
+  for (const row of rows) {
+    const date = String(row.date);
+    const provider = String(row.provider);
+    const count = Number(row.count) || 0;
+    
+    if (!dateMap.has(date)) {
+      dateMap.set(date, { date, gemini: 0, platform: 0, unknown: 0 });
+    }
+    const entry = dateMap.get(date)!;
+    if (provider === 'gemini') entry.gemini = count;
+    else if (provider === 'platform') entry.platform = count;
+    else entry.unknown += count;
+  }
+
+  return Array.from(dateMap.values());
+}
+
+/**
+ * Get weekly AI usage breakdown over the last N weeks.
+ */
+export async function getAiUsageByWeek(weeks: number = 12) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const safeWeeks = Math.max(1, Math.min(52, Math.floor(weeks)));
+
+  const results = await db.execute(sql`
+    SELECT 
+      DATE_FORMAT(updatedAt, '%x-W%v') AS week,
+      MIN(DATE_FORMAT(updatedAt, '%Y-%m-%d')) AS weekStart,
+      COALESCE(aiProvider, 'unknown') AS provider,
+      COUNT(*) AS count
+    FROM documents
+    WHERE processingStatus IN ('completed', 'discarded')
+      AND updatedAt >= DATE_SUB(NOW(), INTERVAL ${sql.raw(String(safeWeeks))} WEEK)
+    GROUP BY DATE_FORMAT(updatedAt, '%x-W%v'), COALESCE(aiProvider, 'unknown')
+    ORDER BY week ASC
+  `);
+
+  const rows = (results as any)[0] ?? [];
+  
+  const weekMap = new Map<string, { week: string; weekStart: string; gemini: number; platform: number; unknown: number }>();
+  for (const row of rows) {
+    const week = String(row.week);
+    const weekStart = String(row.weekStart);
+    const provider = String(row.provider);
+    const count = Number(row.count) || 0;
+    
+    if (!weekMap.has(week)) {
+      weekMap.set(week, { week, weekStart, gemini: 0, platform: 0, unknown: 0 });
+    }
+    const entry = weekMap.get(week)!;
+    if (provider === 'gemini') entry.gemini = count;
+    else if (provider === 'platform') entry.platform = count;
+    else entry.unknown += count;
+  }
+
+  return Array.from(weekMap.values());
+}
+
+/**
+ * Get estimated cost savings from using Gemini vs platform LLM.
+ * Rough estimates: platform ~$0.01 per doc, Gemini ~$0.001 per doc (10x cheaper).
+ */
+export async function getAiCostEstimate() {
+  const summary = await getAiUsageSummary();
+  
+  const PLATFORM_COST_PER_DOC = 0.01;  // Estimated platform credit cost per document
+  const GEMINI_COST_PER_DOC = 0.001;   // Estimated Gemini API cost per document
+  
+  const platformCost = summary.platform * PLATFORM_COST_PER_DOC;
+  const geminiCost = summary.gemini * GEMINI_COST_PER_DOC;
+  const unknownCost = summary.unknown * PLATFORM_COST_PER_DOC; // Assume platform for unknown
+  
+  // What it would have cost if everything used platform
+  const totalIfAllPlatform = summary.total * PLATFORM_COST_PER_DOC;
+  const actualCost = platformCost + geminiCost + unknownCost;
+  const savings = totalIfAllPlatform - actualCost;
+  
+  return {
+    ...summary,
+    platformCost: Math.round(platformCost * 100) / 100,
+    geminiCost: Math.round(geminiCost * 100) / 100,
+    totalIfAllPlatform: Math.round(totalIfAllPlatform * 100) / 100,
+    actualCost: Math.round(actualCost * 100) / 100,
+    savings: Math.round(savings * 100) / 100,
+    savingsPercent: summary.total > 0 ? Math.round((savings / totalIfAllPlatform) * 100) : 0,
+  };
 }
