@@ -1899,3 +1899,78 @@ export async function getRecentFallbackEvents(limit: number = 20) {
     geminiRecent,
   };
 }
+
+// ============ COST TRACKING ============
+
+export async function getMonthlyCosts(): Promise<{
+  gemini: number;
+  platform: number;
+  unknown: number;
+  total: number;
+  platformCost: number;
+  geminiCost: number;
+  totalIfAllPlatform: number;
+  actualCost: number;
+  savings: number;
+  savingsPercent: number;
+}> {
+  const db = await getDb();
+  if (!db) {
+    return {
+      gemini: 0,
+      platform: 0,
+      unknown: 0,
+      total: 0,
+      platformCost: 0,
+      geminiCost: 0,
+      totalIfAllPlatform: 0,
+      actualCost: 0,
+      savings: 0,
+      savingsPercent: 0,
+    };
+  }
+
+  // Get current month start
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  // Count documents by provider for current month
+  const docs = await db
+    .select({
+      aiProvider: documents.aiProvider,
+    })
+    .from(documents)
+    .where(gte(documents.createdAt, monthStart));
+
+  const geminiCount = docs.filter((d) => d.aiProvider === "gemini").length;
+  const platformCount = docs.filter((d) => d.aiProvider === "platform").length;
+  const unknownCount = docs.filter((d) => !d.aiProvider || d.aiProvider === "unknown").length;
+
+  // Cost estimates (per document)
+  const GEMINI_COST_PER_DOC = 0.001; // $0.001 per request (Gemini 2.0 Flash paid tier)
+  const PLATFORM_COST_PER_DOC = 0.005; // Estimated $0.005 per request (platform LLM)
+
+  const geminiCost = geminiCount * GEMINI_COST_PER_DOC;
+  const platformCost = platformCount * PLATFORM_COST_PER_DOC;
+  const totalCost = geminiCost + platformCost;
+
+  // Calculate savings vs all-platform scenario
+  const allPlatformCost = (geminiCount + platformCount + unknownCount) * PLATFORM_COST_PER_DOC;
+  const savings = allPlatformCost - totalCost;
+  const savingsPercent = allPlatformCost > 0 ? (savings / allPlatformCost) * 100 : 0;
+
+  const total = geminiCount + platformCount + unknownCount;
+
+  return {
+    gemini: geminiCount,
+    platform: platformCount,
+    unknown: unknownCount,
+    total,
+    platformCost,
+    geminiCost,
+    totalIfAllPlatform: allPlatformCost,
+    actualCost: totalCost,
+    savings,
+    savingsPercent,
+  };
+}

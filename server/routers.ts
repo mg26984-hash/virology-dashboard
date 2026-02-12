@@ -1752,6 +1752,10 @@ export const appRouter = router({
       const { getApiKeyMetadata } = await import("./gemini");
       return getApiKeyMetadata();
     }),
+    getMonthlyCosts: ownerProcedure.query(async () => {
+      const { getMonthlyCosts } = await import("./db");
+      return getMonthlyCosts();
+    }),
   }),
 
   // ─── Leaderboard ──────────────────────────────────────────────────────

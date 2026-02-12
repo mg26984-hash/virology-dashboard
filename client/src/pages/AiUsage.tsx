@@ -531,7 +531,7 @@ export default function AiUsage() {
   const { data: summary, isLoading: summaryLoading } = trpc.aiUsage.summary.useQuery();
   const { data: daily, isLoading: dailyLoading } = trpc.aiUsage.daily.useQuery({ days: parseInt(timeRange) });
   const { data: weekly, isLoading: weeklyLoading } = trpc.aiUsage.weekly.useQuery({ weeks: 12 });
-  const { data: costEstimate, isLoading: costLoading } = trpc.aiUsage.costEstimate.useQuery();
+  const { data: monthlyCosts, isLoading: costLoading } = trpc.aiUsage.getMonthlyCosts.useQuery();
   const { data: fallback, isLoading: fallbackLoading } = trpc.aiUsage.fallbackEvents.useQuery();
 
   return (
@@ -582,7 +582,7 @@ export default function AiUsage() {
       </div>
 
       {/* Cost Savings */}
-      <CostSavingsCard loading={costLoading} data={costEstimate ?? undefined} />
+      <CostSavingsCard loading={costLoading} data={monthlyCosts ?? undefined} />
 
       {/* Charts */}
       <div className="grid gap-6 md:grid-cols-2">

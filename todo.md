@@ -946,3 +946,10 @@
 - [x] Add backend procedure to get API key metadata (getApiKeyMetadata returns last 4 chars + env.ts mtime)
 - [x] Display quota info in Rate Limit Monitor card (ApiKeyQuotaInfo component shows remaining/total if available)
 - [x] Display API key info in Rate Limit Monitor card (shows ****XXXX + last updated date)
+
+## Cost Tracking for AI Usage
+- [x] Add backend procedure to calculate monthly costs (getMonthlyCosts in db.ts: Gemini $0.001/doc, Platform $0.005/doc)
+- [x] Query document counts by provider for current month (filters by createdAt >= month start)
+- [x] Calculate estimated costs and savings (compares actual cost vs all-platform scenario)
+- [x] Add cost comparison card to AI Usage dashboard showing monthly breakdown (CostSavingsCard already existed, updated to use new backend)
+- [x] Display savings percentage and dollar amount (shows totalIfAllPlatform, actualCost, savings, savingsPercent)
