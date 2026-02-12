@@ -884,3 +884,10 @@
 - [x] Pre-filter allows ambiguous filenames through (patient names, civil IDs) — no false negatives
 - [x] Logs skipped files with reason for transparency
 - [x] 45 tests passing: hash computation, filename pre-filter (allow/block/edge cases), integration flow
+
+## Add Filename Pre-Filter to iOS Shortcut Upload Path
+- [x] Added isLikelyVirologyReport pre-filter to uploadRoutes.ts (processFileBatch, processZipBatch, /quick endpoint)
+- [x] Skip non-virology files before S3 upload and LLM processing
+- [x] Return skipped file info in response summary (shortMessage includes non-virology count)
+- [x] Added skippedNonVirology counter to batch progress tracking
+- [x] Zero TypeScript errors

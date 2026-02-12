@@ -80,6 +80,24 @@ const uploadLargeZip = multer({
   },
 });
 
+// ── Filename pre-filter: skip clearly non-virology files before LLM ──
+const NON_VIROLOGY_PATTERNS = [
+  /^receipt/i, /^invoice/i, /^screenshot/i, /^photo_\d/i, /^img_\d/i,
+  /^selfie/i, /^avatar/i, /^profile/i, /^logo/i, /^banner/i,
+  /^wallpaper/i, /^meme/i, /^scan_\d/i,
+];
+
+function isLikelyVirologyReport(fileName: string): { likely: boolean; reason?: string } {
+  const lower = fileName.toLowerCase();
+  const nameWithoutExt = lower.replace(/\.(pdf|jpg|jpeg|png)$/i, '');
+  for (const pattern of NON_VIROLOGY_PATTERNS) {
+    if (pattern.test(nameWithoutExt)) {
+      return { likely: false, reason: `Filename matches non-virology pattern: ${pattern}` };
+    }
+  }
+  return { likely: true };
+}
+
 // Track batch processing progress in memory
 interface BatchProgress {
   total: number;
@@ -88,6 +106,7 @@ interface BatchProgress {
   processed: number;
   failed: number;
   skippedDuplicates: number;
+  skippedNonVirology: number;
   documentIds: number[];
   errors: string[];
   status: "uploading" | "processing" | "complete" | "error";
@@ -169,6 +188,7 @@ router.post("/files", upload.array("files", 500), async (req: Request, res: Resp
       processed: 0,
       failed: 0,
       skippedDuplicates: 0,
+      skippedNonVirology: 0,
       documentIds: [],
       errors: [],
       status: "uploading",
@@ -258,6 +278,7 @@ router.post("/zip", upload.single("file"), async (req: Request, res: Response) =
       processed: 0,
       failed: 0,
       skippedDuplicates: 0,
+      skippedNonVirology: 0,
       documentIds: [],
       errors: [],
       status: "uploading",
@@ -432,6 +453,16 @@ async function processFileBatch(batchId: string, files: Express.Multer.File[], u
             return;
           }
 
+          // Pre-filter: skip clearly non-virology files
+          const preFilter = isLikelyVirologyReport(file.originalname);
+          if (!preFilter.likely) {
+            console.log(`[Upload] Skipping non-virology file: ${file.originalname} (${preFilter.reason})`);
+            progress.skippedNonVirology++;
+            progress.uploaded++;
+            progress.processed++;
+            return;
+          }
+
           progress.processing++;
           const sanitizedName1 = file.originalname.replace(/[&?#%+\s]/g, '_');
           const fileKey = `virology-reports/${userId}/${nanoid()}-${sanitizedName1}`;
@@ -490,6 +521,16 @@ async function processZipBatch(batchId: string, entries: AdmZip.IZipEntry[], use
           if (duplicate) {
             console.log(`[Upload] Skipping duplicate file from ZIP: ${fileName} (hash: ${fileHash.substring(0, 12)}...)`);
             progress.skippedDuplicates++;
+            progress.uploaded++;
+            progress.processed++;
+            return;
+          }
+
+          // Pre-filter: skip clearly non-virology files
+          const preFilter = isLikelyVirologyReport(fileName);
+          if (!preFilter.likely) {
+            console.log(`[Upload] Skipping non-virology file from ZIP: ${fileName} (${preFilter.reason})`);
+            progress.skippedNonVirology++;
             progress.uploaded++;
             progress.processed++;
             return;
@@ -683,6 +724,7 @@ router.post("/quick", upload.any(), async (req: Request, res: Response) => {
     const results: { fileName: string; status: string; documentId?: number }[] = [];
     let newCount = 0;
     let dupCount = 0;
+    let skippedNonVirologyCount = 0;
 
     for (const file of allFiles) {
       const fileHash = computeFileHash(file.buffer);
@@ -691,6 +733,15 @@ router.post("/quick", upload.any(), async (req: Request, res: Response) => {
       if (duplicate) {
         dupCount++;
         results.push({ fileName: file.originalname, status: "duplicate" });
+        continue;
+      }
+
+      // Pre-filter: skip clearly non-virology files
+      const preFilter = isLikelyVirologyReport(file.originalname);
+      if (!preFilter.likely) {
+        console.log(`[Quick Upload] Skipping non-virology file: ${file.originalname} (${preFilter.reason})`);
+        skippedNonVirologyCount++;
+        results.push({ fileName: file.originalname, status: "skipped-non-virology" });
         continue;
       }
 
@@ -720,20 +771,22 @@ router.post("/quick", upload.any(), async (req: Request, res: Response) => {
     }
 
     const largeZipMsg = largeZipJobs.length > 0 ? ` ${largeZipJobs.length} large ZIP(s) sent to background processing.` : "";
+    const nonVirologyMsg = skippedNonVirologyCount > 0 ? `, ${skippedNonVirologyCount} non-virology skipped` : "";
     const totalProcessable = allFiles.length + largeZipJobs.length;
-    const successMsg = `${newCount} new file(s) uploaded, ${dupCount} duplicate(s) skipped.${largeZipMsg} Processing will begin automatically.`;
-    console.log(`[Quick Upload] Done. New: ${newCount}, Duplicates: ${dupCount}, Large ZIPs: ${largeZipJobs.length}, Total: ${allFiles.length}`);
+    const successMsg = `${newCount} new file(s) uploaded, ${dupCount} duplicate(s) skipped${nonVirologyMsg}.${largeZipMsg} Processing will begin automatically.`;
+    console.log(`[Quick Upload] Done. New: ${newCount}, Duplicates: ${dupCount}, Non-virology: ${skippedNonVirologyCount}, Large ZIPs: ${largeZipJobs.length}, Total: ${allFiles.length}`);
 
     res.json({
       success: true,
       message: successMsg,
       // Short summary for iOS Shortcuts "Show Alert" action
       shortMessage: newCount > 0
-        ? `✅ ${newCount} uploaded${dupCount > 0 ? `, ${dupCount} duplicate(s)` : ""}`
-        : dupCount > 0 ? `⚠️ All ${dupCount} file(s) were duplicates` : "No files processed",
+        ? `✅ ${newCount} uploaded${dupCount > 0 ? `, ${dupCount} dup` : ""}${skippedNonVirologyCount > 0 ? `, ${skippedNonVirologyCount} non-virology` : ""}`
+        : dupCount > 0 ? `⚠️ All ${dupCount} file(s) were duplicates` : skippedNonVirologyCount > 0 ? `⚠️ ${skippedNonVirologyCount} non-virology file(s) skipped` : "No files processed",
       total: totalProcessable,
       new: newCount,
       duplicates: dupCount,
+      skippedNonVirology: skippedNonVirologyCount,
       largeZipJobs: largeZipJobs.length > 0 ? largeZipJobs : undefined,
       results,
     });
