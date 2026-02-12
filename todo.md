@@ -836,3 +836,13 @@
 - [x] Batch-optimized: processes 800+ patients in ~4 seconds using parallel chunks of 50
 - [x] Audit logging for normalization operations
 - [x] All 20 auto-merge tests passing (normalizePatientName, chooseBestName, smart upsert, admin endpoint, access control)
+
+## Gemini API Integration for Document Processing
+- [x] Add Gemini API key as environment secret
+- [x] Create Gemini-based LLM caller (server/gemini.ts) for direct Google API calls
+- [x] Swap document processor to use Gemini 2.0 Flash as primary extractor
+- [x] Implement hybrid fallback: Gemini primary, built-in platform LLM as automatic fallback
+- [x] Log which provider was used for each extraction (for cost tracking)
+- [x] Write tests for hybrid fallback logic (9/9 passing)
+- [ ] Test end-to-end document processing with Gemini (user to test via iOS Shortcut)
+- [x] Verify existing tests still pass

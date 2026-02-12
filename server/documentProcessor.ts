@@ -1,3 +1,4 @@
+import { invokeGemini } from "./gemini";
 import { invokeLLM } from "./_core/llm";
 import { storageDelete } from './storage';
 import { updateDocumentStatus, 
@@ -15,44 +16,26 @@ function normalizeNationality(value: string | null): string | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
   const lower = trimmed.toLowerCase().replace(/[^a-z\s]/g, '').trim();
-  // Non-Kuwaiti variants: non kuwaiti, non kuwait, non-kuwaiti, non ku, etc.
-  // Check "non" prefix FIRST to avoid matching "non ku" as Kuwaiti
   if (/^non[\s-]*ku(w(a(i(t[i]?[t]?)?)?)?)?$/i.test(lower)) return 'Non-Kuwaiti';
-  // Just "non" likely means Non-Kuwaiti
   if (lower === 'non') return 'Non-Kuwaiti';
-  // Kuwaiti variants: kuwaiti, kuwait, kuwaitt, kuwa, kuwai, ku, khy, etc.
   if (/^ku(w(a(i(t[i]?[t]?)?)?)?)?$/i.test(lower) || lower === 'khy') return 'Kuwaiti';
-  // For any other nationality, title-case it
   return trimmed.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
 }
 
 /**
  * Normalize test result strings to consistent values.
- * Handles casing variations and common OCR/LLM extraction inconsistencies.
  */
 function normalizeResult(value: string | null | undefined): string {
   if (!value || !value.trim()) return 'Not Available';
   const trimmed = value.trim();
   const lower = trimmed.toLowerCase();
-  
-  // "Not detected" variants → "Not Detected"
-  if (lower === 'not detected' || lower === 'non reactive' || lower === 'nonreactive' || lower === 'non-reactive') {
-    return 'Not Detected';
-  }
-  // "Negative" casing fix
+  if (lower === 'not detected' || lower === 'non reactive' || lower === 'nonreactive' || lower === 'non-reactive') return 'Not Detected';
   if (lower === 'negative') return 'Negative';
-  // "Positive" casing fix
   if (lower === 'positive') return 'Positive';
-  // "Reactive" casing fix
   if (lower === 'reactive') return 'Reactive';
-  // "Detected" casing fix (standalone)
   if (lower === 'detected') return 'Detected';
-  // "Indeterminate" casing fix
   if (lower === 'indeterminate') return 'Indeterminate';
-  // "Not available" variants
   if (lower === 'not available' || lower === 'n/a' || lower === 'na') return 'Not Available';
-  
-  // For all other results (quantitative values, specific descriptions), keep as-is
   return trimmed;
 }
 
@@ -80,9 +63,55 @@ export interface ExtractedVirologyData {
     location?: string;
   }>;
   rawExtraction?: string;
+  /** Which AI provider was used for this extraction */
+  provider?: "gemini" | "platform";
 }
 
-const EXTRACTION_SCHEMA = {
+// ─── Gemini response schema (native format) ─────────────────────────────────
+
+const GEMINI_RESPONSE_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    hasTestResults: { type: "BOOLEAN", description: "Whether the document contains valid virology test results" },
+    patient: {
+      type: "OBJECT",
+      properties: {
+        civilId: { type: "STRING", description: "Patient's Civil ID number" },
+        name: { type: "STRING", description: "Patient's full name" },
+        dateOfBirth: { type: "STRING", description: "Date of birth in DD/MM/YYYY format" },
+        nationality: { type: "STRING", description: "Patient's nationality" },
+        gender: { type: "STRING", description: "Patient's gender (Male/Female)" },
+        passportNo: { type: "STRING", description: "Passport number if available" }
+      },
+      required: ["civilId"]
+    },
+    tests: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          testType: { type: "STRING", description: "Type of virology test performed" },
+          result: { type: "STRING", description: "Test result description" },
+          viralLoad: { type: "STRING", description: "Viral load value if applicable" },
+          unit: { type: "STRING", description: "Unit of measurement (e.g., Copies/mL)" },
+          sampleNo: { type: "STRING", description: "Sample number" },
+          accessionNo: { type: "STRING", description: "Accession number" },
+          departmentNo: { type: "STRING", description: "Department number" },
+          accessionDate: { type: "STRING", description: "Accession date in ISO format (YYYY-MM-DD HH:mm:ss)" },
+          signedBy: { type: "STRING", description: "Name of signing physician" },
+          signedAt: { type: "STRING", description: "Signature date in ISO format" },
+          location: { type: "STRING", description: "Location/department code" }
+        },
+        required: ["testType", "result"]
+      }
+    }
+  },
+  required: ["hasTestResults", "patient", "tests"]
+};
+
+// ─── Platform LLM JSON schema (OpenAI-compatible format) ────────────────────
+
+const PLATFORM_EXTRACTION_SCHEMA = {
   type: "json_schema" as const,
   json_schema: {
     name: "virology_report_extraction",
@@ -90,10 +119,7 @@ const EXTRACTION_SCHEMA = {
     schema: {
       type: "object",
       properties: {
-        hasTestResults: {
-          type: "boolean",
-          description: "Whether the document contains valid virology test results"
-        },
+        hasTestResults: { type: "boolean", description: "Whether the document contains valid virology test results" },
         patient: {
           type: "object",
           properties: {
@@ -135,6 +161,8 @@ const EXTRACTION_SCHEMA = {
   }
 };
 
+// ─── Shared prompts ─────────────────────────────────────────────────────────
+
 const SYSTEM_PROMPT = `You are a medical document extraction specialist. Your task is to extract structured virology test data from laboratory reports.
 
 IMPORTANT RULES:
@@ -169,135 +197,124 @@ MULTI-PAGE DOCUMENTS:
 
 Be thorough and accurate. Medical data accuracy is critical.`;
 
-export async function extractVirologyData(imageUrl: string): Promise<ExtractedVirologyData> {
+const USER_PROMPT_IMAGE = "Extract all virology test data from this laboratory report image. If this is not a valid virology report or doesn't contain test results, set hasTestResults to false.";
+
+const USER_PROMPT_PDF = "Extract ALL virology test data from this laboratory report PDF. The PDF may contain MULTIPLE PAGES, each with a SEPARATE test result for the SAME patient. You MUST examine EVERY page and include ALL tests found across ALL pages in the tests array. Do NOT stop after the first page. If this is not a valid virology report or doesn't contain test results, set hasTestResults to false.";
+
+// ─── Gemini extraction (primary) ────────────────────────────────────────────
+
+function getImageMimeType(url: string): "image/jpeg" | "image/png" {
+  return url.toLowerCase().includes('.png') ? "image/png" : "image/jpeg";
+}
+
+async function extractWithGemini(fileUrl: string, mimeType: string): Promise<ExtractedVirologyData> {
+  const isPdf = mimeType === 'application/pdf';
+  const responseText = await invokeGemini({
+    systemPrompt: SYSTEM_PROMPT,
+    userPrompt: isPdf ? USER_PROMPT_PDF : USER_PROMPT_IMAGE,
+    fileUrl,
+    mimeType: isPdf ? "application/pdf" : getImageMimeType(fileUrl),
+    responseSchema: GEMINI_RESPONSE_SCHEMA,
+  });
+
+  const extracted = JSON.parse(responseText) as ExtractedVirologyData;
+  extracted.rawExtraction = responseText;
+  extracted.provider = "gemini";
+  return extracted;
+}
+
+// ─── Platform LLM extraction (fallback) ─────────────────────────────────────
+
+async function extractWithPlatformLLM(fileUrl: string, mimeType: string): Promise<ExtractedVirologyData> {
+  const isPdf = mimeType === 'application/pdf';
+
+  const userContent = isPdf
+    ? [
+        { type: "text" as const, text: USER_PROMPT_PDF },
+        { type: "file_url" as const, file_url: { url: fileUrl, mime_type: "application/pdf" as const } }
+      ]
+    : [
+        { type: "text" as const, text: USER_PROMPT_IMAGE },
+        { type: "image_url" as const, image_url: { url: fileUrl, detail: "high" as const } }
+      ];
+
+  const response = await invokeLLM({
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: userContent }
+    ],
+    response_format: PLATFORM_EXTRACTION_SCHEMA
+  });
+
+  if (!response?.choices || !Array.isArray(response.choices) || response.choices.length === 0) {
+    throw new Error(`Platform LLM returned no choices: ${JSON.stringify(response).substring(0, 200)}`);
+  }
+
+  const rawContent = response.choices[0]?.message?.content;
+  if (!rawContent) {
+    throw new Error("Platform LLM returned no content");
+  }
+
+  const content = typeof rawContent === 'string'
+    ? rawContent
+    : rawContent.map(part => 'text' in part ? part.text : JSON.stringify(part)).join('');
+
+  const extracted = JSON.parse(content) as ExtractedVirologyData;
+  extracted.rawExtraction = content;
+  extracted.provider = "platform";
+  return extracted;
+}
+
+// ─── Hybrid extraction: Gemini first, platform LLM fallback ─────────────────
+
+/**
+ * Extract virology data using a hybrid approach:
+ * 1. Try Gemini API first (uses user's own API key, no platform credits)
+ * 2. If Gemini fails (rate limit, API error, key issue), fall back to platform LLM
+ * 
+ * Logs which provider was used for cost tracking.
+ */
+export async function extractVirologyData(fileUrl: string, mimeType: string = "image/jpeg"): Promise<ExtractedVirologyData> {
+  // Check if Gemini API key is configured
+  const hasGeminiKey = !!process.env.GEMINI_API_KEY;
+
+  if (hasGeminiKey) {
+    try {
+      const result = await extractWithGemini(fileUrl, mimeType);
+      console.log(`[DocumentProcessor] ✅ Gemini extraction successful (provider: gemini)`);
+      return result;
+    } catch (geminiError) {
+      const errMsg = geminiError instanceof Error ? geminiError.message : String(geminiError);
+      console.warn(`[DocumentProcessor] ⚠️ Gemini failed, falling back to platform LLM. Error: ${errMsg}`);
+      // Fall through to platform LLM
+    }
+  } else {
+    console.log(`[DocumentProcessor] No GEMINI_API_KEY configured, using platform LLM directly`);
+  }
+
+  // Fallback: use platform LLM
   try {
-    const response = await invokeLLM({
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { 
-          role: "user", 
-          content: [
-            {
-              type: "text",
-              text: "Extract all virology test data from this laboratory report image. If this is not a valid virology report or doesn't contain test results, set hasTestResults to false."
-            },
-            {
-              type: "image_url",
-              image_url: {
-                url: imageUrl,
-                detail: "high"
-              }
-            }
-          ]
-        }
-      ],
-      response_format: EXTRACTION_SCHEMA
-    });
-
-    if (!response?.choices || !Array.isArray(response.choices) || response.choices.length === 0) {
-      console.error("[DocumentProcessor] LLM returned no choices. Response:", JSON.stringify(response).substring(0, 500));
-      return {
-        hasTestResults: false,
-        patient: { civilId: "" },
-        tests: [],
-        rawExtraction: `LLM returned no choices: ${JSON.stringify(response).substring(0, 200)}`
-      };
-    }
-
-    const rawContent = response.choices[0]?.message?.content;
-    if (!rawContent) {
-      return {
-        hasTestResults: false,
-        patient: { civilId: "" },
-        tests: [],
-        rawExtraction: "No response from LLM"
-      };
-    }
-
-    // Handle both string and array content types
-    const content = typeof rawContent === 'string' 
-      ? rawContent 
-      : rawContent.map(part => 'text' in part ? part.text : JSON.stringify(part)).join('');
-
-    const extracted = JSON.parse(content) as ExtractedVirologyData;
-    extracted.rawExtraction = content;
-    return extracted;
-
-  } catch (error) {
-    console.error("[DocumentProcessor] Extraction error:", error);
+    const result = await extractWithPlatformLLM(fileUrl, mimeType);
+    console.log(`[DocumentProcessor] ✅ Platform LLM extraction successful (provider: platform)`);
+    return result;
+  } catch (platformError) {
+    console.error("[DocumentProcessor] ❌ Both Gemini and platform LLM failed:", platformError);
     return {
       hasTestResults: false,
       patient: { civilId: "" },
       tests: [],
-      rawExtraction: `Error: ${error instanceof Error ? error.message : String(error)}`
+      rawExtraction: `All providers failed. Last error: ${platformError instanceof Error ? platformError.message : String(platformError)}`,
+      provider: "platform"
     };
   }
 }
 
+// Legacy named exports for backward compatibility
 export async function extractFromPdf(pdfUrl: string): Promise<ExtractedVirologyData> {
-  try {
-    const response = await invokeLLM({
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { 
-          role: "user", 
-          content: [
-            {
-              type: "text",
-              text: "Extract ALL virology test data from this laboratory report PDF. The PDF may contain MULTIPLE PAGES, each with a SEPARATE test result for the SAME patient. You MUST examine EVERY page and include ALL tests found across ALL pages in the tests array. Do NOT stop after the first page. If this is not a valid virology report or doesn't contain test results, set hasTestResults to false."
-            },
-            {
-              type: "file_url",
-              file_url: {
-                url: pdfUrl,
-                mime_type: "application/pdf"
-              }
-            }
-          ]
-        }
-      ],
-      response_format: EXTRACTION_SCHEMA
-    });
-
-    if (!response?.choices || !Array.isArray(response.choices) || response.choices.length === 0) {
-      console.error("[DocumentProcessor] LLM returned no choices for PDF. Response:", JSON.stringify(response).substring(0, 500));
-      return {
-        hasTestResults: false,
-        patient: { civilId: "" },
-        tests: [],
-        rawExtraction: `LLM returned no choices: ${JSON.stringify(response).substring(0, 200)}`
-      };
-    }
-
-    const rawContent = response.choices[0]?.message?.content;
-    if (!rawContent) {
-      return {
-        hasTestResults: false,
-        patient: { civilId: "" },
-        tests: [],
-        rawExtraction: "No response from LLM"
-      };
-    }
-
-    // Handle both string and array content types
-    const content = typeof rawContent === 'string' 
-      ? rawContent 
-      : rawContent.map(part => 'text' in part ? part.text : JSON.stringify(part)).join('');
-
-    const extracted = JSON.parse(content) as ExtractedVirologyData;
-    extracted.rawExtraction = content;
-    return extracted;
-
-  } catch (error) {
-    console.error("[DocumentProcessor] PDF extraction error:", error);
-    return {
-      hasTestResults: false,
-      patient: { civilId: "" },
-      tests: [],
-      rawExtraction: `Error: ${error instanceof Error ? error.message : String(error)}`
-    };
-  }
+  return extractVirologyData(pdfUrl, "application/pdf");
 }
+
+// ─── Process document (unchanged logic, now uses hybrid extraction) ─────────
 
 export interface ProcessDocumentResult {
   success: boolean;
@@ -308,20 +325,17 @@ export interface ProcessDocumentResult {
   testsSkipped?: number;
   error?: string;
   duplicateInfo?: string;
+  /** Which AI provider was used */
+  provider?: "gemini" | "platform";
 }
 
 /**
  * Delete the uploaded file from S3 after processing is complete.
- * Extracts the file key from the S3 URL and calls storageDelete.
- * Silently fails if deletion is not possible (non-critical operation).
  */
 async function deleteProcessedFile(fileUrl: string): Promise<void> {
   try {
-    // Extract the relative key from the full S3 URL
-    // URLs look like: https://.../<app-id>/virology-reports/...
     const urlObj = new URL(fileUrl);
     const pathParts = urlObj.pathname.split('/');
-    // Find 'virology-reports' in the path and take everything from there
     const reportsIdx = pathParts.findIndex(p => p === 'virology-reports');
     if (reportsIdx >= 0) {
       const relKey = pathParts.slice(reportsIdx).join('/');
@@ -335,7 +349,6 @@ async function deleteProcessedFile(fileUrl: string): Promise<void> {
       console.log(`[DocumentProcessor] Could not extract file key from URL: ${fileUrl}`);
     }
   } catch (error) {
-    // Non-critical: log and continue
     console.error(`[DocumentProcessor] Error deleting processed file:`, error);
   }
 }
@@ -348,13 +361,8 @@ export async function processUploadedDocument(
   try {
     await updateDocumentStatus(documentId, 'processing');
 
-    // Extract data based on file type
-    let extracted: ExtractedVirologyData;
-    if (mimeType === 'application/pdf') {
-      extracted = await extractFromPdf(fileUrl);
-    } else {
-      extracted = await extractVirologyData(fileUrl);
-    }
+    // Extract data using hybrid approach (Gemini first, platform LLM fallback)
+    const extracted = await extractVirologyData(fileUrl, mimeType);
 
     // Check if document has valid test results
     if (!extracted.hasTestResults || !extracted.patient.civilId || extracted.tests.length === 0) {
@@ -364,13 +372,13 @@ export async function processUploadedDocument(
         'Document does not contain valid virology test results',
         extracted.rawExtraction
       );
-      // Auto-delete the uploaded file from S3 since it's discarded
       await deleteProcessedFile(fileUrl);
       return {
         success: false,
         documentId,
         status: 'discarded',
-        error: 'Document does not contain valid virology test results'
+        error: 'Document does not contain valid virology test results',
+        provider: extracted.provider
       };
     }
 
@@ -392,7 +400,6 @@ export async function processUploadedDocument(
     for (const test of extracted.tests) {
       const accessionDate = test.accessionDate ? new Date(test.accessionDate) : new Date();
       
-      // Check for duplicate test
       const existingTest = await checkDuplicateTest(
         patient.id,
         test.testType,
@@ -400,7 +407,6 @@ export async function processUploadedDocument(
       );
 
       if (existingTest) {
-        // Skip duplicate test
         testsSkipped++;
         duplicateTests.push(`${test.testType} on ${accessionDate.toISOString().split('T')[0]}`);
         console.log(`[DocumentProcessor] Skipping duplicate test: ${test.testType} for patient ${patient.civilId} on ${accessionDate.toISOString()}`);
@@ -433,7 +439,6 @@ export async function processUploadedDocument(
         `All ${testsSkipped} test(s) already exist in database: ${duplicateTests.join(', ')}`,
         extracted.rawExtraction
       );
-      // Auto-delete the uploaded file from S3 since all tests are duplicates
       await deleteProcessedFile(fileUrl);
       return {
         success: false,
@@ -442,12 +447,12 @@ export async function processUploadedDocument(
         patientId: patient.id,
         testsCreated: 0,
         testsSkipped,
-        duplicateInfo: `Duplicate tests: ${duplicateTests.join(', ')}`
+        duplicateInfo: `Duplicate tests: ${duplicateTests.join(', ')}`,
+        provider: extracted.provider
       };
     }
 
     await updateDocumentStatus(documentId, 'completed', undefined, extracted.rawExtraction);
-    // Auto-delete the uploaded file from S3 after successful processing
     await deleteProcessedFile(fileUrl);
 
     return {
@@ -457,7 +462,8 @@ export async function processUploadedDocument(
       patientId: patient.id,
       testsCreated,
       testsSkipped,
-      duplicateInfo: testsSkipped > 0 ? `Skipped ${testsSkipped} duplicate(s): ${duplicateTests.join(', ')}` : undefined
+      duplicateInfo: testsSkipped > 0 ? `Skipped ${testsSkipped} duplicate(s): ${duplicateTests.join(', ')}` : undefined,
+      provider: extracted.provider
     };
 
   } catch (error) {
