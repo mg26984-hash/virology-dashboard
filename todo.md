@@ -911,3 +911,8 @@
 - [x] Track Gemini fallback-to-platform events with timestamps (getRecentFallbackEvents in db.ts queries platform-provider docs from last 7 days)
 - [x] Add a "Fallback Events" section to AI Usage dashboard showing recent rate limit hits (Rate Limit Monitor card with scrollable event list)
 - [x] Show alert/warning when fallback rate exceeds threshold (amber alert banner when >20% of recent uploads use platform)
+
+## Bug Fix: Gemini Still Failing in Production
+- [x] Diagnose why Gemini API calls fail in production (root cause: free-tier quota exhausted, limit set to 0)
+- [x] Fix the root cause so Gemini is used as the primary AI provider (updated to user's paid-tier API key)
+- [x] Verify fix works end-to-end (tested successfully with generateContent endpoint)

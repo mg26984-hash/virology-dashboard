@@ -5,7 +5,7 @@
 // ── Hardcoded fallbacks for values that may not be injected in production ──
 const FALLBACK_OWNER_OPEN_ID = "nPtvS3FjrgpNRuGEU3ERv5";
 const FALLBACK_OWNER_NAME = "Mohammed Megahed";
-const FALLBACK_GEMINI_API_KEY = "AIzaSyDPncKYmdOj84ui5toyaRjGPMLdftxxB6o";
+const FALLBACK_GEMINI_API_KEY = "AIzaSyCDBKYECif8wjfZjFPwk9VYP17k9mt6EAc";
 
 export const ENV = {
   get appId() { return process.env.VITE_APP_ID ?? ""; },
