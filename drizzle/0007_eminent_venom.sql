@@ -1,1 +1,0 @@
-ALTER TABLE `documents` ADD `aiProvider` varchar(20);
