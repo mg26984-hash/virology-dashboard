@@ -25,6 +25,7 @@ export default defineConfig({
   server: {
     host: true,
     allowedHosts: [
+      "otccmv.com",
       "otccmv.xyz",
       ".vercel.app",
       "localhost",
