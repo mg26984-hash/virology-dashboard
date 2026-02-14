@@ -403,7 +403,7 @@ export default function Upload() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <img
-                src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/YnzcKgmdmodlaxDG.jpeg"
+                src="/images/guides/logo.jpeg"
                 alt="OTC Virology 2026"
                 className="h-10 w-10 rounded-xl object-cover"
               />
@@ -462,9 +462,9 @@ export default function Upload() {
                     <p className="text-sm font-semibold">Tap the three-dot menu → More</p>
                     <p className="text-xs text-muted-foreground mt-1">In the top-right corner, tap <strong>⋮</strong> (three dots), then tap <strong>More</strong></p>
                     <picture>
-                      <source srcSet="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/cAULhwhFQpybRkla.webp" type="image/webp" />
+                      <source srcSet="/images/guides/android-step1.webp" type="image/webp" />
                       <img
-                        src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/XCDOKEglafHyGoMV.jpg"
+                        src="/images/guides/android-step1.jpg"
                         alt="WhatsApp three-dot menu showing More option"
                         className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
                         loading="lazy" width="200" height="358"
@@ -481,9 +481,9 @@ export default function Upload() {
                     <p className="text-sm font-semibold">Tap "Export chat"</p>
                     <p className="text-xs text-muted-foreground mt-1">From the submenu, select <strong>Export chat</strong></p>
                     <picture>
-                      <source srcSet="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/TxCNyWuYHeeuiEwR.webp" type="image/webp" />
+                      <source srcSet="/images/guides/android-step2.webp" type="image/webp" />
                       <img
-                        src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/QIsEmFteXytqkbSU.jpg"
+                        src="/images/guides/android-step2.jpg"
                         alt="WhatsApp submenu showing Export chat option"
                         className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
                         loading="lazy" width="200" height="358"
@@ -500,9 +500,9 @@ export default function Upload() {
                     <p className="text-sm font-semibold">Choose "Attach Media"</p>
                     <p className="text-xs text-muted-foreground mt-1">When prompted, select <strong>Attach Media</strong> to include all images in the export</p>
                     <picture>
-                      <source srcSet="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/DbDbIGMuQmgUfLGg.webp" type="image/webp" />
+                      <source srcSet="/images/guides/android-step3.webp" type="image/webp" />
                       <img
-                        src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/PAuqcJgbRafwVlmd.jpg"
+                        src="/images/guides/android-step3.jpg"
                         alt="WhatsApp Export Chat dialog with Attach Media option"
                         className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
                         loading="lazy" width="200" height="358"
@@ -522,9 +522,9 @@ export default function Upload() {
                     <p className="text-sm font-semibold">Tap the group name at the top</p>
                     <p className="text-xs text-muted-foreground mt-1">Tap <strong>OTC virology 2026</strong> at the top of the chat to open group info</p>
                     <picture>
-                      <source srcSet="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/lwUIEAvWHdaacgFk.webp" type="image/webp" />
+                      <source srcSet="/images/guides/iphone-step1.webp" type="image/webp" />
                       <img
-                        src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/CLSMzFXlwTnkJJWE.jpg"
+                        src="/images/guides/iphone-step1.jpg"
                         alt="iPhone WhatsApp - tap group name OTC virology 2026"
                         className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
                         loading="lazy" width="200" height="358"
@@ -541,9 +541,9 @@ export default function Upload() {
                     <p className="text-sm font-semibold">Scroll down and tap "Export Chat"</p>
                     <p className="text-xs text-muted-foreground mt-1">Scroll to the bottom of group info and tap <strong>Export Chat</strong></p>
                     <picture>
-                      <source srcSet="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/vOHdWkArCYYGJxDZ.webp" type="image/webp" />
+                      <source srcSet="/images/guides/iphone-step2.webp" type="image/webp" />
                       <img
-                        src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/stBecZNjwwtuFNZm.jpg"
+                        src="/images/guides/iphone-step2.jpg"
                         alt="iPhone WhatsApp - Export Chat option in group info"
                         className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
                         loading="lazy" width="200" height="358"
@@ -560,9 +560,9 @@ export default function Upload() {
                     <p className="text-sm font-semibold">Choose "Attach Media"</p>
                     <p className="text-xs text-muted-foreground mt-1">When prompted, select <strong>Attach Media</strong> to include all images in the export</p>
                     <picture>
-                      <source srcSet="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/ezQqrrAIorOeWOJQ.webp" type="image/webp" />
+                      <source srcSet="/images/guides/iphone-step3.webp" type="image/webp" />
                       <img
-                        src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/xhFVbtnBvWjfWSqR.jpg"
+                        src="/images/guides/iphone-step3.jpg"
                         alt="iPhone WhatsApp - Attach Media dialog"
                         className="mt-3 rounded-lg border border-border/50 max-w-[200px] shadow-md"
                         loading="lazy" width="200" height="358"
@@ -903,9 +903,9 @@ export default function Upload() {
                         <div className="flex gap-3 overflow-x-auto pb-2">
                           <div className="shrink-0 text-center space-y-1">
                             <picture>
-                              <source srcSet="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/fWCjlKIUeEtHrNXf.webp" type="image/webp" />
+                              <source srcSet="/images/guides/pwa-share.webp" type="image/webp" />
                               <img
-                                src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/mnpLHsIYCkXKkWFt.jpg"
+                                src="/images/guides/pwa-share.jpg"
                                 alt="Final iOS Shortcut setup"
                                 className="rounded-lg border border-border shadow-sm"
                                 style={{ width: '220px', height: 'auto' }}
@@ -941,8 +941,8 @@ export default function Upload() {
                       <div className="flex-1">
                         <p className="text-xs text-muted-foreground">Open this site in <strong className="text-foreground">Chrome</strong> on your phone. Tap the <strong className="text-foreground">three-dot menu</strong> (top right) and select <strong className="text-foreground">Add to Home Screen</strong>.</p>
                         <picture>
-                          <source srcSet="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/kpIEfZnmOQOGSDzr.webp" type="image/webp" />
-                          <img src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/WXtVegBJPkQjbfbm.jpg" alt="Chrome menu - Add to Home Screen" className="mt-2 rounded-lg border border-border/50 w-[140px]" loading="lazy" width="140" height="250" />
+                          <source srcSet="/images/guides/chrome-menu.webp" type="image/webp" />
+                          <img src="/images/guides/chrome-menu.jpg" alt="Chrome menu - Add to Home Screen" className="mt-2 rounded-lg border border-border/50 w-[140px]" loading="lazy" width="140" height="250" />
                         </picture>
                       </div>
                     </div>
@@ -951,8 +951,8 @@ export default function Upload() {
                       <div className="flex-1">
                         <p className="text-xs text-muted-foreground">Now share photos from <strong className="text-foreground">Gallery</strong> or <strong className="text-foreground">WhatsApp</strong>. Tap <strong className="text-foreground">Share</strong> and select <strong className="text-foreground">Virology</strong> from the share sheet.</p>
                         <picture>
-                          <source srcSet="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/iGhpdiIJJKipxaNk.webp" type="image/webp" />
-                          <img src="https://files.manuscdn.com/user_upload_by_module/session_file/310419663030645861/zVFvucOaQuVtrMiT.jpg" alt="Android share sheet - Virology" className="mt-2 rounded-lg border border-border/50 w-[140px]" loading="lazy" width="140" height="250" />
+                          <source srcSet="/images/guides/android-share.webp" type="image/webp" />
+                          <img src="/images/guides/android-share.jpg" alt="Android share sheet - Virology" className="mt-2 rounded-lg border border-border/50 w-[140px]" loading="lazy" width="140" height="250" />
                         </picture>
                       </div>
                     </div>

@@ -2,6 +2,7 @@ import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import type { Express, Request, Response } from "express";
 import * as db from "../db";
 import { getSessionCookieOptions } from "./cookies";
+import { ENV } from "./env";
 import { sdk } from "./sdk";
 
 function getQueryParam(req: Request, key: string): string | undefined {
@@ -14,29 +15,39 @@ export function registerOAuthRoutes(app: Express) {
     const code = getQueryParam(req, "code");
     const state = getQueryParam(req, "state");
 
-    if (!code || !state) {
-      res.status(400).json({ error: "code and state are required" });
+    if (!code) {
+      res.status(400).json({ error: "code is required" });
       return;
     }
 
-    try {
-      const tokenResponse = await sdk.exchangeCodeForToken(code, state);
-      const userInfo = await sdk.getUserInfo(tokenResponse.accessToken);
+    // Decode redirect URI from state, or fall back to default
+    const redirectUri = state
+      ? atob(state)
+      : `${req.protocol}://${req.get("host")}/api/oauth/callback`;
 
-      if (!userInfo.openId) {
-        res.status(400).json({ error: "openId missing from user info" });
+    try {
+      const tokenResponse = await sdk.exchangeCodeForToken(code, redirectUri);
+      const userInfo = await sdk.getUserInfo(tokenResponse.access_token);
+
+      if (!userInfo.sub) {
+        res.status(400).json({ error: "Google user ID missing" });
         return;
       }
 
+      // Use Google 'sub' (subject) as the openId
+      const openId = userInfo.sub;
+      const isOwner = ENV.ownerEmail && userInfo.email === ENV.ownerEmail;
+
       await db.upsertUser({
-        openId: userInfo.openId,
+        openId,
         name: userInfo.name || null,
         email: userInfo.email ?? null,
-        loginMethod: userInfo.loginMethod ?? userInfo.platform ?? null,
+        loginMethod: "google",
         lastSignedIn: new Date(),
+        ...(isOwner ? { role: "admin", status: "approved" } : {}),
       });
 
-      const sessionToken = await sdk.createSessionToken(userInfo.openId, {
+      const sessionToken = await sdk.createSessionToken(openId, {
         name: userInfo.name || "",
         expiresInMs: ONE_YEAR_MS,
       });

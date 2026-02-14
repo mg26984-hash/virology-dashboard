@@ -156,9 +156,9 @@ const adminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   return next({ ctx });
 });
 
-// Helper to check if a user is the owner (openId match or name fallback)
-function isUserOwner(user: { openId: string; name: string | null }): boolean {
-  return user.openId === ENV.ownerOpenId
+// Helper to check if a user is the owner (email match or name fallback)
+function isUserOwner(user: { openId: string; name: string | null; email?: string | null }): boolean {
+  return (ENV.ownerEmail !== '' && user.email === ENV.ownerEmail)
     || (ENV.ownerName !== '' && user.name === ENV.ownerName);
 }
 

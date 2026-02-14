@@ -1,7 +1,8 @@
 import { eq, like, and, or, gte, lte, desc, sql, isNotNull } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
-import { 
-  InsertUser, users, 
+import { drizzle } from "drizzle-orm/neon-http";
+import { neon } from "@neondatabase/serverless";
+import {
+  InsertUser, users,
   patients, InsertPatient, Patient,
   virologyTests, InsertVirologyTest, VirologyTest,
   documents, InsertDocument, Document,
@@ -15,7 +16,8 @@ let _db: ReturnType<typeof drizzle> | null = null;
 export async function getDb() {
   if (!_db && ENV.databaseUrl) {
     try {
-      _db = drizzle(ENV.databaseUrl);
+      const queryClient = neon(ENV.databaseUrl);
+      _db = drizzle(queryClient);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
@@ -63,13 +65,16 @@ export async function upsertUser(user: InsertUser): Promise<void> {
     if (user.role !== undefined) {
       values.role = user.role;
       updateSet.role = user.role;
-    } else if (user.openId === ENV.ownerOpenId) {
+    } else if (ENV.ownerEmail && user.email === ENV.ownerEmail) {
       values.role = 'admin';
       updateSet.role = 'admin';
     }
-    
-    // Auto-approve owner, others start as pending
-    if (user.openId === ENV.ownerOpenId) {
+
+    // Auto-approve owner by email, others start as pending
+    if (user.status !== undefined) {
+      values.status = user.status;
+      updateSet.status = user.status;
+    } else if (ENV.ownerEmail && user.email === ENV.ownerEmail) {
       values.status = 'approved';
       updateSet.status = 'approved';
     }
@@ -82,7 +87,8 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       updateSet.lastSignedIn = new Date();
     }
 
-    await db.insert(users).values(values).onDuplicateKeyUpdate({
+    await db.insert(users).values(values).onConflictDoUpdate({
+      target: users.openId,
       set: updateSet,
     });
   } catch (error) {
@@ -696,7 +702,7 @@ export async function resetStaleProcessing(thresholdMinutes: number = 10): Promi
       )
     );
 
-  const resetCount = (result as any)[0]?.affectedRows || 0;
+  const resetCount = (result as any).rowCount ?? 0;
   if (resetCount > 0) {
     console.log(`[StaleRecovery] Reset ${resetCount} stale processing documents back to pending (threshold: ${thresholdMinutes}min)`);
   }
@@ -729,7 +735,7 @@ export async function getProcessingQueue(limit: number = 50) {
         sql`${documents.processingStatus} IN ('pending', 'processing', 'failed')`
       )
       .orderBy(
-        sql`FIELD(${documents.processingStatus}, 'processing', 'pending', 'failed')`,
+        sql`CASE ${documents.processingStatus} WHEN 'processing' THEN 0 WHEN 'pending' THEN 1 WHEN 'failed' THEN 2 ELSE 3 END`,
         desc(documents.createdAt)
       )
       .limit(limit),
@@ -816,7 +822,7 @@ export async function getUploadHistory(limit: number = 50, offset: number = 0) {
     uploadedBy: documents.uploadedBy,
     uploaderName: users.name,
     uploaderEmail: users.email,
-    uploadDate: sql<string>`DATE(${documents.createdAt})`,
+    uploadDate: sql<string>`${documents.createdAt}::date::text`,
     totalFiles: sql<number>`COUNT(*)`,
     completedFiles: sql<number>`SUM(CASE WHEN ${documents.processingStatus} = 'completed' THEN 1 ELSE 0 END)`,
     failedFiles: sql<number>`SUM(CASE WHEN ${documents.processingStatus} = 'failed' THEN 1 ELSE 0 END)`,
@@ -832,13 +838,13 @@ export async function getUploadHistory(limit: number = 50, offset: number = 0) {
   })
     .from(documents)
     .leftJoin(users, eq(documents.uploadedBy, users.id))
-    .groupBy(documents.uploadedBy, users.name, users.email, sql`DATE(${documents.createdAt})`)
+    .groupBy(documents.uploadedBy, users.name, users.email, sql`${documents.createdAt}::date`)
     .orderBy(sql`MAX(${documents.createdAt}) DESC`)
     .limit(limit)
     .offset(offset);
 
   const [countResult] = await db.select({
-    total: sql<number>`COUNT(DISTINCT CONCAT(${documents.uploadedBy}, '-', DATE(${documents.createdAt})))`,
+    total: sql<number>`COUNT(DISTINCT (${documents.uploadedBy}::text || '-' || ${documents.createdAt}::date::text))`,
   }).from(documents);
 
   return {
@@ -934,7 +940,7 @@ export async function getAverageProcessingTime(): Promise<number> {
   // Calculate average processing time from completed documents
   // Processing time = updatedAt - createdAt for completed documents
   const result = await db.select({
-    avgTime: sql<number>`AVG(TIMESTAMPDIFF(SECOND, ${documents.createdAt}, ${documents.updatedAt}))`
+    avgTime: sql<number>`AVG(EXTRACT(EPOCH FROM (${documents.updatedAt} - ${documents.createdAt})))`
   })
     .from(documents)
     .where(eq(documents.processingStatus, 'completed'));
@@ -958,7 +964,7 @@ export async function getProcessingStats() {
   const [avgResult, pendingResult, processingResult, recentCompletedResult] = await Promise.all([
     // Average processing time
     db.select({
-      avgTime: sql<number>`AVG(TIMESTAMPDIFF(SECOND, ${documents.createdAt}, ${documents.updatedAt}))`
+      avgTime: sql<number>`AVG(EXTRACT(EPOCH FROM (${documents.updatedAt} - ${documents.createdAt})))`
     })
       .from(documents)
       .where(eq(documents.processingStatus, 'completed')),
@@ -1004,20 +1010,20 @@ export async function getDocumentProcessingHistory(days: number = 30) {
   const safeDays = Math.max(1, Math.min(90, Math.floor(days)));
 
   const results = await db.execute(sql`
-    SELECT 
-      DATE_FORMAT(d.updatedAt, '%Y-%m-%d') AS date,
-      SUM(CASE WHEN d.processingStatus = 'completed' THEN 1 ELSE 0 END) AS completed,
-      SUM(CASE WHEN d.processingStatus = 'failed' THEN 1 ELSE 0 END) AS failed,
-      SUM(CASE WHEN d.processingStatus = 'discarded' THEN 1 ELSE 0 END) AS discarded,
+    SELECT
+      to_char(d."updatedAt", 'YYYY-MM-DD') AS date,
+      SUM(CASE WHEN d."processingStatus" = 'completed' THEN 1 ELSE 0 END) AS completed,
+      SUM(CASE WHEN d."processingStatus" = 'failed' THEN 1 ELSE 0 END) AS failed,
+      SUM(CASE WHEN d."processingStatus" = 'discarded' THEN 1 ELSE 0 END) AS discarded,
       COUNT(*) AS total
     FROM documents d
-    WHERE d.processingStatus IN ('completed', 'failed', 'discarded')
-      AND d.updatedAt >= DATE_SUB(NOW(), INTERVAL ${sql.raw(String(safeDays))} DAY)
-    GROUP BY DATE_FORMAT(d.updatedAt, '%Y-%m-%d')
+    WHERE d."processingStatus" IN ('completed', 'failed', 'discarded')
+      AND d."updatedAt" >= NOW() - INTERVAL '${sql.raw(String(safeDays))} days'
+    GROUP BY to_char(d."updatedAt", 'YYYY-MM-DD')
     ORDER BY date ASC
   `);
 
-  return ((results as any)[0] ?? []).map((row: any) => ({
+  return (results.rows ?? []).map((row: any) => ({
     date: String(row.date),
     completed: Number(row.completed) || 0,
     failed: Number(row.failed) || 0,
@@ -1168,11 +1174,11 @@ export async function getTestVolumeByMonth(from?: string, to?: string, groupBy: 
 
   const whereClause = sql.join(conditions, sql` AND `);
 
-  const dateFormat = groupBy === 'month' ? '%Y-%m' : '%Y';
+  const dateFormat = groupBy === 'month' ? 'YYYY-MM' : 'YYYY';
 
   const results = await db.execute(sql`
-    SELECT 
-      DATE_FORMAT(${virologyTests.accessionDate}, ${dateFormat}) AS period,
+    SELECT
+      to_char(${virologyTests.accessionDate}, ${dateFormat}) AS period,
       COUNT(*) AS count
     FROM ${virologyTests}
     WHERE ${whereClause}
@@ -1180,10 +1186,10 @@ export async function getTestVolumeByMonth(from?: string, to?: string, groupBy: 
     ORDER BY period ASC
   `);
 
-  return (results as any)[0]?.map((r: any) => ({
+  return (results.rows ?? []).map((r: any) => ({
     month: r.period as string,
     count: Number(r.count),
-  })) ?? [];
+  }));
 }
 
 /**
@@ -1207,20 +1213,20 @@ export async function getResultDistribution(from?: string, to?: string): Promise
   const whereClause = sql.join(conditions, sql` AND `);
 
   const results = await db.execute(sql`
-    SELECT 
+    SELECT
       ${virologyTests.result} AS result,
       COUNT(*) AS count
     FROM ${virologyTests}
     WHERE ${whereClause}
-    GROUP BY result
+    GROUP BY ${virologyTests.result}
     ORDER BY count DESC
     LIMIT 10
   `);
 
-  return (results as any)[0]?.map((r: any) => ({
+  return (results.rows ?? []).map((r: any) => ({
     result: r.result as string,
     count: Number(r.count),
-  })) ?? [];
+  }));
 }
 
 /**
@@ -1244,20 +1250,20 @@ export async function getTopTestTypes(limit = 10, from?: string, to?: string): P
   const whereClause = sql.join(conditions, sql` AND `);
 
   const results = await db.execute(sql`
-    SELECT 
-      ${virologyTests.testType} AS testType,
+    SELECT
+      ${virologyTests.testType} AS "testType",
       COUNT(*) AS count
     FROM ${virologyTests}
     WHERE ${whereClause}
-    GROUP BY testType
+    GROUP BY ${virologyTests.testType}
     ORDER BY count DESC
     LIMIT ${limit}
   `);
 
-  return (results as any)[0]?.map((r: any) => ({
+  return (results.rows ?? []).map((r: any) => ({
     testType: r.testType as string,
     count: Number(r.count),
-  })) ?? [];
+  }));
 }
 
 /**
@@ -1281,21 +1287,21 @@ export async function getTestsByNationality(limit = 10, from?: string, to?: stri
   const whereClause = sql.join(conditions, sql` AND `);
 
   const results = await db.execute(sql`
-    SELECT 
+    SELECT
       p.nationality AS nationality,
       COUNT(vt.id) AS count
     FROM ${virologyTests} vt
-    INNER JOIN ${patients} p ON vt.patientId = p.id
+    INNER JOIN ${patients} p ON vt."patientId" = p.id
     WHERE ${whereClause}
     GROUP BY p.nationality
     ORDER BY count DESC
     LIMIT ${limit}
   `);
 
-  return (results as any)[0]?.map((r: any) => ({
+  return (results.rows ?? []).map((r: any) => ({
     nationality: r.nationality as string,
     count: Number(r.count),
-  })) ?? [];
+  }));
 }
 
 
@@ -1523,7 +1529,7 @@ export async function cleanExpiredTokens() {
   const db = await getDb();
   if (!db) return;
   await db.delete(uploadTokens).where(
-    sql`${uploadTokens.expiresAt} < NOW()`
+    lte(uploadTokens.expiresAt, new Date())
   );
 }
 
@@ -1541,37 +1547,37 @@ export async function getBKPCRLeaderboard(limit = 20) {
   if (!db) return [];
 
   const rows = await db.execute(sql`
-    SELECT 
-      p.id as patientId,
-      p.civilId,
-      p.name as patientName,
+    SELECT
+      p.id as "patientId",
+      p."civilId",
+      p.name as "patientName",
       p.nationality,
-      vt.viralLoad,
+      vt."viralLoad",
       vt.unit,
       vt.result,
-      vt.accessionDate,
-      vt.testType,
-      CAST(REPLACE(REPLACE(vt.viralLoad, ',', ''), ' ', '') AS UNSIGNED) as numericLoad
+      vt."accessionDate",
+      vt."testType",
+      CAST(REPLACE(REPLACE(vt."viralLoad", ',', ''), ' ', '') AS BIGINT) as "numericLoad"
     FROM ${virologyTests} vt
-    JOIN ${patients} p ON vt.patientId = p.id
+    JOIN ${patients} p ON vt."patientId" = p.id
     WHERE (
-      vt.testType LIKE '%BKV%DNA%Blood%'
-      OR vt.testType LIKE '%BK Virus%'
-      OR vt.testType = 'BK Virus'
+      vt."testType" LIKE '%BKV%DNA%Blood%'
+      OR vt."testType" LIKE '%BK Virus%'
+      OR vt."testType" = 'BK Virus'
     )
-    AND vt.viralLoad IS NOT NULL 
-    AND vt.viralLoad != ''
-    AND CAST(REPLACE(REPLACE(vt.viralLoad, ',', ''), ' ', '') AS UNSIGNED) > 0
+    AND vt."viralLoad" IS NOT NULL
+    AND vt."viralLoad" != ''
+    AND CAST(REPLACE(REPLACE(vt."viralLoad", ',', ''), ' ', '') AS BIGINT) > 0
     AND (vt.result LIKE '%BK%Detected%' OR vt.result LIKE '%Detected%')
-    ORDER BY numericLoad DESC
+    ORDER BY "numericLoad" DESC
     LIMIT ${limit * 3}
   `);
 
   // Deduplicate: keep only the highest viral load per patient
   const seen = new Set<number>();
   const results: any[] = [];
-  for (const row of (rows as any)[0]) {
-    const pid = row.patientId;
+  for (const row of (rows.rows ?? [])) {
+    const pid = row.patientId as number;
     if (!seen.has(pid)) {
       seen.add(pid);
       results.push(row);
@@ -1591,37 +1597,37 @@ export async function getCMVPCRLeaderboard(limit = 20) {
   if (!db) return [];
 
   const rows = await db.execute(sql`
-    SELECT 
-      p.id as patientId,
-      p.civilId,
-      p.name as patientName,
+    SELECT
+      p.id as "patientId",
+      p."civilId",
+      p.name as "patientName",
       p.nationality,
-      vt.viralLoad,
+      vt."viralLoad",
       vt.unit,
       vt.result,
-      vt.accessionDate,
-      vt.testType,
-      CAST(REPLACE(REPLACE(vt.viralLoad, ',', ''), ' ', '') AS UNSIGNED) as numericLoad
+      vt."accessionDate",
+      vt."testType",
+      CAST(REPLACE(REPLACE(vt."viralLoad", ',', ''), ' ', '') AS BIGINT) as "numericLoad"
     FROM ${virologyTests} vt
-    JOIN ${patients} p ON vt.patientId = p.id
+    JOIN ${patients} p ON vt."patientId" = p.id
     WHERE (
-      vt.testType LIKE '%CMV%DNA%Blood%'
-      OR vt.testType = 'CMV PCR'
-      OR vt.testType = 'CMV -DNA Quantitative'
+      vt."testType" LIKE '%CMV%DNA%Blood%'
+      OR vt."testType" = 'CMV PCR'
+      OR vt."testType" = 'CMV -DNA Quantitative'
     )
-    AND vt.viralLoad IS NOT NULL 
-    AND vt.viralLoad != ''
-    AND CAST(REPLACE(REPLACE(vt.viralLoad, ',', ''), ' ', '') AS UNSIGNED) > 0
+    AND vt."viralLoad" IS NOT NULL
+    AND vt."viralLoad" != ''
+    AND CAST(REPLACE(REPLACE(vt."viralLoad", ',', ''), ' ', '') AS BIGINT) > 0
     AND vt.result LIKE '%Detected%'
-    ORDER BY numericLoad DESC
+    ORDER BY "numericLoad" DESC
     LIMIT ${limit * 3}
   `);
 
   // Deduplicate: keep only the highest viral load per patient
   const seen = new Set<number>();
   const results: any[] = [];
-  for (const row of (rows as any)[0]) {
-    const pid = row.patientId;
+  for (const row of (rows.rows ?? [])) {
+    const pid = row.patientId as number;
     if (!seen.has(pid)) {
       seen.add(pid);
       results.push(row);
@@ -1702,15 +1708,15 @@ export async function getAiUsageSummary() {
   if (!db) return { gemini: 0, platform: 0, unknown: 0, total: 0 };
 
   const results = await db.execute(sql`
-    SELECT 
-      COALESCE(aiProvider, 'unknown') AS provider,
+    SELECT
+      COALESCE("aiProvider", 'unknown') AS provider,
       COUNT(*) AS count
     FROM documents
-    WHERE processingStatus IN ('completed', 'discarded')
-    GROUP BY COALESCE(aiProvider, 'unknown')
+    WHERE "processingStatus" IN ('completed', 'discarded')
+    GROUP BY COALESCE("aiProvider", 'unknown')
   `);
 
-  const rows = (results as any)[0] ?? [];
+  const rows = results.rows ?? [];
   let gemini = 0, platform = 0, unknown = 0;
   for (const row of rows) {
     const provider = String(row.provider);
@@ -1733,18 +1739,18 @@ export async function getAiUsageByDay(days: number = 30) {
   const safeDays = Math.max(1, Math.min(90, Math.floor(days)));
 
   const results = await db.execute(sql`
-    SELECT 
-      DATE_FORMAT(updatedAt, '%Y-%m-%d') AS date,
-      COALESCE(aiProvider, 'unknown') AS provider,
+    SELECT
+      to_char("updatedAt", 'YYYY-MM-DD') AS date,
+      COALESCE("aiProvider", 'unknown') AS provider,
       COUNT(*) AS count
     FROM documents
-    WHERE processingStatus IN ('completed', 'discarded')
-      AND updatedAt >= DATE_SUB(NOW(), INTERVAL ${sql.raw(String(safeDays))} DAY)
-    GROUP BY DATE_FORMAT(updatedAt, '%Y-%m-%d'), COALESCE(aiProvider, 'unknown')
+    WHERE "processingStatus" IN ('completed', 'discarded')
+      AND "updatedAt" >= NOW() - INTERVAL '${sql.raw(String(safeDays))} days'
+    GROUP BY to_char("updatedAt", 'YYYY-MM-DD'), COALESCE("aiProvider", 'unknown')
     ORDER BY date ASC
   `);
 
-  const rows = (results as any)[0] ?? [];
+  const rows = results.rows ?? [];
   
   // Group by date
   const dateMap = new Map<string, { date: string; gemini: number; platform: number; unknown: number }>();
@@ -1775,19 +1781,19 @@ export async function getAiUsageByWeek(weeks: number = 12) {
   const safeWeeks = Math.max(1, Math.min(52, Math.floor(weeks)));
 
   const results = await db.execute(sql`
-    SELECT 
-      DATE_FORMAT(updatedAt, '%x-W%v') AS week,
-      MIN(DATE_FORMAT(updatedAt, '%Y-%m-%d')) AS weekStart,
-      COALESCE(aiProvider, 'unknown') AS provider,
+    SELECT
+      to_char("updatedAt", 'IYYY-"W"IW') AS week,
+      MIN(to_char("updatedAt", 'YYYY-MM-DD')) AS "weekStart",
+      COALESCE("aiProvider", 'unknown') AS provider,
       COUNT(*) AS count
     FROM documents
-    WHERE processingStatus IN ('completed', 'discarded')
-      AND updatedAt >= DATE_SUB(NOW(), INTERVAL ${sql.raw(String(safeWeeks))} WEEK)
-    GROUP BY DATE_FORMAT(updatedAt, '%x-W%v'), COALESCE(aiProvider, 'unknown')
+    WHERE "processingStatus" IN ('completed', 'discarded')
+      AND "updatedAt" >= NOW() - INTERVAL '${sql.raw(String(safeWeeks))} weeks'
+    GROUP BY to_char("updatedAt", 'IYYY-"W"IW'), COALESCE("aiProvider", 'unknown')
     ORDER BY week ASC
   `);
 
-  const rows = (results as any)[0] ?? [];
+  const rows = results.rows ?? [];
   
   const weekMap = new Map<string, { week: string; weekStart: string; gemini: number; platform: number; unknown: number }>();
   for (const row of rows) {

@@ -7,16 +7,16 @@ import { eq, desc } from "drizzle-orm";
 
 type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
 
-// The owner openId must match ENV.ownerOpenId
-const OWNER_OPEN_ID = process.env.OWNER_OPEN_ID || "nPtvS3FjrgpNRuGEU3ERv5";
+// The owner email must match ENV.ownerEmail
+const OWNER_EMAIL = process.env.OWNER_EMAIL || "owner@example.com";
 
 function createMockUser(overrides: Partial<AuthenticatedUser> = {}): AuthenticatedUser {
   return {
     id: 1,
-    openId: OWNER_OPEN_ID,
-    email: "owner@hospital.com",
+    openId: "google-owner-sub-123",
+    email: OWNER_EMAIL,
     name: "Owner",
-    loginMethod: "manus",
+    loginMethod: "google",
     role: "admin",
     status: "approved",
     createdAt: new Date(),
@@ -46,13 +46,13 @@ describe("Admin Role Assignment", () => {
 
     // Find a non-owner user
     const allUsers = await db.select().from(users);
-    const targetUser = allUsers.find(u => u.openId !== OWNER_OPEN_ID);
+    const targetUser = allUsers.find(u => u.email !== OWNER_EMAIL);
     if (!targetUser) {
       console.log("No non-owner user found, skipping test");
       return;
     }
 
-    const ownerUser = createMockUser({ id: allUsers.find(u => u.openId === OWNER_OPEN_ID)?.id || 1 });
+    const ownerUser = createMockUser({ id: allUsers.find(u => u.email === OWNER_EMAIL)?.id || 1 });
     const caller = appRouter.createCaller(createMockContext(ownerUser));
 
     // Promote to admin
@@ -97,6 +97,7 @@ describe("Admin Role Assignment", () => {
     const nonOwnerAdmin = createMockUser({
       id: 999,
       openId: "non-owner-admin-123",
+      email: "nonadmin@hospital.com",
       role: "admin",
     });
     const caller = appRouter.createCaller(createMockContext(nonOwnerAdmin));
@@ -111,7 +112,7 @@ describe("Admin Role Assignment", () => {
     if (!db) throw new Error("DB not available");
 
     const allUsers = await db.select().from(users);
-    const ownerDbUser = allUsers.find(u => u.openId === OWNER_OPEN_ID);
+    const ownerDbUser = allUsers.find(u => u.email === OWNER_EMAIL);
     if (!ownerDbUser) {
       console.log("Owner not found in DB, skipping test");
       return;

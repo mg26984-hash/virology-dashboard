@@ -17,7 +17,7 @@ const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 function getGeminiApiKey(): string {
   const key = ENV.geminiApiKey;
   if (!key) {
-    throw new Error("GEMINI_API_KEY is not configured. Please add it via Settings > Secrets.");
+    throw new Error("GEMINI_API_KEY is not configured. Set it in environment variables.");
   }
   return key;
 }

@@ -1,42 +1,31 @@
 // Use getters so values are read from process.env on every access,
-// not cached at import time. This is critical for ownerOpenId which
-// can change at runtime (e.g., ownership transfer).
+// not cached at import time.
 
-// ── Hardcoded fallbacks for values that may not be injected in production ──
-const FALLBACK_OWNER_OPEN_ID = "nPtvS3FjrgpNRuGEU3ERv5";
 const FALLBACK_OWNER_NAME = "Mohammed Megahed";
-const FALLBACK_GEMINI_API_KEY = "AIzaSyCDBKYECif8wjfZjFPwk9VYP17k9mt6EAc";
 
 export const ENV = {
-  get appId() { return process.env.VITE_APP_ID ?? ""; },
   get cookieSecret() { return process.env.JWT_SECRET ?? ""; },
   get databaseUrl() { return process.env.DATABASE_URL ?? ""; },
-  get oAuthServerUrl() { return process.env.OAUTH_SERVER_URL ?? ""; },
-  get ownerOpenId() { return process.env.OWNER_OPEN_ID || FALLBACK_OWNER_OPEN_ID; },
+  get googleClientId() { return process.env.GOOGLE_CLIENT_ID ?? ""; },
+  get googleClientSecret() { return process.env.GOOGLE_CLIENT_SECRET ?? ""; },
+  get ownerEmail() { return process.env.OWNER_EMAIL ?? ""; },
   get ownerName() { return process.env.OWNER_NAME || FALLBACK_OWNER_NAME; },
   get isProduction() { return process.env.NODE_ENV === "production"; },
-  get forgeApiUrl() { return process.env.BUILT_IN_FORGE_API_URL ?? ""; },
-  get forgeApiKey() { return process.env.BUILT_IN_FORGE_API_KEY ?? ""; },
-  // Always use the hardcoded key — the platform env var may be stale from a previous session.
-  // To rotate: update FALLBACK_GEMINI_API_KEY above and republish.
-  get geminiApiKey() { return FALLBACK_GEMINI_API_KEY; },
+  get geminiApiKey() { return process.env.GEMINI_API_KEY ?? ""; },
+  get blobToken() { return process.env.BLOB_READ_WRITE_TOKEN ?? ""; },
 };
 
 // ── Startup validation ──
-// Runs once when the module is first imported. Logs warnings for any
-// critical env vars that are missing so issues are visible in server logs
-// instead of silently breaking features at runtime.
 
 const ENV_CHECKS: Array<{ key: string; label: string; critical: boolean }> = [
-  { key: "DATABASE_URL",              label: "Database connection",        critical: true },
-  { key: "JWT_SECRET",                label: "Session cookie signing",     critical: true },
-  { key: "VITE_APP_ID",              label: "OAuth app ID",               critical: true },
-  { key: "OAUTH_SERVER_URL",          label: "OAuth server URL",           critical: true },
-  { key: "BUILT_IN_FORGE_API_URL",    label: "Forge API URL (LLM/storage/notifications)", critical: false },
-  { key: "BUILT_IN_FORGE_API_KEY",    label: "Forge API key",             critical: false },
-  { key: "OWNER_OPEN_ID",            label: "Owner OpenID (using fallback)", critical: false },
-  { key: "OWNER_NAME",               label: "Owner name (using fallback)",   critical: false },
-  { key: "GEMINI_API_KEY",           label: "Gemini API key (document processing)", critical: false },
+  { key: "DATABASE_URL",            label: "Database connection",               critical: true },
+  { key: "JWT_SECRET",              label: "Session cookie signing",            critical: true },
+  { key: "GOOGLE_CLIENT_ID",        label: "Google OAuth client ID",            critical: true },
+  { key: "GOOGLE_CLIENT_SECRET",    label: "Google OAuth client secret",        critical: true },
+  { key: "GEMINI_API_KEY",          label: "Gemini API key (document processing)", critical: false },
+  { key: "BLOB_READ_WRITE_TOKEN",   label: "Vercel Blob storage token",        critical: false },
+  { key: "OWNER_EMAIL",             label: "Owner email (auto-approve)",        critical: false },
+  { key: "OWNER_NAME",              label: "Owner name (using fallback)",       critical: false },
 ];
 
 const missing: string[] = [];

@@ -13,7 +13,7 @@ function createMockUser(overrides: Partial<AuthenticatedUser> = {}): Authenticat
     openId: "test-user-123",
     email: "admin@hospital.com",
     name: "Dr. Admin",
-    loginMethod: "manus",
+    loginMethod: "google",
     role: "admin",
     status: "approved",
     createdAt: new Date(),
